@@ -1,4 +1,4 @@
-sphinx-csharp
+sphinx-csharp [![Build Status](https://travis-ci.org/djungelorm/sphinx-csharp.svg?branch=master)](https://travis-ci.org/djungelorm/sphinx-csharp)
 =============
 
 C# domain for Sphinx.
