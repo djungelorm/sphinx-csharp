@@ -11,6 +11,10 @@
        * :prop:`MyClass.MyProperty`
        * :prop:`MyProperty`
 
+   .. method:: MyClass (string a, int b = 1, float c = 2.3)
+
+      A constructor for the class.
+
    .. method:: void MyMethod (string arg)
 
       A method with a single argument.

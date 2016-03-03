@@ -9,7 +9,7 @@ from sphinx.directives import ObjectDescription
 from sphinx.roles import XRefRole
 from sphinx.util.nodes import make_refnode
 
-meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\((.*)\)$')
+meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
 param_sig_re = re.compile(r'^([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 type_sig_re = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
@@ -249,8 +249,9 @@ class CSharpMethod(CSharpObject):
     def handle_signature(self, sig, signode):
         modifiers,type,name,params = parse_method_signature(sig)
         self.append_modifiers(signode, modifiers)
-        self.append_type(signode, type)
-        signode += nodes.Text(' ')
+        if type is not None:
+            self.append_type(signode, type)
+            signode += nodes.Text(' ')
         signode += addnodes.desc_name(name, name)
         signode += nodes.Text(' ')
         self.append_parameters(signode, params)
