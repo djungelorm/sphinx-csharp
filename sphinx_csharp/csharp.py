@@ -13,6 +13,7 @@ meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
 param_sig_re = re.compile(r'^([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 type_sig_re = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
+attr_sig_re = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'type', 'default'])
 
 def split_sig(params):
@@ -96,6 +97,19 @@ def parse_type_signature(sig):
         generic_types = split_sig(generic_types[1:-1])
     is_array = (groups[2] is not None)
     return type,generic_types,is_array
+
+def parse_attr_signature(sig):
+    """ Parse an attribute signature """
+    m = attr_sig_re.match(sig.strip())
+    if not m:
+        raise RuntimeError('Attribute signature invalid, got ' + sig)
+    name,_,params = m.groups()
+    if params != None and params.strip() != '':
+        params = split_sig(params)
+        params = [parse_param_signature(x) for x in params]
+    else:
+        params = []
+    return (name, params)
 
 msdn_value_types = {
     'string': 'System.String',
@@ -300,6 +314,19 @@ class CSharpEnumValue(CSharpObject):
         signode += addnodes.desc_name(name, name)
         return self.get_parent()+'.'+name
 
+class CSharpAttribute(CSharpObject):
+    """ Description of a C# attribute """
+
+    def handle_signature(self, sig, signode):
+        name,params = parse_attr_signature(sig)
+        signode += addnodes.desc_name(name, name)
+        if len(params) > 0:
+            signode += nodes.Text(' ')
+            self.append_parameters(signode, params)
+        if self.has_parent():
+            return self.get_parent()+'.'+name
+        return name
+
 class CSharpXRefRole(XRefRole):
 
     def process_link(self, env, refnode, has_explicit_title, title, target):
@@ -312,24 +339,27 @@ class CSharpDomain(Domain):
     label = 'C#'
 
     object_types = {
-        'class':    ObjType(l_('class'),    'type'),
-        'method':   ObjType(l_('method'),   'meth'),
-        'property': ObjType(l_('property'), 'prop'),
-        'enum':     ObjType(l_('enum'),     'type'),
-        'value':    ObjType(l_('value'),    'enum'),
+        'class':     ObjType(l_('class'),     'type'),
+        'method':    ObjType(l_('method'),    'meth'),
+        'property':  ObjType(l_('property'),  'prop'),
+        'enum':      ObjType(l_('enum'),      'type'),
+        'value':     ObjType(l_('value'),     'enum'),
+        'attribute': ObjType(l_('attribute'), 'attr'),
     }
     directives = {
-        'class':    CSharpClass,
-        'method':   CSharpMethod,
-        'property': CSharpProperty,
-        'enum':     CSharpEnum,
-        'value':    CSharpEnumValue,
+        'class':     CSharpClass,
+        'method':    CSharpMethod,
+        'property':  CSharpProperty,
+        'enum':      CSharpEnum,
+        'value':     CSharpEnumValue,
+        'attribute': CSharpAttribute,
     }
     roles = {
         'type': CSharpXRefRole(),
         'meth': CSharpXRefRole(),
         'prop': CSharpXRefRole(),
         'enum': CSharpXRefRole(),
+        'attr': CSharpXRefRole(),
     }
     initial_data = {
         'objects': {},  # fullname -> docname, objtype

@@ -98,6 +98,14 @@
 
    .. method:: T AGenericMethod<T> (int x)
 
+.. attribute:: MyAttribute1
+
+   An attribute.
+
+.. attribute:: MyAttribute2 (string param1, int param2)
+
+   Another attribute.
+
 Class ref :type:`MyClass`
 
 Method ref: :meth:`MyClass.MyMethod`
@@ -113,3 +121,7 @@ Generic class ref :type:`MyGenericClass`
 Generic method ref :meth:`MyClass.AGenericMethod`
 
 Generic method in generic class ref :meth:`MyGenericClass.AGenericMethod`
+
+Attribute ref :attr:`MyAttribute1`
+
+Attribute ref :attr:`MyAttribute2`
