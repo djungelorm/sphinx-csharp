@@ -228,7 +228,10 @@ class CSharpObject(ObjectDescription):
         tnode = addnodes.pending_xref(
             '', refdomain='csharp', reftype='type',
             reftarget=type, modname=None, classname=None)
-        tnode['csharp:parent'] = self.env.temp_data['csharp:parent']
+        if not self.has_parent():
+            tnode['csharp:parent'] = None
+        else:
+            tnode['csharp:parent'] = self.get_parent()
         tnode += nodes.Text(shorten_type(type))
         node += tnode
         if len(generic_types) > 0:
