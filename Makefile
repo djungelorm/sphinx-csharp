@@ -9,7 +9,7 @@ install:
 
 test:
 	rm -rf out
-	sphinx-build -W test test-output
+	sphinx-build -E -n -W test test-output
 
 clean:
 	rm -rf build dist test-output *.egg-info

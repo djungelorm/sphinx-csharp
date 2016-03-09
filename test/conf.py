@@ -8,3 +8,8 @@ source_suffix = '.rst'
 extensions = ['sphinx_csharp.csharp']
 
 pygments_style = 'sphinx'
+
+nitpick_ignore = [
+    ('csharp:type', 'void'),
+    ('csharp:type', 'T')
+]
