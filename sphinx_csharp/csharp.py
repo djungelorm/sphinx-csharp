@@ -9,7 +9,7 @@ from sphinx.directives import ObjectDescription
 from sphinx.roles import XRefRole
 from sphinx.util.nodes import make_refnode
 
-meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s*\((.*)\)$')
+meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
 param_sig_re = re.compile(r'^([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 type_sig_re = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
@@ -46,18 +46,18 @@ def parse_method_signature(sig):
         raise RuntimeError('Method signature invalid: ' + sig)
     groups = m.groups()
     if groups[0] is not None:
-        modifiers = [x.strip() for x in groups[:-3]]
-        groups = groups[-3:]
+        modifiers = [x.strip() for x in groups[:-4]]
+        groups = groups[-4:]
     else:
         modifiers = []
         groups = groups[1:]
-    typ, name, params = groups
+    typ, name, generic_types, params = groups
     if params.strip() != '':
         params = split_sig(params)
         params = [parse_param_signature(x) for x in params]
     else:
         params = []
-    return (modifiers, typ, name, params)
+    return (modifiers, typ, name, generic_types, params)
 
 def parse_property_signature(sig):
     """ Parse a property signature of the form: modifier* type name { (get;)? (set;)? } """
@@ -195,6 +195,10 @@ class CSharpObject(ObjectDescription):
         if self.parentname_set:
             self.env.temp_data['csharp:parent'] = None
 
+    def has_parent(self):
+        return 'csharp:parent' in self.env.temp_data and \
+            self.env.temp_data['csharp:parent'] != None
+
     def get_parent(self):
         return self.env.temp_data['csharp:parent']
 
@@ -239,20 +243,25 @@ class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig, signode):
+        type,generic_types,_ = parse_type_signature(sig)
         desc_name = 'class %s' % sig
         signode += addnodes.desc_name(desc_name, desc_name)
-        return sig
+        if self.has_parent():
+            return self.get_parent()+'.'+type
+        return type
 
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig, signode):
-        modifiers,type,name,params = parse_method_signature(sig)
+        modifiers,type,name,generic_types,params = parse_method_signature(sig)
         self.append_modifiers(signode, modifiers)
         if type is not None:
             self.append_type(signode, type)
             signode += nodes.Text(' ')
         signode += addnodes.desc_name(name, name)
+        if generic_types != None:
+            signode += nodes.Text(generic_types)
         signode += nodes.Text(' ')
         self.append_parameters(signode, params)
         return self.get_parent()+'.'+name

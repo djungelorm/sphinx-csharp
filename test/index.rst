@@ -79,6 +79,8 @@
 
    .. property:: byte[] ByteArrayProperty { get; set; }
 
+   .. method:: T AGenericMethod<T> (int x)
+
 .. enum:: MyEnum
 
    This is an enum.
@@ -90,6 +92,11 @@
    .. value:: Bar
    .. value:: Baz
 
+.. class:: MyGenericClass<T>
+
+   .. method:: void AMethod()
+
+   .. method:: T AGenericMethod<T> (int x)
 
 Class ref :type:`MyClass`
 
@@ -97,8 +104,12 @@ Method ref: :meth:`MyClass.MyMethod`
 
 Property ref: :prop:`MyClass.MyProperty`
 
-Property2 ref: :prop:`MyClass.MyProperty2`
-
 Enum ref :type:`MyEnum`
 
 Enum value ref :enum:`MyEnum.Foo`
+
+Generic class ref :type:`MyGenericClass`
+
+Generic method ref :meth:`MyClass.AGenericMethod`
+
+Generic method in generic class ref :meth:`MyGenericClass.AGenericMethod`
