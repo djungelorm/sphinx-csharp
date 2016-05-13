@@ -1,5 +1,7 @@
 .. default-domain:: csharp
 
+.. namespace:: MyNamespace
+
 .. class:: MyClass
 
    This is a class with methods and properties.

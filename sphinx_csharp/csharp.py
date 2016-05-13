@@ -8,6 +8,7 @@ from sphinx.locale import l_, _
 from sphinx.directives import ObjectDescription
 from sphinx.roles import XRefRole
 from sphinx.util.nodes import make_refnode
+from sphinx.util.compat import Directive
 
 meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
@@ -199,22 +200,29 @@ class CSharpObject(ObjectDescription):
 
     def before_content(self):
         lastname = self.names and self.names[-1]
-        if lastname and not self.env.temp_data.get('csharp:parent'):
-            self.env.temp_data['csharp:parent'] = lastname
+        if lastname:
             self.parentname_set = True
+            self.parentname_saved = self.env.ref_context.get('csharp:parent')
+            self.env.ref_context['csharp:parent'] = lastname
         else:
             self.parentname_set = False
 
     def after_content(self):
         if self.parentname_set:
-            self.env.temp_data['csharp:parent'] = None
+            self.env.ref_context['csharp:parent'] = self.parentname_saved
 
     def has_parent(self):
-        return 'csharp:parent' in self.env.temp_data and \
-            self.env.temp_data['csharp:parent'] != None
+        return 'csharp:parent' in self.env.ref_context and \
+            self.env.ref_context['csharp:parent'] != None
 
     def get_parent(self):
-        return self.env.temp_data['csharp:parent']
+        return self.env.ref_context['csharp:parent']
+
+    def get_fullname(self, name):
+        fullname = name
+        if self.has_parent():
+            fullname = self.get_parent()+'.'+fullname
+        return fullname
 
     def append_modifiers(self, signode, modifiers):
         if len(modifiers) == 0:
@@ -256,6 +264,24 @@ class CSharpObject(ObjectDescription):
             pnodes += pnode
         node += pnodes
 
+class CSharpCurrentNamespace(Directive):
+    """ Set the current C# namespace """
+
+    has_content = False
+    required_arguments = 1
+    optional_arguments = 0
+    final_argument_whitespace = False
+    option_spec = {}
+
+    def run(self):
+        env = self.state.document.settings.env
+        namespace = self.arguments[0].strip()
+        if namespace == 'None':
+            env.ref_context.pop('csharp:parent', None)
+        else:
+            env.ref_context['csharp:parent'] = namespace
+        return []
+
 class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
@@ -263,9 +289,7 @@ class CSharpClass(CSharpObject):
         type,generic_types,_ = parse_type_signature(sig)
         desc_name = 'class %s' % sig
         signode += addnodes.desc_name(desc_name, desc_name)
-        if self.has_parent():
-            return self.get_parent()+'.'+type
-        return type
+        return self.get_fullname(type)
 
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
@@ -281,7 +305,7 @@ class CSharpMethod(CSharpObject):
             signode += nodes.Text(generic_types)
         signode += nodes.Text(' ')
         self.append_parameters(signode, params)
-        return self.get_parent()+'.'+name
+        return self.get_fullname(name)
 
 class CSharpProperty(CSharpObject):
     """ Description of a C# property """
@@ -299,7 +323,7 @@ class CSharpProperty(CSharpObject):
         extra = ' '.join(extra)
         signode += addnodes.desc_annotation(extra, extra)
         signode += nodes.Text(' }')
-        return self.get_parent()+'.'+name
+        return self.get_fullname(name)
 
 class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
@@ -307,7 +331,7 @@ class CSharpEnum(CSharpObject):
     def handle_signature(self, sig, signode):
         desc_name = 'enum %s' % sig
         signode += addnodes.desc_name(desc_name, desc_name)
-        return sig
+        return self.get_fullname(sig)
 
 class CSharpEnumValue(CSharpObject):
     """ Description of a C# enum value """
@@ -315,7 +339,7 @@ class CSharpEnumValue(CSharpObject):
     def handle_signature(self, sig, signode):
         name = sig
         signode += addnodes.desc_name(name, name)
-        return self.get_parent()+'.'+name
+        return self.get_fullname(name)
 
 class CSharpAttribute(CSharpObject):
     """ Description of a C# attribute """
@@ -326,14 +350,12 @@ class CSharpAttribute(CSharpObject):
         if len(params) > 0:
             signode += nodes.Text(' ')
             self.append_parameters(signode, params)
-        if self.has_parent():
-            return self.get_parent()+'.'+name
-        return name
+        return self.get_fullname(name)
 
 class CSharpXRefRole(XRefRole):
 
     def process_link(self, env, refnode, has_explicit_title, title, target):
-        refnode['csharp:parent'] = env.temp_data.get('csharp:parent')
+        refnode['csharp:parent'] = env.ref_context.get('csharp:parent')
         return super(CSharpXRefRole, self).process_link(env, refnode, has_explicit_title, title, target)
 
 class CSharpDomain(Domain):
@@ -350,6 +372,7 @@ class CSharpDomain(Domain):
         'attribute': ObjType(l_('attribute'), 'attr'),
     }
     directives = {
+        'namespace': CSharpCurrentNamespace,
         'class':     CSharpClass,
         'method':    CSharpMethod,
         'property':  CSharpProperty,
@@ -373,11 +396,14 @@ class CSharpDomain(Domain):
             if doc == docname:
                 del self.data['objects'][typ, name]
 
-    def resolve_xref(self, env, fromdocname, builder, typ, target, node,
-                     contnode):
+    def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
         targets = [target]
         if node['csharp:parent'] is not None:
-            targets.append(node['csharp:parent']+'.'+target)
+            parts = node['csharp:parent'].split('.')
+            while len(parts) > 0:
+                targets.append('.'.join(parts)+'.'+target)
+                parts = parts[:-1]
+
         objects = self.data['objects']
         objtypes = self.objtypes_for_role(typ)
         for target in targets:
