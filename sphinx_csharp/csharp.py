@@ -12,10 +12,10 @@ from sphinx.util.compat import Directive
 
 meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
-param_sig_re = re.compile(r'^([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
+param_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 type_sig_re = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
 attr_sig_re = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
-ParamTuple = namedtuple('ParamTuple', ['name', 'type', 'default'])
+ParamTuple = namedtuple('ParamTuple', ['name', 'type', 'default', 'modifiers'])
 
 def split_sig(params):
     """
@@ -78,11 +78,21 @@ def parse_property_signature(sig):
 
 def parse_param_signature(sig):
     """ Parse a parameter signature of the form: type name (= default)? """
+
     m = param_sig_re.match(sig.strip())
     if not m:
         raise RuntimeError('Parameter signature invalid, got ' + sig)
-    type,name,_,default = m.groups()
-    return ParamTuple(name=name, type=type, default=default)
+
+    groups = m.groups()
+    if groups[0] is not None:
+        modifiers = [x.strip() for x in groups[:-4]]
+        groups = groups[-4:]
+    else:
+        modifiers = []
+        groups = groups[1:]
+
+    type,name,_,default = groups
+    return ParamTuple(name=name, type=type, default=default, modifiers=modifiers)
 
 def parse_type_signature(sig):
     """ Parse a type signature """
@@ -255,6 +265,11 @@ class CSharpObject(ObjectDescription):
         pnodes = addnodes.desc_parameterlist()
         for param in params:
             pnode = addnodes.desc_parameter('', '', noemph=True)
+
+            for modifier in param.modifiers:
+                pnode += nodes.Text(modifier)
+                pnode += nodes.Text(u' ')
+
             self.append_type(pnode, param.type)
             pnode += nodes.Text(u' ')
             pnode += nodes.emphasis(param.name, param.name)

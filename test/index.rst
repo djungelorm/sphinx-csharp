@@ -47,6 +47,10 @@
 
       A static method.
 
+   .. method:: int MyMethodHasParamModifiers(ref int arg0, params int[] arg1)
+
+      A method with a parameter modifier.
+
    .. property:: string MyProperty { get; set; }
 
       A read/write property.
