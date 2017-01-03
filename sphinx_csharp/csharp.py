@@ -19,6 +19,7 @@ param_modifiers_re = '|'.join(['ref', 'out', 'params']);
 
 meth_sig_re = re.compile(r'^((?:(?:' + modifiers_re + r')\s+)*)([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
+idxr_sig_re = re.compile(r'^((?:(?:' + modifiers_re + r')\s+)*)([^\s]+)\s*this\s*\[\s*((?:[^\s]+)\s+(?:[^\s]+)(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*\{\s*(get;)?\s*(set;)?\s*\}$')
 param_sig_re = re.compile(r'^((?:(?:' + param_modifiers_re + r')\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 type_sig_re = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
 attr_sig_re = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
@@ -78,6 +79,19 @@ def parse_property_signature(sig):
         groups = groups[1:]
     typ, name, getter, setter = groups
     return (modifiers, typ, name, getter is not None, setter is not None)
+
+def parse_indexer_signature(sig):
+    """ Parse a indexer signature of the form: modifier* type this[params] { (get;)? (set;)? } """
+    m = idxr_sig_re.match(sig.strip())
+    if not m:
+        raise RuntimeError('Indexer signature invalid: ' + sig)
+
+    modifiers, return_type, params, getter, setter = m.groups()
+
+    params = split_sig(params)
+    params = [parse_param_signature(x) for x in params]
+
+    return (modifiers.split(), return_type, params, getter is not None, setter is not None)
 
 def parse_param_signature(sig):
     """ Parse a parameter signature of the form: type name (= default)? """
@@ -274,6 +288,21 @@ class CSharpObject(ObjectDescription):
             pnodes += pnode
         node += pnodes
 
+    def append_indexer_parameters(self, node, params):
+        pnodes = addnodes.desc_addname()
+        pnodes += nodes.Text('[')
+
+        for param in params:
+            if len(pnodes.children) > 1:
+                pnodes += nodes.Text(u', ')
+
+            self.append_type(pnodes, param.type)
+            pnodes += nodes.Text(u' ')
+            pnodes += nodes.emphasis(param.name, param.name)
+
+        pnodes += nodes.Text(']')
+        node += pnodes
+
 class CSharpCurrentNamespace(Directive):
     """ Set the current C# namespace """
 
@@ -335,6 +364,26 @@ class CSharpProperty(CSharpObject):
         signode += nodes.Text(' }')
         return self.get_fullname(name)
 
+class CSharpIndexer(CSharpObject):
+    """ Description of a C# indexer """
+
+    def handle_signature(self, sig, signode):
+        modifiers,type,params,getter,setter = parse_indexer_signature(sig)
+        self.append_modifiers(signode, modifiers)
+        self.append_type(signode, type)
+        signode += nodes.Text(' ')
+        signode += addnodes.desc_name('this[]', 'this')
+        signode += nodes.Text(' ')
+        self.append_indexer_parameters(signode, params)
+        signode += nodes.Text(' { ')
+        extra = []
+        if getter: extra.append('get;')
+        if setter: extra.append('set;')
+        extra = ' '.join(extra)
+        signode += addnodes.desc_annotation(extra, extra)
+        signode += nodes.Text(' }')
+        return self.get_fullname('this[]')
+
 class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
 
@@ -380,6 +429,7 @@ class CSharpDomain(Domain):
         'enum':      ObjType(l_('enum'),      'type'),
         'value':     ObjType(l_('value'),     'enum'),
         'attribute': ObjType(l_('attribute'), 'attr'),
+        'indexer':   ObjType(l_('indexer'),   'idxr'),
     }
     directives = {
         'namespace': CSharpCurrentNamespace,
@@ -389,6 +439,7 @@ class CSharpDomain(Domain):
         'enum':      CSharpEnum,
         'value':     CSharpEnumValue,
         'attribute': CSharpAttribute,
+        'indexer':   CSharpIndexer,
     }
     roles = {
         'type': CSharpXRefRole(),
@@ -396,6 +447,7 @@ class CSharpDomain(Domain):
         'prop': CSharpXRefRole(),
         'enum': CSharpXRefRole(),
         'attr': CSharpXRefRole(),
+        'idxr': CSharpXRefRole(),
     }
     initial_data = {
         'objects': {},  # fullname -> docname, objtype
