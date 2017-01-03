@@ -47,7 +47,7 @@
 
       A static method.
 
-   .. method:: int MyMethodHasParamModifiers(ref int arg0, ref params int[] arg1)
+   .. method:: int MyMethodHasParamModifiers(ref int arg0, params int[] arg1)
 
       A method with a parameter modifier.
 
