@@ -260,9 +260,7 @@ class CSharpObject(ObjectDescription):
         for param in params:
             pnode = addnodes.desc_parameter('', '', noemph=True)
 
-            for modifier in param.modifiers:
-                pnode += nodes.Text(modifier)
-                pnode += nodes.Text(u' ')
+            self.append_modifiers(pnode, param.modifiers)
 
             self.append_type(pnode, param.type)
             pnode += nodes.Text(u' ')
