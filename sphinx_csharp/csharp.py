@@ -373,7 +373,6 @@ class CSharpIndexer(CSharpObject):
         self.append_type(signode, type)
         signode += nodes.Text(' ')
         signode += addnodes.desc_name('this[]', 'this')
-        signode += nodes.Text(' ')
         self.append_indexer_parameters(signode, params)
         signode += nodes.Text(' { ')
         extra = []
