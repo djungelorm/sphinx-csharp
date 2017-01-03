@@ -12,7 +12,7 @@ from sphinx.util.compat import Directive
 
 meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
-param_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
+param_sig_re = re.compile(r'^((?:(?:ref|out|params)\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 type_sig_re = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
 attr_sig_re = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'type', 'default', 'modifiers'])
@@ -83,15 +83,8 @@ def parse_param_signature(sig):
     if not m:
         raise RuntimeError('Parameter signature invalid, got ' + sig)
 
-    groups = m.groups()
-    if groups[0] is not None:
-        modifiers = [x.strip() for x in groups[:-4]]
-        groups = groups[-4:]
-    else:
-        modifiers = []
-        groups = groups[1:]
-
-    type,name,_,default = groups
+    modifiers = groups[0].split()
+    type, name, _, default = groups[-4:]
     return ParamTuple(name=name, type=type, default=default, modifiers=modifiers)
 
 def parse_type_signature(sig):
