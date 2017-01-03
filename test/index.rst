@@ -89,6 +89,14 @@
 
    .. property:: byte[] ByteArrayProperty { get; set; }
 
+   .. indexer:: string this[int i] { get; set; }
+
+   .. indexer:: string this[int i] { get; }
+
+   .. indexer:: virtual string this[int i] { get; set; }
+
+   .. indexer:: string this[int i, MyClass j] { get; set; }
+
    .. method:: T AGenericMethod<T> (int x)
 
 .. enum:: MyEnum
@@ -135,3 +143,5 @@ Generic method in generic class ref :meth:`MyGenericClass.AGenericMethod`
 Attribute ref :attr:`MyAttribute1`
 
 Attribute ref :attr:`MyAttribute2`
+
+Indexer ref :idxr:`MyClass.this[]`
