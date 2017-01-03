@@ -10,9 +10,16 @@ from sphinx.roles import XRefRole
 from sphinx.util.nodes import make_refnode
 from sphinx.util.compat import Directive
 
-meth_sig_re = re.compile(r'^([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
+modifiers_re = '|'.join(['public', 'private', 'internal', 'protected',
+                        'abstract', 'async', 'const', 'event',
+                        'extern', 'new', 'override', 'partial',
+                        'readonly', 'sealed', 'static', 'unsafe',
+                        'virtual', 'volatile'])
+param_modifiers_re = '|'.join(['ref', 'out', 'params']);
+
+meth_sig_re = re.compile(r'^((?:(?:' + modifiers_re + r')\s+)*)([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 prop_sig_re = re.compile(r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
-param_sig_re = re.compile(r'^((?:(?:ref|out|params)\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
+param_sig_re = re.compile(r'^((?:(?:' + param_modifiers_re + r')\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 type_sig_re = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
 attr_sig_re = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'type', 'default', 'modifiers'])
@@ -46,20 +53,16 @@ def parse_method_signature(sig):
     m = meth_sig_re.match(sig.strip())
     if not m:
         raise RuntimeError('Method signature invalid: ' + sig)
-    groups = m.groups()
-    if groups[0] is not None:
-        modifiers = [x.strip() for x in groups[:-4]]
-        groups = groups[-4:]
-    else:
-        modifiers = []
-        groups = groups[1:]
-    typ, name, generic_types, params = groups
+
+    modifiers, return_type, name, generic_types, params = m.groups()
+
     if params.strip() != '':
         params = split_sig(params)
         params = [parse_param_signature(x) for x in params]
     else:
         params = []
-    return (modifiers, typ, name, generic_types, params)
+
+    return (modifiers.split(), return_type, name, generic_types, params)
 
 def parse_property_signature(sig):
     """ Parse a property signature of the form: modifier* type name { (get;)? (set;)? } """
