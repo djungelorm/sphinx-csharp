@@ -83,6 +83,7 @@ def parse_param_signature(sig):
     if not m:
         raise RuntimeError('Parameter signature invalid, got ' + sig)
 
+    groups = m.groups();
     modifiers = groups[0].split()
     type, name, _, default = groups[-4:]
     return ParamTuple(name=name, type=type, default=default, modifiers=modifiers)
