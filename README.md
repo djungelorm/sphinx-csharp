@@ -14,4 +14,4 @@ To enable the extension, add the following to your conf.py:
 extensions = ['sphinx_csharp.csharp']
 ```
 
-See [this example](test/index.rst) of how to document C# code.
+See [this example](https://raw.githubusercontent.com/djungelorm/sphinx-csharp/master/test/index.rst) of how to document C# code.
