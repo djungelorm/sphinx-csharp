@@ -47,6 +47,14 @@
 
       A static method.
 
+   .. method:: int MyMethodHasParamModifiers(ref int arg0, params int[] arg1)
+
+      A method with a parameter modifier.
+
+   .. method:: public static MyMethodHasMultiModifiers()
+
+      A method with multiple method modifiers.
+
    .. property:: string MyProperty { get; set; }
 
       A read/write property.
@@ -80,6 +88,14 @@
    .. property:: byte ByteProperty { get; set; }
 
    .. property:: byte[] ByteArrayProperty { get; set; }
+
+   .. indexer:: string this[int i] { get; set; }
+
+   .. indexer:: string this[int i] { get; }
+
+   .. indexer:: virtual string this[int i] { get; set; }
+
+   .. indexer:: string this[int i, MyClass j] { get; set; }
 
    .. method:: T AGenericMethod<T> (int x)
 
@@ -127,3 +143,5 @@ Generic method in generic class ref :meth:`MyGenericClass.AGenericMethod`
 Attribute ref :attr:`MyAttribute1`
 
 Attribute ref :attr:`MyAttribute2`
+
+Indexer ref :idxr:`MyClass.this[]`
