@@ -9,6 +9,9 @@ install:
 
 test:
 	rm -rf out
+	pip install pep8 pylint
+	pep8 sphinx_csharp/csharp.py
+	pylint --rcfile=pylint.rc sphinx_csharp/csharp.py
 	sphinx-build -E -n -W test test-output
 
 clean:
