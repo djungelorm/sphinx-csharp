@@ -33,7 +33,7 @@ PARAM_SIG_RE = re.compile(
     r')\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
 TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
-ParamTuple = namedtuple('ParamTuple', ['name', 'type', 'default', 'modifiers'])
+ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
 
 
 def split_sig(params):
