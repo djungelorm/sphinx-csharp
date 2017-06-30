@@ -8,6 +8,12 @@ Note: Work-in-progress. Only a subset of C# is currently supported.
 Usage
 -----
 
+Install using pip:
+
+```
+pip install sphinx-csharp
+```
+
 To enable the extension, add the following to your conf.py:
 
 ```python
