@@ -216,7 +216,7 @@ class CSharpObject(ObjectDescription):
         self.parentname_set = None
         self.parentname_saved = None
 
-    def add_target_and_index(self, name, sig, signode):
+    def add_target_and_index(self, name, _, signode):
         targetname = self.objtype + '-' + name
         if targetname not in self.state.document.ids:
             signode['names'].append(targetname)
@@ -274,7 +274,7 @@ class CSharpObject(ObjectDescription):
 
     @staticmethod
     def append_modifiers(signode, modifiers):
-        if len(modifiers) == 0:
+        if not modifiers:
             return
         for modifier in modifiers:
             signode += nodes.emphasis(modifier, modifier)
@@ -291,10 +291,10 @@ class CSharpObject(ObjectDescription):
             tnode['csharp:parent'] = self.get_parent()
         tnode += nodes.Text(shorten_type(typ))
         node += tnode
-        if len(generic_types) > 0:
+        if generic_types:
             node += nodes.Text('<')
-            for i, typ in enumerate(generic_types):
-                self.append_type(node, typ)
+            for i, typ_param in enumerate(generic_types):
+                self.append_type(node, typ_param)
                 if i != len(generic_types)-1:
                     node += nodes.Text(', ')
             node += nodes.Text('>')
@@ -322,7 +322,7 @@ class CSharpObject(ObjectDescription):
         pnodes += nodes.Text('[')
 
         for param in params:
-            if len(pnodes.children) > 1:
+            if pnodes.children:
                 pnodes += nodes.Text(u', ')
 
             self.append_type(pnodes, param.typ)
@@ -447,7 +447,7 @@ class CSharpAttribute(CSharpObject):
     def handle_signature(self, sig, signode):
         name, params = parse_attr_signature(sig)
         signode += addnodes.desc_name(name, name)
-        if len(params) > 0:
+        if params:
             signode += nodes.Text(' ')
             self.append_parameters(signode, params)
         return self.get_fullname(name)
@@ -501,27 +501,27 @@ class CSharpDomain(Domain):
             if doc == docname:
                 del self.data['objects'][typ, name]
 
-    def resolve_xref(self, env, fromdocname, builder,
+    def resolve_xref(self, _, fromdocname, builder,
                      typ, target, node, contnode):
         targets = [target]
         if node['csharp:parent'] is not None:
             parts = node['csharp:parent'].split('.')
-            while len(parts) > 0:
+            while parts:
                 targets.append('.'.join(parts)+'.'+target)
                 parts = parts[:-1]
 
         objects = self.data['objects']
         objtypes = self.objtypes_for_role(typ)
-        for target in targets:
+        for tgt in targets:
             for objtype in objtypes:
-                if (objtype, target) in objects:
+                if (objtype, tgt) in objects:
                     return make_refnode(builder, fromdocname,
-                                        objects[objtype, target],
-                                        objtype + '-' + target,
-                                        contnode, target + ' ' + objtype)
+                                        objects[objtype, tgt],
+                                        objtype + '-' + tgt,
+                                        contnode, tgt + ' ' + objtype)
 
-        for target in targets:
-            ref = get_msdn_ref(target)
+        for tgt in targets:
+            ref = get_msdn_ref(tgt)
             if ref is not None:
                 return ref
 

@@ -1,5 +1,5 @@
 [MESSAGES CONTROL]
-disable=missing-docstring,fixme
+disable=missing-docstring,fixme,too-few-public-methods
 
 [DESIGN]
 max-args=10
