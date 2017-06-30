@@ -9,7 +9,7 @@ setup(
     url = 'https://github.com/djungelorm/sphinx-csharp',
     license = 'MIT',
     description = 'C# domain for Sphinx',
-    install_requires = ['Sphinx'],
+    install_requires = ['Sphinx>=1.3'],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
