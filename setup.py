@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name = 'sphinx-csharp',
-    version = '0.1.4',
+    version = '0.1.5',
     author = 'djungelorm',
     author_email = 'djungelorm@users.noreply.github.com',
     packages = ['sphinx_csharp'],
