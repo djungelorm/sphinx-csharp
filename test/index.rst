@@ -27,6 +27,10 @@
 
       A method with a default argument value.
 
+   .. method:: void MyMethodDefaultArgs (int x, bool y = true, List<string> arg = [ "foo", "bar", "baz" ], bool z = false)
+
+      A method with default argument values.
+
    .. method:: void MyMethodNoArgs ()
 
       A method with no arguments.

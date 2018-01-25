@@ -30,7 +30,7 @@ IDXR_SIG_RE = re.compile(
     r'\{\s*(get;)?\s*(set;)?\s*\}$')
 PARAM_SIG_RE = re.compile(
     r'^((?:(?:' + PARAM_MODIFIERS_RE +
-    r')\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*([^\s]+))?$')
+    r')\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*(.+))?$')
 TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
@@ -39,19 +39,19 @@ ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
 def split_sig(params):
     """
     Split a list of parameters/types by commas,
-    whilst respecting angle brackets.
+    whilst respecting brackets.
 
     For example:
-      String arg0, int arg2 = 1, Dictionary<int,int> arg3
-      => ['String arg0', 'int arg2 = 1', 'Dictionary<int,int> arg3']
+      String arg0, int arg2 = 1, List<int> arg3 = [1, 2, 3]
+      => ['String arg0', 'int arg2 = 1', 'List<int> arg3 = [1, 2, 3]']
     """
     result = []
     current = ''
     level = 0
     for char in params:
-        if char == '<':
+        if char in ('<', '{', '['):
             level += 1
-        elif char == '>':
+        elif char in ('>', '}', ']'):
             level -= 1
         if char != ',' or level > 0:
             current += char

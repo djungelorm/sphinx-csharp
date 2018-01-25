@@ -11,5 +11,6 @@ pygments_style = 'sphinx'
 
 nitpick_ignore = [
     ('csharp:type', 'void'),
-    ('csharp:type', 'T')
+    ('csharp:type', 'T'),
+    ('csharp:type', 'List')
 ]
