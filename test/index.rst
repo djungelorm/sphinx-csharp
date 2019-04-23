@@ -4,6 +4,9 @@
 
 .. class:: MyClass
 
+   .. inherits:: System.Collections.Generic.IList<string>
+   .. inherits:: System.IDisposable
+
    This is a class with methods and properties.
 
    Here are some references to it's methods and properties:
