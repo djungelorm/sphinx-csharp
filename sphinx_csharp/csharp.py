@@ -163,12 +163,11 @@ MSDN_VALUE_TYPES = {
 
 
 MSDN_LINK_MAP = {
-    'System.Tuple': 'https://docs.microsoft.com/en-us/dotnet/api/system.tuple',
     'System.Collections.Generic.List': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1',
     'System.Collections.Generic.Dictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2',
-    'System.Collections.Generic.IList': '5y536ey6',
-    'System.Collections.Generic.IDictionary': 's4ys34ea',
-    'System.Collections.Generic.ISet': 'dd412081'
+    'System.Collections.Generic.IList': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ilist-1',
+    'System.Collections.Generic.IDictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.idictionary-2',
+    'System.Collections.Generic.ISet': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.iset-1'
 }
 
 
@@ -190,7 +189,7 @@ def get_msdn_ref(name):
         if link.startswith('https://'):
             url = link
         else:
-            url = 'https://msdn.microsoft.com/en-us/library/'+link+'.aspx'
+            url = 'https://docs.microsoft.com/en-us/dotnet/api/' + link
         node = nodes.reference(name, shorten_type(name))
         node['refuri'] = url
         node['reftitle'] = name
