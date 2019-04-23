@@ -109,7 +109,7 @@
 
    .. method:: T AGenericMethod<T> (int x)
 
-   .. property:: System.Tuple<int> ATupleProperty { get; set; }
+   .. property:: System.Tuple<int,string> ATupleProperty { get; set; }
 
 .. enum:: MyEnum
 
