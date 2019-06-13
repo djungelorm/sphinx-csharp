@@ -362,6 +362,16 @@ class CSharpClass(CSharpObject):
         return self.get_fullname(typ)
 
 
+class CSharpInherits(CSharpObject):
+    """ Description of an inherited C# class """
+
+    def handle_signature(self, sig, signode):
+        typ, _, _ = parse_type_signature(sig)
+        signode += nodes.Text(': ')
+        self.append_type(signode, sig)
+        return self.get_fullname(typ)
+
+
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
@@ -477,6 +487,7 @@ class CSharpDomain(Domain):
     directives = {
         'namespace': CSharpCurrentNamespace,
         'class':     CSharpClass,
+        'inherits':  CSharpInherits,
         'method':    CSharpMethod,
         'property':  CSharpProperty,
         'enum':      CSharpEnum,
