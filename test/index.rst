@@ -86,11 +86,17 @@
 
       A read/write property with an enum type.
 
-   .. property:: System.Collections.Generic.IList<string> ListProperty { get; set; }
+   .. property:: System.Collections.Generic.List<string> ListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IList<string>> ListProperty { get; set; }
+   .. property:: System.Collections.Generic.IList<string> IListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IDictionary<string,System.Collections.Generic.IList<string>>> ListProperty { get; set; }
+   .. property:: System.Collections.Generic.List<System.Collections.Generic.List<string>> ListProperty { get; set; }
+
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IList<string>> IListProperty { get; set; }
+
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.Dictionary<string,System.Collections.Generic.List<string>>> ListProperty { get; set; }
+
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IDictionary<string,System.Collections.Generic.IList<string>>> IListProperty { get; set; }
 
    .. property:: byte ByteProperty { get; set; }
 
@@ -105,6 +111,8 @@
    .. indexer:: string this[int i, MyClass j] { get; set; }
 
    .. method:: T AGenericMethod<T> (int x)
+
+   .. property:: System.Tuple<int,string> ATupleProperty { get; set; }
 
 .. enum:: MyEnum
 
