@@ -1,5 +1,7 @@
 v0.1.7
  * Added inherits directive (#5)
+ * Drop support for Python 2.6
+ * Add support for Python 3.6 and 3.7
 
 v0.1.6
  * Allow default values in method signatures to contain brackets
