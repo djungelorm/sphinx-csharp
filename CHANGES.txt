@@ -1,3 +1,6 @@
+v0.1.7
+ * Added inherits directive (#5)
+
 v0.1.6
  * Allow default values in method signatures to contain brackets
 
