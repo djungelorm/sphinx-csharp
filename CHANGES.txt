@@ -1,3 +1,7 @@
+v0.1.8
+ * Use _() instead of l_() function, which will be removed in Sphinx 3
+ * Drop support for Sphinx 1.4 and 1.5 as they don't support _() correctly
+
 v0.1.7
  * Added inherits directive (#5)
  * Drop support for Python 2.6
