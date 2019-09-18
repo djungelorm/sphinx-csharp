@@ -163,12 +163,12 @@ MSDN_VALUE_TYPES = {
 
 
 MSDN_LINK_MAP = {
-    'System.Collections.Generic.List': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1',  # noqa
-    'System.Collections.Generic.Dictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2',  # noqa
-    'System.Collections.Generic.IList': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ilist-1',  # noqa
-    'System.Collections.Generic.IDictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.idictionary-2',  # noqa
-    'System.Collections.Generic.ISet': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.iset-1',  # noqa
-    'System.Collections.Generic.IEnumerable': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1'  # noqa
+    'System.Collections.Generic.List': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1',  # noqa  # pylint: disable=line-too-long
+    'System.Collections.Generic.Dictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2',  # noqa  # pylint: disable=line-too-long
+    'System.Collections.Generic.IList': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ilist-1',  # noqa  # pylint: disable=line-too-long
+    'System.Collections.Generic.IDictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.idictionary-2',  # noqa  # pylint: disable=line-too-long
+    'System.Collections.Generic.ISet': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.iset-1',  # noqa  # pylint: disable=line-too-long
+    'System.Collections.Generic.IEnumerable': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1'  # noqa  # pylint: disable=line-too-long
 }
 
 
@@ -182,10 +182,7 @@ def get_msdn_ref(name):
         in_msdn = True
     if in_msdn:
         link = name.split('<')[0]
-        if link in MSDN_LINK_MAP:
-            link = MSDN_LINK_MAP[link]
-        else:
-            link = link.lower()
+        link = MSDN_LINK_MAP.get(link, link.lower())
         url = ''
         if link.startswith('https://'):
             url = link
@@ -195,8 +192,7 @@ def get_msdn_ref(name):
         node['refuri'] = url
         node['reftitle'] = name
         return node
-    else:
-        return None
+    return None
 
 
 SHORTEN_TYPE_PREFIXES = [
@@ -249,7 +245,7 @@ class CSharpObject(ObjectDescription):
     def get_index_text(self, name):
         if self.objtype == 'directive':
             return _('%s (directive)') % name
-        elif self.objtype == 'role':
+        if self.objtype == 'role':
             return _('%s (role)') % name
         return ''
 
@@ -542,6 +538,7 @@ class CSharpDomain(Domain):
             ref = get_msdn_ref(tgt)
             if ref is not None:
                 return ref
+        return None
 
     def get_objects(self):
         for (typ, name), docname in self.data['objects'].items():
