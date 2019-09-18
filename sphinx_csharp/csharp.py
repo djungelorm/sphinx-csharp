@@ -6,7 +6,7 @@ from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
 from sphinx.domains import Domain, ObjType
-from sphinx.locale import l_, _
+from sphinx.locale import _
 from sphinx.directives import ObjectDescription
 from sphinx.roles import XRefRole
 from sphinx.util.nodes import make_refnode
@@ -483,13 +483,13 @@ class CSharpDomain(Domain):
     label = 'C#'
 
     object_types = {
-        'class':     ObjType(l_('class'), 'type'),
-        'method':    ObjType(l_('method'), 'meth'),
-        'property':  ObjType(l_('property'), 'prop'),
-        'enum':      ObjType(l_('enum'), 'type'),
-        'value':     ObjType(l_('value'), 'enum'),
-        'attribute': ObjType(l_('attribute'), 'attr'),
-        'indexer':   ObjType(l_('indexer'), 'idxr'),
+        'class':     ObjType(_('class'), 'type'),
+        'method':    ObjType(_('method'), 'meth'),
+        'property':  ObjType(_('property'), 'prop'),
+        'enum':      ObjType(_('enum'), 'type'),
+        'value':     ObjType(_('value'), 'enum'),
+        'attribute': ObjType(_('attribute'), 'attr'),
+        'indexer':   ObjType(_('indexer'), 'idxr'),
     }
     directives = {
         'namespace': CSharpCurrentNamespace,
