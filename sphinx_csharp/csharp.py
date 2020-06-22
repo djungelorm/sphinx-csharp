@@ -16,7 +16,7 @@ MODIFIERS_RE = '|'.join(['public', 'private', 'internal', 'protected',
                          'extern', 'new', 'override', 'partial',
                          'readonly', 'sealed', 'static', 'unsafe',
                          'virtual', 'volatile'])
-PARAM_MODIFIERS_RE = '|'.join(['ref', 'out', 'params'])
+PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'out', 'params'])
 
 METH_SIG_RE = re.compile(
     r'^((?:(?:' + MODIFIERS_RE +
@@ -31,7 +31,7 @@ IDXR_SIG_RE = re.compile(
 PARAM_SIG_RE = re.compile(
     r'^((?:(?:' + PARAM_MODIFIERS_RE +
     r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
-TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?\s*(:\s*.*)?$')
+TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\,*\])?\s*(:\s*.*)?$')
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
 
