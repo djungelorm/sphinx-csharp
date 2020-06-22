@@ -184,8 +184,7 @@ def get_msdn_ref(name):
     """ Try and create a reference to a type on MSDN """
     in_msdn = False
     if name in MSDN_VALUE_TYPES:
-        name = MSDN_VALUE_TYPES[name]
-        in_msdn = True
+        return None
     if name.startswith('System.'):
         in_msdn = True
     if in_msdn:
