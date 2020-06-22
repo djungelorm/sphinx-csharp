@@ -30,8 +30,8 @@ IDXR_SIG_RE = re.compile(
     r'\{\s*(get;)?\s*(set;)?\s*\}$')
 PARAM_SIG_RE = re.compile(
     r'^((?:(?:' + PARAM_MODIFIERS_RE +
-    r')\s+)*)([^\s]+)\s+([^\s]+)\s*(=\s*(.+))?$')
-TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?$')
+    r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
+TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\])?\s*(:\s*.*)?$')
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
 
@@ -127,10 +127,18 @@ def parse_type_signature(sig):
     groups = match.groups()
     typ = groups[0]
     generic_types = groups[1]
+    inherited_types = groups[2:]
+
     if not generic_types:
         generic_types = []
     else:
         generic_types = split_sig(generic_types[1:-1])
+
+    if not inherited_types:
+        inherited_types = []
+    else:
+        inherited_types = split_sig(inherited_types[1:-1])
+
     is_array = (groups[2] is not None)
     return typ, generic_types, is_array
 
