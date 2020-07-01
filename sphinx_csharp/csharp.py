@@ -11,6 +11,7 @@ from sphinx.locale import _
 from sphinx.directives import ObjectDescription
 from sphinx.roles import XRefRole
 from sphinx.util.nodes import make_refnode
+from sphinx.util import logging
 
 MODIFIERS_RE = '|'.join(['public', 'private', 'internal', 'protected',
                          'abstract', 'async', 'const', 'event',
@@ -36,6 +37,7 @@ TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\,*\])?\s*(:\s*.*)?$')
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
 
+logger = logging.getLogger(__name__)
 
 def split_sig(params):
     """
@@ -238,12 +240,9 @@ class CSharpObject(ObjectDescription):
             objects = self.env.domaindata['csharp']['objects']
             key = (self.objtype, name)
             if key in objects:
-                self.env.warn(self.env.docname,
-                              'duplicate description of %s %s, ' %
-                              (self.objtype, name) +
-                              'other instance in ' +
-                              self.env.doc2path(objects[key]),
-                              self.lineno)
+                logger.warning(f'duplicate description of {self.objtype} {name}, ' +
+                               f'other instance in {self.env.doc2path(objects[key])}',
+                               location=(self.env.docname, self.lineno))
             objects[key] = self.env.docname
         indextext = self.get_index_text(name)
         if indextext:
