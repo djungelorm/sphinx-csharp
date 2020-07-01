@@ -566,7 +566,3 @@ class CSharpDomain(Domain):
     def resolve_any_xref(self, env, fromdocname, builder,
                          target, node, contnode):
         raise NotImplementedError
-
-
-def setup(app: Sphinx):
-    app.add_domain(CSharpDomain)
