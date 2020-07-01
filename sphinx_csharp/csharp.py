@@ -5,6 +5,7 @@ from collections import namedtuple
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
+from sphinx.application import Sphinx
 from sphinx.domains import Domain, ObjType
 from sphinx.locale import _
 from sphinx.directives import ObjectDescription
@@ -560,5 +561,5 @@ class CSharpDomain(Domain):
         raise NotImplementedError
 
 
-def setup(app):
+def setup(app: Sphinx):
     app.add_domain(CSharpDomain)
