@@ -371,6 +371,14 @@ class CSharpClass(CSharpObject):
         signode += addnodes.desc_name(desc_name, desc_name)
         return self.get_fullname(typ)
 
+class CSharpStruct(CSharpObject):
+    """ Description of a C# class """
+
+    def handle_signature(self, sig, signode):
+        typ, _, _ = parse_type_signature(sig)
+        desc_name = 'struct %s' % sig
+        signode += addnodes.desc_name(desc_name, desc_name)
+        return self.get_fullname(typ)
 
 class CSharpInherits(CSharpObject):
     """ Description of an inherited C# class """
