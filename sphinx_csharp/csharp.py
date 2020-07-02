@@ -17,14 +17,16 @@ MODIFIERS_RE = '|'.join(['public', 'private', 'internal', 'protected',
                          'extern', 'new', 'override', 'partial',
                          'readonly', 'sealed', 'static', 'unsafe',
                          'virtual', 'volatile'])
-PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'out', 'params'])
+PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
+
+TYPE_RE = r'(?P<fulltype>(?P<type>[^\s<\[{\*&]+)\s*(?P<generics><\s*.+\s*>)?\s*(?P<array>\[,*\])?\s*(?:\*|&)?)'
 
 METH_SIG_RE = re.compile(
     r'^((?:(?:' + MODIFIERS_RE +
     r')\s+)*)([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 VAR_SIG_RE = re.compile(
-    r'^\s*(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE +
-    r'))*)\s*(?P<fulltype>(?P<type>[^\s<\[{]+)\s*(?P<generics><\s*.+\s*>)?)\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^\s*(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE + r'))*)\s*' + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
+
 PROP_SIG_RE = re.compile(
     r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
 IDXR_SIG_RE = re.compile(
@@ -35,7 +37,8 @@ IDXR_SIG_RE = re.compile(
 PARAM_SIG_RE = re.compile(
     r'^((?:(?:' + PARAM_MODIFIERS_RE +
     r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
-TYPE_SIG_RE = re.compile(r'^([^\s<\[]+)\s*(<.+>)?\s*(\[\,*\])?\s*(:\s*.*)?$')
+
+CLASS_SIG_RE = re.compile(r'^' + TYPE_RE + r'\s*(?P<inherits>:\s*.*)?$')
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
 
@@ -154,14 +157,18 @@ def parse_param_signature(sig):
 
 def parse_type_signature(sig):
     """ Parse a type signature """
-    match = TYPE_SIG_RE.match(sig.strip())
+    match = CLASS_SIG_RE.match(sig.strip())
     if not match:
+        import traceback
+        print('Type signature invalid, got ' + sig)
+        traceback.print_stack()
         logger.warning('Type signature invalid, got ' + sig)
-        return sig.strip(), None
-    groups = match.groups()
-    typ = groups[0]
-    generic_types = groups[1]
-    inherited_types = groups[2:]
+        return sig.strip(), None, None, None
+    groups = match.groupdict()
+    typ = groups['type']
+    generic_types = groups['generics']
+    inherited_types = groups['inherits']
+    array = groups['array']
 
     if not generic_types:
         generic_types = []
@@ -173,8 +180,7 @@ def parse_type_signature(sig):
     else:
         inherited_types = split_sig(inherited_types[1:-1])
 
-    is_array = (groups[2] is not None)
-    return typ, generic_types, inherited_types, is_array
+    return typ, generic_types, inherited_types, array
 
 
 def parse_attr_signature(sig):
@@ -324,7 +330,7 @@ class CSharpObject(ObjectDescription):
             signode += nodes.Text(u' ')
 
     def append_type(self, node, typ):
-        typ, generic_types, inherited_types, is_array = parse_type_signature(typ)
+        typ, generic_types, inherited_types, array = parse_type_signature(typ)
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
             reftarget=typ, modname=None, classname=None)
@@ -341,8 +347,8 @@ class CSharpObject(ObjectDescription):
                 if i != len(generic_types)-1:
                     node += nodes.Text(', ')
             node += nodes.Text('>')
-        if is_array:
-            node += nodes.Text('[]')
+        if array:
+            node += nodes.Text(array)
 
     def append_parameters(self, node, params):
         pnodes = addnodes.desc_parameterlist()
