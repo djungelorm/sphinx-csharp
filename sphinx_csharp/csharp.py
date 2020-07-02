@@ -111,8 +111,9 @@ def parse_property_signature(sig):
         modifier* type name { (get;)? (set;)? } """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning('Property signature invalid: ' + sig)
-        return sig.strip(), None
+        logger.info(f'Property signature invalid: {sig}, parsing as variable')
+        modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig)
+        return modifiers, fulltype, name, False, False
     groups = match.groups()
     if groups[0] is not None:
         modifiers = [x.strip() for x in groups[:-4]]
@@ -121,7 +122,7 @@ def parse_property_signature(sig):
         modifiers = []
         groups = groups[1:]
     typ, name, getter, setter = groups
-    return (modifiers, typ, name, getter is not None, setter is not None)
+    return modifiers, typ, name, getter is not None, setter is not None
 
 
 def parse_indexer_signature(sig):
@@ -455,8 +456,10 @@ class CSharpProperty(CSharpObject):
 
     def handle_signature(self, sig, signode):
         modifiers, typ, name, getter, setter = parse_property_signature(sig)
+
         self.append_modifiers(signode, modifiers)
-        self.append_type(signode, typ)
+        if typ:
+            self.append_type(signode, typ)
         signode += nodes.Text(' ')
         signode += addnodes.desc_name(name, name)
         signode += nodes.Text(' { ')
