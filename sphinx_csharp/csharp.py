@@ -704,6 +704,8 @@ class CSharpDomain(Domain):
                     elif len(matching_keys) == 0 or iter == len(split):
                         break
                     iter += 1
+
+        logger.warning(f"failed to find xref for: {targets}, searched in object types: {objtypes}")
         return None
 
     def get_objects(self):
