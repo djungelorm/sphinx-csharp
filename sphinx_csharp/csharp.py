@@ -78,7 +78,8 @@ def parse_method_signature(sig):
         params = [parse_param_signature(x) for x in params]
     else:
         params = []
-    return (modifiers.split(), return_type, name, generic_types, params)
+
+    return modifiers.split(), return_type, name, generic_types, params
 
 
 def parse_property_signature(sig):
@@ -148,7 +149,7 @@ def parse_type_signature(sig):
         inherited_types = split_sig(inherited_types[1:-1])
 
     is_array = (groups[2] is not None)
-    return typ, generic_types, is_array
+    return typ, generic_types, inherited_types, is_array
 
 
 def parse_attr_signature(sig):
@@ -250,6 +251,7 @@ class CSharpObject(ObjectDescription):
                                f'other instance in {self.env.doc2path(objects[key])}',
                                location=(self.env.docname, self.lineno))
             objects[key] = self.env.docname
+
         indextext = self.get_index_text(name)
         if indextext:
             self.indexnode['entries'].append(
@@ -297,7 +299,7 @@ class CSharpObject(ObjectDescription):
             signode += nodes.Text(u' ')
 
     def append_type(self, node, typ):
-        typ, generic_types, is_array = parse_type_signature(typ)
+        typ, generic_types, inherited_types, is_array = parse_type_signature(typ)
         tnode = addnodes.pending_xref(
             '', refdomain='csharp', reftype='type',
             reftarget=typ, modname=None, classname=None)
@@ -372,7 +374,7 @@ class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig, signode):
-        typ, _, _ = parse_type_signature(sig)
+        typ, _, _, _ = parse_type_signature(sig)
         desc_name = 'class %s' % sig
         signode += addnodes.desc_name(desc_name, desc_name)
         return self.get_fullname(typ)
@@ -381,7 +383,7 @@ class CSharpStruct(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig, signode):
-        typ, _, _ = parse_type_signature(sig)
+        typ, _, _, _ = parse_type_signature(sig)
         desc_name = 'struct %s' % sig
         signode += addnodes.desc_name(desc_name, desc_name)
         return self.get_fullname(typ)
@@ -390,7 +392,7 @@ class CSharpInherits(CSharpObject):
     """ Description of an inherited C# class """
 
     def handle_signature(self, sig, signode):
-        typ, _, _ = parse_type_signature(sig)
+        typ, _, _, _ = parse_type_signature(sig)
         signode += nodes.Text(': ')
         self.append_type(signode, sig)
         return self.get_fullname(typ)
@@ -400,8 +402,7 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig, signode):
-        modifiers, typ, name, \
-            generic_types, params = parse_method_signature(sig)
+        modifiers, typ, name, generic_types, params = parse_method_signature(sig)
         self.append_modifiers(signode, modifiers)
         if typ is not None:
             self.append_type(signode, typ)
