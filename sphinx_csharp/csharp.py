@@ -198,49 +198,101 @@ def parse_attr_signature(sig):
     return name, params
 
 
-MSDN_VALUE_TYPES = {
-    'string': 'System.String',
-    'int': 'System.Int32',
-    'long': 'System.Int64',
-    'uint': 'System.UInt32',
-    'ulong': 'System.UInt64',
-    'float': 'System.Single',
-    'double': 'System.Double',
-    'byte': 'System.Byte',
-    'bool': 'System.Boolean'
+IGNORE_XREF_TYPES = [
+    'void',
+    'string',
+    'int',
+    'long',
+    'uint',
+    'ulong',
+    'float',
+    'double',
+    'byte',
+    'bool',
+    'Vector2',
+    'Vector3',
+    'Vector4',
+    'Quaternion',
+    'Animator',
+    'Collider',
+    'SphereCollider',
+]
+
+EXTERNAL_XREF_TYPES = {
+    'List': 'System.Collections.Generic.List',
+    'MonoBehaviour': 'UnityEngine',
+    'GameObject': 'UnityEngine',
+    'Transform': 'UnityEngine',
+    'InputDevice': 'UnityEngine.XR',
+    'InputDeviceCharacteristics': 'UnityEngine.XR',
+    'XRController': 'UnityEngine.XR.Interaction.Toolkit',
+    'XRRayInteractor': 'UnityEngine.XR.Interaction.Toolkit',
+    'XRBaseInteractable': 'UnityEngine.XR.Interaction.Toolkit',
 }
 
-
-MSDN_LINK_MAP = {
+EXTERNAL_LINKS = {
     'System.Collections.Generic.List': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1',  # noqa  # pylint: disable=line-too-long
     'System.Collections.Generic.Dictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2',  # noqa  # pylint: disable=line-too-long
     'System.Collections.Generic.IList': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ilist-1',  # noqa  # pylint: disable=line-too-long
     'System.Collections.Generic.IDictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.idictionary-2',  # noqa  # pylint: disable=line-too-long
     'System.Collections.Generic.ISet': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.iset-1',  # noqa  # pylint: disable=line-too-long
-    'System.Collections.Generic.IEnumerable': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1'  # noqa  # pylint: disable=line-too-long
+    'System.Collections.Generic.IEnumerable': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1',  # noqa  # pylint: disable=line-too-long
+    'System.Boolean': 'https://docs.microsoft.com/en-us/dotnet/api/system.boolean?view=netcore-3.1',  # noqa  # pylint: disable=line-too-long
+    'UnityEngine.MonoBehaviour': 'unityapi/MonoBehaviour',
+    'UnityEngine.GameObject': 'unityapi/GameObject',
+    'UnityEngine.Transform': 'unityapi/Transform',
+    'UnityEngine.XR.Interaction.Toolkit.InputDevice': 'unitypkg/com.unity.xr.interaction.toolkit@0.9/manual/index.html',
+    'UnityEngine.XR.InputDevice': 'UnityEngine.XR.Interaction.Toolkit https://docs.unity3d.com/ScriptReference/XR.InputDevice.html',
+    'UnityEngine.XR.InputDeviceCharacteristics': 'https://docs.unity3d.com/ScriptReference/XR.InputDeviceCharacteristics.html',
+    'UnityEngine.XR.Interaction.Toolkit.XRController': 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/UnityEngine.XR.Interaction.Toolkit.XRController.html',
+    'UnityEngine.XR.Interaction.Toolkit.XRRayInteractor': 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/UnityEngine.XR.Interaction.Toolkit.XRRayInteractor.html',
+    'UnityEngine.XR.Interaction.Toolkit.XRBaseInteractable': 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/UnityEngine.XR.Interaction.Toolkit.XRBaseInteractable.html',
 }
 
 
-def get_msdn_ref(name):
-    """ Try and create a reference to a type on MSDN """
-    in_msdn = False
-    if name in MSDN_VALUE_TYPES:
-        return None
-    if name.startswith('System.'):
-        in_msdn = True
-    if in_msdn:
-        link = name.split('<')[0]
-        link = MSDN_LINK_MAP.get(link, link.lower())
-        url = ''
-        if link.startswith('https://'):
-            url = link
+def get_external_ref(name: str) -> (bool, nodes):
+    """ Try and create a reference to a type on MSDN
+    returns: bool true if the node should be ignored, Node None when a type was not found """
+    if name in IGNORE_XREF_TYPES:
+        return True, None
+
+    is_external = False
+    fullname = name
+    if name in EXTERNAL_XREF_TYPES:
+        is_external = True
+        fullname = EXTERNAL_XREF_TYPES[name]
+
+        # i.e. append name itself if it is not a built in type (e.g. bool)
+        if not fullname.startswith('System.'):
+            fullname += '.' + name
+
+    if is_external or name.startswith('System.') or name.startswith('UnityEngine.'):
+        link = EXTERNAL_LINKS.get(fullname.split('<', 1)[0], None)
+
+        if not link:
+            logger.warning(f"Failed finding link for external type: {fullname} (short: {name})\n"
+                           f"Have you added it to EXTERNAL_XREF_TYPES but not EXTERNAL_LINKS?\n"
+                           f"You may want to add this to IGNORE_XREF_TYPES otherwise.")
+
+            return True, None
+
+        if link.startswith('msdn/'):
+            url = 'https://docs.microsoft.com/en-us/dotnet/api' + link[len('msdn'):]
+        elif link.startswith('unityapi/'):
+            url = 'https://docs.unity3d.com/ScriptReference' + link[len('unityapi'):]
+        elif link.startswith('unitypkg/'):
+            url = 'https://docs.unity3d.com/Packages' + link[len('unitypkg'):]
+        elif link.startswith('unityman/'):
+            url = 'https://docs.unity3d.com/Manual' + link[len('unityman'):]
         else:
-            url = 'https://docs.microsoft.com/en-us/dotnet/api/' + link
-        node = nodes.reference(name, shorten_type(name))
+            url = link
+
+        node = nodes.reference(fullname, shorten_type(name))
         node['refuri'] = url
         node['reftitle'] = name
-        return node
-    return None
+
+        return False, node
+    return False, None
 
 
 SHORTEN_TYPE_PREFIXES = [
@@ -551,7 +603,7 @@ class CSharpDomain(Domain):
         'member':     ObjType(_('member'), 'member', 'var'),
         'var':     ObjType(_('var'), 'var', 'member'),
         'property':  ObjType(_('property'), 'prop'),
-        'enum':      ObjType(_('enum'), 'enum'),
+        'enum':      ObjType(_('enum'), 'type', 'enum'),
         'enumerator': ObjType(_('enumerator'), 'enumerator'),
         'attribute': ObjType(_('attribute'), 'attr'),
         'indexer':   ObjType(_('indexer'), 'idxr'),
@@ -562,7 +614,7 @@ class CSharpDomain(Domain):
         'interface': CSharpClass,
         'inherits':  CSharpInherits,
         'function':  CSharpMethod,
-        'member':    CSharpMethod,
+        'member':    CSharpVariable,
         'var':       CSharpVariable,
         'property':  CSharpProperty,
         'enum':      CSharpEnum,
@@ -605,18 +657,53 @@ class CSharpDomain(Domain):
 
         objects = self.data['objects']
         objtypes = self.objtypes_for_role(typ)
+        keys = objects.keys()
+
         for tgt in targets:
-            for objtype in objtypes:
-                if (objtype, tgt) in objects:
+            ignore_ref, ref = get_external_ref(tgt)
+            if ignore_ref:
+                return None
+            if ref is not None:
+                return ref
+
+        for objtype in objtypes:
+            objtype_keys = [i for i in keys if i[0] == objtype]
+
+            for tgt in targets:
+                if tgt == 'void':
+                    continue
+
+                # Quick return if we find it directly
+                if (objtype, tgt) in objtype_keys:
                     return make_refnode(builder, fromdocname,
                                         objects[objtype, tgt],
                                         objtype + '-' + tgt,
                                         contnode, tgt + ' ' + objtype)
 
-        for tgt in targets:
-            ref = get_msdn_ref(tgt)
-            if ref is not None:
-                return ref
+                # Find the closest matching from end
+                # tgt_end = tgt.rsplit('.', 1)[-1]
+
+
+                iter = 1
+                split = tgt.split('.')
+                matching_keys = objtype_keys
+
+                # Get closer to the
+                while True:
+                    tgt_end = '.'.join(split[-iter:])
+                    matching_keys = [i for i in matching_keys if i[1].endswith(tgt_end)]
+
+                    if len(matching_keys) == 1 or len(matching_keys) > 1 and iter == len(split):
+                        match_objtype, match_tgt = matching_keys[0]
+
+                        return make_refnode(builder, fromdocname,
+                                            objects[match_objtype, match_tgt],
+                                            match_objtype + '-' + match_tgt,
+                                            contnode, match_tgt + ' ' + match_objtype)  # TODO: display shorter title
+
+                    elif len(matching_keys) == 0 or iter == len(split):
+                        break
+                    iter += 1
         return None
 
     def get_objects(self):
