@@ -414,6 +414,8 @@ class CSharpObject(ObjectDescription):
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
             reftarget=typ, modname=None, classname=None)
+
+        # Note: this may not be the correct parent namespace
         if not self.has_parent():
             tnode['cs:parent'] = None
         else:
@@ -627,9 +629,9 @@ class CSharpDomain(Domain):
     object_types = {
         'class':     ObjType(_('class'), 'type', 'class'),
         'struct':    ObjType(_('struct'), 'type', 'struct'),
-        'function':    ObjType(_('function'), 'function', 'meth', 'func'),
+        'function':    ObjType(_('function'), 'function', 'meth', 'func', 'type'),
         'member':     ObjType(_('member'), 'member', 'var'),
-        'var':     ObjType(_('var'), 'var', 'member'),
+        'var':     ObjType(_('var'), 'var', 'member', 'type'),
         'property':  ObjType(_('property'), 'prop'),
         'enum':      ObjType(_('enum'), 'type', 'enum'),
         'enumerator': ObjType(_('enumerator'), 'enumerator'),
@@ -676,17 +678,35 @@ class CSharpDomain(Domain):
 
     def resolve_xref(self, _, fromdocname, builder,
                      typ, target, node, contnode):
-        targets = [target]
+        targets = []
+        parents = []
+        # Search in this namespace, note parent may not be where the target resides
         if node['cs:parent'] is not None:
             parts = node['cs:parent'].split('.')
             while parts:
                 targets.append('.'.join(parts)+'.'+target)
+                parents.append('.'.join(parts))
                 parts = parts[:-1]
 
-        objects = self.data['objects']
-        objtypes = self.objtypes_for_role(typ)
-        keys = objects.keys()
+        # By adding this last we ensure the list targets is sorted by decreasing string length
+        targets.append(target)
+        parents.append('')
 
+        # Get all objects that end with the initial target
+        objtypes = self.objtypes_for_role(typ)
+        objects = {key: val for (key, val) in self.data['objects'].items()
+                   if key[1].endswith(target) and key[0] in objtypes}
+
+        # 1. Found only one item that ends with the target, use this one
+        if len(objects) == 1:
+            objtype, tgt = next(iter(objects.keys()))
+            return make_refnode(builder, fromdocname,
+                                objects[objtype, tgt],
+                                objtype + '-' + tgt,
+                                contnode, tgt + ' ' + objtype)
+
+        # 2. Search recognized built-in/external override types first, e.g. float, bool, void
+        #    (currently also all other external types)
         for tgt in targets:
             ignore_ref, ref = get_external_ref(tgt)
             if ignore_ref:
@@ -694,46 +714,40 @@ class CSharpDomain(Domain):
             if ref is not None:
                 return ref
 
-        for objtype in objtypes:
-            objtype_keys = [i for i in keys if i[0] == objtype]
+        # 3. Found no local objects that match
+        if len(objects) == 0:
+            logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
+                           f"searched in object types: {objtypes}")
+                           # f", filter1: {[i for i in self.data['objects'] if i[1].endswith(target)]}"
+                           # f", filter2: {[i for i in self.data['objects'] if i[0] in objtypes]}")
+            return None
 
-            for tgt in targets:
-                if tgt == 'void':
-                    continue
-
-                # Quick return if we find it directly
-                if (objtype, tgt) in objtype_keys:
+        # 4. Search inside this namespace and its direct parents
+        for tgt in targets:
+            for objtype in objtypes:
+                if (objtype, tgt) in objects:
                     return make_refnode(builder, fromdocname,
                                         objects[objtype, tgt],
                                         objtype + '-' + tgt,
                                         contnode, tgt + ' ' + objtype)
 
-                # Find the closest matching from end
-                # tgt_end = tgt.rsplit('.', 1)[-1]
+        # 5. Search in other namespaces by closest match starting at the parent namespace
+        if len(objects) > 1:
+            logger.warning(f"Ambiguous reference to {target}, potential matches: {objects}")
 
+            # Get closest to the parent namespace
+            for parent in parents:
+                matches = [i for i in objects if i[0][1].startswith(parent)]
+                if len(matches) >= 1:
+                    match_objtype, match_tgt = matches[0]
 
-                iter = 1
-                split = tgt.split('.')
-                matching_keys = objtype_keys
+                    return make_refnode(builder, fromdocname,
+                                        objects[match_objtype, match_tgt],
+                                        match_objtype + '-' + match_tgt,
+                                        contnode, match_tgt + ' ' + match_objtype)
 
-                # Get closer to the
-                while True:
-                    tgt_end = '.'.join(split[-iter:])
-                    matching_keys = [i for i in matching_keys if i[1].endswith(tgt_end)]
+        logger.warning(f"Failed to find xref for: {targets}, searched in object types: {objtypes}, parents: {parents}")
 
-                    if len(matching_keys) == 1 or len(matching_keys) > 1 and iter == len(split):
-                        match_objtype, match_tgt = matching_keys[0]
-
-                        return make_refnode(builder, fromdocname,
-                                            objects[match_objtype, match_tgt],
-                                            match_objtype + '-' + match_tgt,
-                                            contnode, match_tgt + ' ' + match_objtype)  # TODO: display shorter title
-
-                    elif len(matching_keys) == 0 or iter == len(split):
-                        break
-                    iter += 1
-
-        logger.warning(f"failed to find xref for: {targets}, searched in object types: {objtypes}")
         return None
 
     def get_objects(self):
