@@ -199,6 +199,8 @@ def parse_attr_signature(sig):
 
 
 IGNORE_XREF_TYPES = [
+    '*',
+    '&',
     'void',
     'string',
     'int',
@@ -209,25 +211,51 @@ IGNORE_XREF_TYPES = [
     'double',
     'byte',
     'bool',
+
+    # Unity Types
     'Vector2',
     'Vector3',
     'Vector4',
     'Quaternion',
+    'Color',
+    'Gradient',
+    'Material',
+    'Image',
+    'Button',
+    'Toggle',
+    'Sprite',
+    'Sprite',
     'Animator',
     'Collider',
     'SphereCollider',
+    'Func',
+    'Action',
+    'UnityAction',
+    'Thread',
 ]
 
 EXTERNAL_XREF_TYPES = {
     'List': 'System.Collections.Generic.List',
+    # 'IList': 'System.Collections.Generic.IList',
     'MonoBehaviour': 'UnityEngine',
     'GameObject': 'UnityEngine',
     'Transform': 'UnityEngine',
+    # 'RectTransform': 'UnityEngine',
     'InputDevice': 'UnityEngine.XR',
     'InputDeviceCharacteristics': 'UnityEngine.XR',
     'XRController': 'UnityEngine.XR.Interaction.Toolkit',
     'XRRayInteractor': 'UnityEngine.XR.Interaction.Toolkit',
     'XRBaseInteractable': 'UnityEngine.XR.Interaction.Toolkit',
+    # 'IEnumarator': '',
+    # 'Coroutine': '',
+    # 'TMP_Text': '',
+    # 'Space': '',
+    # 'NativeArray': '',
+    # 'MeshRenderer': '',
+    # 'MeshFilter': '',
+    # 'AssetImportContext': '',
+    # 'MeshImportPostprocessor': '',
+    # 'VertexAttributeDescriptor': '',
 }
 
 EXTERNAL_LINKS = {
