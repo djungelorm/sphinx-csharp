@@ -70,7 +70,8 @@ def parse_method_signature(sig):
     """ Parse a method signature of the form: modifier* type name (params) """
     match = METH_SIG_RE.match(sig.strip())
     if not match:
-        raise RuntimeError('Method signature invalid: ' + sig)
+        logger.warning('Method signature invalid: ' + sig)
+        return sig.strip(), None
     modifiers, return_type, name, generic_types, params = match.groups()
     if params.strip() != '':
         params = split_sig(params)
@@ -85,7 +86,8 @@ def parse_property_signature(sig):
         modifier* type name { (get;)? (set;)? } """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
-        raise RuntimeError('Property signature invalid: ' + sig)
+        logger.warning('Property signature invalid: ' + sig)
+        return sig.strip(), None
     groups = match.groups()
     if groups[0] is not None:
         modifiers = [x.strip() for x in groups[:-4]]
@@ -102,7 +104,8 @@ def parse_indexer_signature(sig):
         modifier* type this[params] { (get;)? (set;)? } """
     match = IDXR_SIG_RE.match(sig.strip())
     if not match:
-        raise RuntimeError('Indexer signature invalid: ' + sig)
+        logger.warning('Indexer signature invalid: ' + sig)
+        return sig.strip(), None
     modifiers, return_type, params, getter, setter = match.groups()
     params = split_sig(params)
     params = [parse_param_signature(x) for x in params]
@@ -114,7 +117,8 @@ def parse_param_signature(sig):
     """ Parse a parameter signature of the form: type name (= default)? """
     match = PARAM_SIG_RE.match(sig.strip())
     if not match:
-        raise RuntimeError('Parameter signature invalid, got ' + sig)
+        logger.warning('Parameter signature invalid, got ' + sig)
+        return sig.strip(), None
     groups = match.groups()
     modifiers = groups[0].split()
     typ, name, _, default = groups[-4:]
@@ -126,7 +130,8 @@ def parse_type_signature(sig):
     """ Parse a type signature """
     match = TYPE_SIG_RE.match(sig.strip())
     if not match:
-        raise RuntimeError('Type signature invalid, got ' + sig)
+        logger.warning('Type signature invalid, got ' + sig)
+        return sig.strip(), None
     groups = match.groups()
     typ = groups[0]
     generic_types = groups[1]
@@ -150,14 +155,15 @@ def parse_attr_signature(sig):
     """ Parse an attribute signature """
     match = ATTR_SIG_RE.match(sig.strip())
     if not match:
-        raise RuntimeError('Attribute signature invalid, got ' + sig)
+        logger.warning('Attribute signature invalid, got ' + sig)
+        return sig.strip(), None
     name, _, params = match.groups()
     if params is not None and params.strip() != '':
         params = split_sig(params)
         params = [parse_param_signature(x) for x in params]
     else:
         params = []
-    return (name, params)
+    return name, params
 
 
 MSDN_VALUE_TYPES = {
