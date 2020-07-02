@@ -244,7 +244,7 @@ class CSharpObject(ObjectDescription):
             signode['first'] = (not self.names)
             self.state.document.note_explicit_target(signode)
 
-            objects = self.env.domaindata['csharp']['objects']
+            objects = self.env.domaindata['cs']['objects']
             key = (self.objtype, name)
             if key in objects:
                 logger.warning(f'duplicate description of {self.objtype} {name}, ' +
@@ -268,21 +268,21 @@ class CSharpObject(ObjectDescription):
         lastname = self.names and self.names[-1]
         if lastname:
             self.parentname_set = True
-            self.parentname_saved = self.env.ref_context.get('csharp:parent')
-            self.env.ref_context['csharp:parent'] = lastname
+            self.parentname_saved = self.env.ref_context.get('cs:parent')
+            self.env.ref_context['cs:parent'] = lastname
         else:
             self.parentname_set = False
 
     def after_content(self):
         if self.parentname_set:
-            self.env.ref_context['csharp:parent'] = self.parentname_saved
+            self.env.ref_context['cs:parent'] = self.parentname_saved
 
     def has_parent(self):
-        return 'csharp:parent' in self.env.ref_context and \
-            self.env.ref_context['csharp:parent'] is not None
+        return 'cs:parent' in self.env.ref_context and \
+            self.env.ref_context['cs:parent'] is not None
 
     def get_parent(self):
-        return self.env.ref_context['csharp:parent']
+        return self.env.ref_context['cs:parent']
 
     def get_fullname(self, name):
         fullname = name
@@ -301,12 +301,12 @@ class CSharpObject(ObjectDescription):
     def append_type(self, node, typ):
         typ, generic_types, inherited_types, is_array = parse_type_signature(typ)
         tnode = addnodes.pending_xref(
-            '', refdomain='csharp', reftype='type',
+            '', refdomain='cs', reftype='type',
             reftarget=typ, modname=None, classname=None)
         if not self.has_parent():
-            tnode['csharp:parent'] = None
+            tnode['cs:parent'] = None
         else:
-            tnode['csharp:parent'] = self.get_parent()
+            tnode['cs:parent'] = self.get_parent()
         tnode += nodes.Text(shorten_type(typ))
         node += tnode
         if generic_types:
@@ -364,9 +364,9 @@ class CSharpCurrentNamespace(Directive):
         env = self.state.document.settings.env
         namespace = self.arguments[0].strip()
         if namespace == 'None':
-            env.ref_context.pop('csharp:parent', None)
+            env.ref_context.pop('cs:parent', None)
         else:
-            env.ref_context['csharp:parent'] = namespace
+            env.ref_context['cs:parent'] = namespace
         return []
 
 
@@ -490,14 +490,14 @@ class CSharpAttribute(CSharpObject):
 
 class CSharpXRefRole(XRefRole):
     def process_link(self, env, refnode, has_explicit_title, title, target):
-        refnode['csharp:parent'] = env.ref_context.get('csharp:parent')
+        refnode['cs:parent'] = env.ref_context.get('cs:parent')
         return super(CSharpXRefRole, self).process_link(
             env, refnode, has_explicit_title, title, target)
 
 
 class CSharpDomain(Domain):
     """ C# domain """
-    name = 'csharp'
+    name = 'cs'
     label = 'C#'
 
     object_types = {
@@ -540,8 +540,8 @@ class CSharpDomain(Domain):
     def resolve_xref(self, _, fromdocname, builder,
                      typ, target, node, contnode):
         targets = [target]
-        if node['csharp:parent'] is not None:
-            parts = node['csharp:parent'].split('.')
+        if node['cs:parent'] is not None:
+            parts = node['cs:parent'].split('.')
             while parts:
                 targets.append('.'.join(parts)+'.'+target)
                 parts = parts[:-1]
