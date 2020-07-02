@@ -5,7 +5,6 @@ from collections import namedtuple
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
-from sphinx.application import Sphinx
 from sphinx.domains import Domain, ObjType
 from sphinx.locale import _
 from sphinx.directives import ObjectDescription
@@ -23,6 +22,9 @@ PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'out', 'params'])
 METH_SIG_RE = re.compile(
     r'^((?:(?:' + MODIFIERS_RE +
     r')\s+)*)([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
+VAR_SIG_RE = re.compile(
+    r'^\s*(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE +
+    r'))*)\s*(?P<fulltype>(?P<type>[^\s<\[{]+)\s*(?P<generics><\s*.+\s*>)?)\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
 PROP_SIG_RE = re.compile(
     r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
 IDXR_SIG_RE = re.compile(
@@ -80,6 +82,28 @@ def parse_method_signature(sig):
         params = []
 
     return modifiers.split(), return_type, name, generic_types, params
+
+
+def parse_variable_signature(sig):
+    """ Parse a variable signature of the form:
+        modifier* type name """
+    match = VAR_SIG_RE.match(sig.strip())
+    if not match:
+        logger.warning('Variable signature invalid: ' + sig)
+        return sig.strip(), None
+    groups = match.groupdict()
+    modifiers = groups['modifiers'].split()
+    fulltype = groups['fulltype']
+    typ = groups['type']
+    generics = groups['generics']
+    name = groups['name']
+    value = groups['value']
+
+    if not generics:
+        generics = []
+
+    print(f"matched var: {modifiers, fulltype, typ, generics, name, value}")
+    return modifiers, fulltype, typ, generics, name, value
 
 
 def parse_property_signature(sig):
@@ -389,7 +413,7 @@ class CSharpStruct(CSharpObject):
         return self.get_fullname(typ)
 
 class CSharpInherits(CSharpObject):
-    """ Description of an inherited C# class """
+    """ Description of an inherited C# struct """
 
     def handle_signature(self, sig, signode):
         typ, _, _, _ = parse_type_signature(sig)
@@ -414,6 +438,17 @@ class CSharpMethod(CSharpObject):
         self.append_parameters(signode, params)
         return self.get_fullname(name)
 
+class CSharpVariable(CSharpObject):
+    """ Description of a C# variable """
+
+    def handle_signature(self, sig, signode):
+        modifiers, fulltype, _, _, name, _ = parse_variable_signature(sig)
+
+        self.append_modifiers(signode, modifiers)
+        self.append_type(signode, fulltype)
+        signode += nodes.Text(' ')
+        signode += addnodes.desc_name(name, name)
+        return self.get_fullname(name)
 
 class CSharpProperty(CSharpObject):
     """ Description of a C# property """
@@ -505,6 +540,7 @@ class CSharpDomain(Domain):
         'struct':    ObjType(_('struct'), 'type', 'struct'),
         'function':    ObjType(_('function'), 'function', 'meth', 'func'),
         'member':     ObjType(_('member'), 'member', 'var'),
+        'var':     ObjType(_('var'), 'var', 'member'),
         'property':  ObjType(_('property'), 'prop'),
         'enum':      ObjType(_('enum'), 'enum'),
         'enumerator': ObjType(_('enumerator'), 'enumerator'),
@@ -518,7 +554,7 @@ class CSharpDomain(Domain):
         'inherits':  CSharpInherits,
         'function':  CSharpMethod,
         'member':    CSharpMethod,
-        'var':       CSharpObject,
+        'var':       CSharpVariable,
         'property':  CSharpProperty,
         'enum':      CSharpEnum,
         'enumerator': CSharpEnumValue,
