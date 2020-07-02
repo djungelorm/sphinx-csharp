@@ -19,7 +19,7 @@ MODIFIERS_RE = '|'.join(['public', 'private', 'internal', 'protected',
                          'virtual', 'volatile'])
 PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
-TYPE_RE = r'(?P<fulltype>(?P<type>[^\s<\[{\*&]+)\s*(?P<generics><\s*.+\s*>)?\s*(?P<array>\[,*\])?\s*(?:\*|&)?)'
+TYPE_RE = r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*(?P<array>\[,*\])?\s*(?:\*|&)?)\??'
 
 METH_SIG_RE = re.compile(
     r'^((?:(?:' + MODIFIERS_RE +
