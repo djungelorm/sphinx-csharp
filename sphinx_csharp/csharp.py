@@ -812,7 +812,7 @@ class CSharpDomain(Domain):
         'member': ObjType(_('member'), 'member', 'var'),
 
         'enum': ObjType(_('enum'), 'type', 'enum'),
-        'enumerator': ObjType(_('enumerator'), 'enumerator'),
+        'enumerator': ObjType(_('enumerator'), 'enumerator', 'value'),
         'attribute': ObjType(_('attribute'), 'attr'),
         'indexer': ObjType(_('indexer'), 'idxr'),
 
@@ -835,6 +835,7 @@ class CSharpDomain(Domain):
 
         'enum':      CSharpEnum,
         'enumerator': CSharpEnumValue,
+        'value':     CSharpEnumValue,
         'attribute': CSharpAttribute,
         'indexer':   CSharpIndexer,
     }
@@ -856,6 +857,7 @@ class CSharpDomain(Domain):
 
         'enum': CSharpXRefRole(),
         'enumerator': CSharpXRefRole(),
+        'value': CSharpXRefRole(),
         'attr': CSharpXRefRole(),
         'idxr': CSharpXRefRole(),
 
