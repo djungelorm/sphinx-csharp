@@ -15,10 +15,10 @@ from sphinx.util.nodes import make_refnode
 from sphinx.util import logging
 
 MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
-                         'abstract', 'async', 'const', 'event',
-                         'extern', 'new', 'override', 'partial',
-                         'readonly', 'sealed', 'static', 'unsafe',
-                         'virtual', 'volatile'])
+                                'abstract', 'async', 'const', 'event', 'delegate',
+                                'extern', 'new', 'override', 'partial',
+                                'readonly', 'sealed', 'static', 'unsafe',
+                                'virtual', 'volatile', 'ref'])
 MODIFIERS_RE = r'\s*(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)?\s*'
 
 PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
@@ -27,9 +27,10 @@ TYPE_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
           r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
           r'(?P<array>\[,*\])?\s*(?:\*|&)?)\??'
 
-# TODO: use TYPE_RE and MODIFIERS_RE with named groups
 METH_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE + r'([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
+    r'^' + MODIFIERS_RE + TYPE_RE + r'\s*(?P<fname>[^\s<(]+)\s*'
+                                    r'(?P<genericparams><[^\(]+>)?\s*'
+                                    r'\((?P<params>.*)?\)$')
 
 VAR_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
@@ -90,7 +91,12 @@ def parse_method_signature(sig):
         logger.warning('Method signature invalid: ' + sig)
         return sig.strip(), None
 
-    modifiers, return_type, name, generic_types, params = match.groups()
+    groups = match.groupdict()
+    modifiers = groups['modifiers'].split()
+    return_type = groups['fulltype'].strip()
+    name = groups['fname']
+    generic_params = groups['genericparams']
+    params = groups['params']
 
     if params.strip() != '':
         params = split_sig(params)
@@ -98,7 +104,8 @@ def parse_method_signature(sig):
     else:
         params = []
 
-    return modifiers.split(), return_type, name, generic_types, params
+    # logger.info(f"parsed func: {modifiers, return_type, name, generic_params, params}")
+    return modifiers, return_type, name, generic_params, params
 
 
 def parse_variable_signature(sig):
