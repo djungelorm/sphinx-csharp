@@ -716,45 +716,70 @@ class CSharpDomain(Domain):
     label = 'C#'
 
     object_types = {
-        'class':     ObjType(_('class'), 'type', 'class'),
-        'struct':    ObjType(_('struct'), 'type', 'struct'),
-        'function':    ObjType(_('function'), 'function', 'meth', 'func', 'type'),
-        'member':     ObjType(_('member'), 'member', 'var'),
-        'var':     ObjType(_('var'), 'var', 'member', 'type'),
-        'property':  ObjType(_('property'), 'prop'),
-        'enum':      ObjType(_('enum'), 'type', 'enum'),
+        # 'key': ObjType(_('key in directives?'), 'roles keys that can reference this')
+        'namespace': ObjType(_('namespace'), 'namespace'),
+
+        'class': ObjType(_('class'), 'type', 'class'),
+        'struct': ObjType(_('struct'), 'type', 'struct'),
+        'interface': ObjType(_('interface'), 'type', 'interface'),
+
+        'function': ObjType(_('function'), 'type', 'function', 'func', 'meth'),
+        # 'method': ObjType(_('method'), 'type', 'meth'),
+
+        'var': ObjType(_('var'), 'var', 'member', 'type'),
+        'property': ObjType(_('property'), 'prop'),
+        'event': ObjType(_('event'), 'type', 'event'),
+        'member': ObjType(_('member'), 'member', 'var'),
+
+        'enum': ObjType(_('enum'), 'type', 'enum'),
         'enumerator': ObjType(_('enumerator'), 'enumerator'),
         'attribute': ObjType(_('attribute'), 'attr'),
-        'indexer':   ObjType(_('indexer'), 'idxr'),
+        'indexer': ObjType(_('indexer'), 'idxr'),
+
     }
     directives = {
+        'namespace': CSharpCurrentNamespace,
+
         'class':     CSharpClass,
         'struct':    CSharpStruct,
         'interface': CSharpClass,
         'inherits':  CSharpInherits,
+
         'function':  CSharpMethod,
-        'member':    CSharpVariable,
+        'method':    CSharpMethod,
+
         'var':       CSharpVariable,
         'property':  CSharpProperty,
+        'event':     CSharpEvent,
+        'member':    CSharpVariable,
+
         'enum':      CSharpEnum,
         'enumerator': CSharpEnumValue,
         'attribute': CSharpAttribute,
         'indexer':   CSharpIndexer,
-        'namespace': CSharpCurrentNamespace,
     }
     roles = {
-        'type': CSharpXRefRole(),
+        # 'key, rst to write a reference': 'type of reference'
+        'namespace': CSharpXRefRole(),
+
         'class': CSharpXRefRole(),
         'struct': CSharpXRefRole(),
-        'meth': CSharpXRefRole(),
+        'interface': CSharpXRefRole(),
+
         'func': CSharpXRefRole(),
+        'meth': CSharpXRefRole(),
+
         'var': CSharpXRefRole(),
-        'member': CSharpXRefRole(),
         'prop': CSharpXRefRole(),
+        'event': CSharpXRefRole(),
+        'member': CSharpXRefRole(),
+
         'enum': CSharpXRefRole(),
         'enumerator': CSharpXRefRole(),
         'attr': CSharpXRefRole(),
         'idxr': CSharpXRefRole(),
+
+        'type': CSharpXRefRole(),
     }
     initial_data = {
         'objects': {},  # fullname -> docname, objtype
