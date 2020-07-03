@@ -25,10 +25,14 @@ PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
 TYPE_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
           r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
-          r'(?P<array>\[,*\])?\s*(?:\*|&)?)\??'
+          r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\??'
+
+TYPE_OPTIONAL_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
+          r'(?:(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
+          r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\s+)?\??'
 
 METH_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE + TYPE_RE + r'\s*(?P<fname>[^\s<(]+)\s*'
+    r'^' + MODIFIERS_RE + TYPE_OPTIONAL_RE + r'(?P<fname>[^\s<(]+)\s*'
                                     r'(?P<genericparams><[^\(]+>)?\s*'
                                     r'\((?P<params>.*)?\)$')
 
@@ -93,10 +97,13 @@ def parse_method_signature(sig):
 
     groups = match.groupdict()
     modifiers = groups['modifiers'].split()
-    return_type = groups['fulltype'].strip()
+    return_type = groups['fulltype']
     name = groups['fname']
     generic_params = groups['genericparams']
     params = groups['params']
+
+    if return_type:
+        return_type = return_type.strip()
 
     if params.strip() != '':
         params = split_sig(params)
@@ -127,6 +134,9 @@ def parse_variable_signature(sig):
 
     if not generics:
         generics = []
+    else:
+        # Remove outermost < > brackets
+        generics = split_sig(generics[1:-1])
 
     # logger.info(f"parsed var: {modifiers, fulltype, typ, generics, name, value}")
     return modifiers, fulltype, typ, generics, name, value
@@ -192,11 +202,12 @@ def parse_type_signature(sig):
         generics = groups['templates']
     inherited_types = groups['inherits']
     array = groups['array']
+    ptr = groups['ptr']
 
     if not generics:
         generics = []
     else:
-        # Remove outmost < > brackets
+        # Remove outermost < > brackets
         generics = split_sig(generics[1:-1])
 
     if not inherited_types:
@@ -205,7 +216,7 @@ def parse_type_signature(sig):
         inherited_types = split_sig(inherited_types)
 
     # logger.info(f"parsed type: {typ, generics, inherited_types, array}")
-    return typ, generics, inherited_types, array
+    return typ, generics, inherited_types, array, ptr
 
 
 def parse_attr_signature(sig):
@@ -440,8 +451,8 @@ class CSharpObject(ObjectDescription):
             signode += nodes.emphasis(modifier, modifier)
             signode += nodes.Text('\xa0')
 
-    def append_type(self, node, typ):
-        typ, generic_types, inherited_types, array = parse_type_signature(typ)
+    def append_type(self, node, input_typ):
+        typ, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
             reftarget=typ, modname=None, classname=None)
@@ -453,10 +464,13 @@ class CSharpObject(ObjectDescription):
             tnode['cs:parent'] = self.get_parent()
         tnode += nodes.Text(shorten_type(typ))
         node += tnode
+
         if generic_types:
             self.append_generics(node, generic_types)
         if array:
             node += nodes.Text(array)
+        if ptr:
+            node += nodes.Text(ptr)
 
     def append_generics(self, node, generics: List[str], nolink=False):
         """ nolink will disable xref's, use for newly declared generics in a class declaration """
@@ -533,7 +547,7 @@ class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig, signode):
-        typ, generics, inherits, _ = parse_type_signature(sig)
+        typ, generics, inherits, _, _ = parse_type_signature(sig)
         prefix = 'class' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
@@ -549,7 +563,7 @@ class CSharpStruct(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig, signode):
-        typ, generics, inherits, _ = parse_type_signature(sig)
+        typ, generics, inherits, _, _ = parse_type_signature(sig)
         prefix = 'struct' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
@@ -565,7 +579,7 @@ class CSharpInterface(CSharpObject):
     """ Description of a C# interface """
 
     def handle_signature(self, sig, signode):
-        typ, generics, inherits, _ = parse_type_signature(sig)
+        typ, generics, inherits, _, _ = parse_type_signature(sig)
         prefix = 'interface' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
@@ -581,7 +595,7 @@ class CSharpInherits(CSharpObject):
     """ Description of an inherited C# struct """
 
     def handle_signature(self, sig, signode):
-        typ, _, _, _ = parse_type_signature(sig)
+        typ, _, _, _, _ = parse_type_signature(sig)
         signode += nodes.Text(': ')
         self.append_type(signode, sig)
         return self.get_fullname(typ)
@@ -591,16 +605,22 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig, signode):
-        modifiers, typ, name, generic_types, params = parse_method_signature(sig)
+        modifiers, return_type, name, generic_params, params = parse_method_signature(sig)
         self.append_modifiers(signode, modifiers)
-        if typ is not None:
-            self.append_type(signode, typ)
+
+        # note: constructors don't have a return type
+        if return_type is not None:
+            self.append_type(signode, return_type)
             signode += nodes.Text('\xa0')
+
         signode += addnodes.desc_name(name, name)
-        if generic_types is not None:
-            signode += nodes.Text(generic_types)
+
+        if generic_params is not None:
+            signode += nodes.Text(generic_params)
         signode += nodes.Text('\xa0')
+
         self.append_parameters(signode, params)
+
         return self.get_fullname(name)
 
 
