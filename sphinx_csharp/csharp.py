@@ -448,8 +448,7 @@ class CSharpObject(ObjectDescription):
         if not modifiers:
             return
         for modifier in modifiers:
-            signode += nodes.emphasis(modifier, modifier)
-            signode += nodes.Text('\xa0')
+            signode += addnodes.desc_annotation(modifier, modifier)
 
     def append_type(self, node, input_typ):
         typ, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
@@ -462,7 +461,9 @@ class CSharpObject(ObjectDescription):
             tnode['cs:parent'] = None
         else:
             tnode['cs:parent'] = self.get_parent()
-        tnode += nodes.Text(shorten_type(typ))
+
+        typ_short = shorten_type(typ)
+        tnode += addnodes.desc_type(typ_short, typ_short)
         node += tnode
 
         if generic_types:
@@ -477,7 +478,7 @@ class CSharpObject(ObjectDescription):
         node += nodes.Text('<')
         for i, typ in enumerate(generics):
             if nolink:
-                node += nodes.Text(typ)
+                node += addnodes.desc_type(typ, typ)
             else:
                 self.append_type(node, typ)
             if i != len(generics) - 1:
