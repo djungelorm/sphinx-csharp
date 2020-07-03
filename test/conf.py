@@ -5,7 +5,7 @@ copyright = '2015-2016, djungelorm'
 
 master_doc = 'index'
 source_suffix = '.rst'
-extensions = ['sphinx_csharp.csharp']
+extensions = ['sphinx_csharp']
 
 pygments_style = 'sphinx'
 

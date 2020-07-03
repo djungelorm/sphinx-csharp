@@ -4,6 +4,7 @@ import re
 from collections import namedtuple
 from typing import List
 
+import requests
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
@@ -147,7 +148,7 @@ def parse_property_signature(sig):
         modifier* type name { (get;)? (set;)? } """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
-        logger.info(f'Property signature invalid: {sig}, parsing as variable')
+        logger.info(f'Property signature not valid, falling back to variable: {sig}')
         modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig)
         return modifiers, fulltype, name, False, False
     groups = match.groups()
@@ -235,11 +236,13 @@ def parse_attr_signature(sig):
 
 
 IGNORE_XREF_TYPES = [
-    # Built-in types
     '*',
     '&',
     'void',
+
+    # Built-in types
     'string',
+    # 'bool',
     'int',
     'long',
     'uint',
@@ -247,123 +250,162 @@ IGNORE_XREF_TYPES = [
     'float',
     'double',
     'byte',
-    'bool',
     'object',
-
-    # System types
-    'IDisposable',
-
-    # Unity Types
-    'Vector2',
-    'Vector3',
-    'Vector4',
-    'Quaternion',
-    'Color',
-    'Gradient',
-    'Material',
-    'Image',
-    'Button',
-    'Toggle',
-    'Sprite',
-    'Sprite',
-    'Animator',
-    'Collider',
-    'SphereCollider',
-    'Func',
-    'Action',
-    'UnityAction',
-    'Thread',
 ]
 
-EXTERNAL_XREF_TYPES = {
-    'List': 'System.Collections.Generic.List',
-    # 'IList': 'System.Collections.Generic.IList',
-    'MonoBehaviour': 'UnityEngine',
-    'ScriptableObject': 'UnityEngine',
-    'GameObject': 'UnityEngine',
-    'Transform': 'UnityEngine',
-    # 'RectTransform': 'UnityEngine',
-    'InputDevice': 'UnityEngine.XR',
-    'InputDeviceCharacteristics': 'UnityEngine.XR',
-    'XRController': 'UnityEngine.XR.Interaction.Toolkit',
-    'XRRayInteractor': 'UnityEngine.XR.Interaction.Toolkit',
-    'XRBaseInteractable': 'UnityEngine.XR.Interaction.Toolkit',
-    # 'IEnumarator': '',
-    # 'Coroutine': '',
-    # 'TMP_Text': '',
-    # 'Space': '',
-    # 'NativeArray': '',
-    # 'MeshRenderer': '',
-    # 'MeshFilter': '',
-    # 'AssetImportContext': '',
-    # 'MeshImportPostprocessor': '',
-    # 'VertexAttributeDescriptor': '',
+
+EXTERNAL_TYPE_MAP = {
+    # 'site': {
+    #     'Namespace1': ['member1', ...],
+    #     ...
+    # },
+    # ...
+
+    'msdn': {
+        'System': ['bool', 'IDisposable', 'Func'],
+        'System.Collections': ['IEnumerator'],
+        'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet',
+                                       'IEnumerable'],
+    },
+    'unity': {
+        '': ['MonoBehaviour', 'ScriptableObject',
+             'GameObject', 'Transform', 'RectTransform',
+             'MeshRenderer', 'MeshFilter', 'Animator',
+             'Collider', 'SphereCollider', 'BoxCollider',
+             'Material', 'Sprite',
+             'Vector2', 'Vector3', 'Vector4', 'Quaternion', 'Color', 'Gradient',
+             'Coroutine', 'Space',
+             'AssetPostprocessor'
+             ],
+        'XR': ['InputDevice', 'InputDeviceCharacteristics'],
+        'Unity.Collections': ['NativeArray'],
+        'Experimental.AssetImporters': ['AssetImportContext', 'MeshImportPostprocessor', 'ScriptedImporter'],
+        'Rendering': ['VertexAttributeDescriptor'],
+        'Events': ['UnityAction'],
+    },
+    'upm.xrtk': {'UnityEngine.XR.Interaction.Toolkit': ['XRRayInteractor', 'XRBaseInteractable', 'XRController']},
+    'upm.tmp': {'TMPro': ['TMP_Text']},
+    'upm.ugui': {'': ['Image', 'Button', 'Toggle']},
 }
 
-EXTERNAL_LINKS = {
-    'System.Collections.Generic.List': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1',  # noqa  # pylint: disable=line-too-long
-    'System.Collections.Generic.Dictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2',  # noqa  # pylint: disable=line-too-long
-    'System.Collections.Generic.IList': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ilist-1',  # noqa  # pylint: disable=line-too-long
-    'System.Collections.Generic.IDictionary': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.idictionary-2',  # noqa  # pylint: disable=line-too-long
-    'System.Collections.Generic.ISet': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.iset-1',  # noqa  # pylint: disable=line-too-long
-    'System.Collections.Generic.IEnumerable': 'https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.ienumerable-1',  # noqa  # pylint: disable=line-too-long
-    'System.Boolean': 'https://docs.microsoft.com/en-us/dotnet/api/system.boolean?view=netcore-3.1',  # noqa  # pylint: disable=line-too-long
-    'UnityEngine.MonoBehaviour': 'unityapi/MonoBehaviour',
-    'UnityEngine.GameObject': 'unityapi/GameObject',
-    'UnityEngine.Transform': 'unityapi/Transform',
-    'UnityEngine.XR.Interaction.Toolkit.InputDevice': 'unitypkg/com.unity.xr.interaction.toolkit@0.9/manual/index.html',
-    'UnityEngine.XR.InputDevice': 'UnityEngine.XR.Interaction.Toolkit https://docs.unity3d.com/ScriptReference/XR.InputDevice.html',
-    'UnityEngine.XR.InputDeviceCharacteristics': 'https://docs.unity3d.com/ScriptReference/XR.InputDeviceCharacteristics.html',
-    'UnityEngine.XR.Interaction.Toolkit.XRController': 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/UnityEngine.XR.Interaction.Toolkit.XRController.html',
-    'UnityEngine.XR.Interaction.Toolkit.XRRayInteractor': 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/UnityEngine.XR.Interaction.Toolkit.XRRayInteractor.html',
-    'UnityEngine.XR.Interaction.Toolkit.XRBaseInteractable': 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/UnityEngine.XR.Interaction.Toolkit.XRBaseInteractable.html',
+EXTERNAL_TYPE_SPECIAL_CASES = {
+    # Put special cases in here that should be renamed, use it for generics
+    # The name is swapped after searching EXTERNAL_TYPE_MAP, just before constructing the url link
+    'bool': 'Boolean',
+    'List': 'List-1',
+    'Dictionary': 'Dictionary-2',
+    'IList': 'IList-1',
+    'IDictionary': 'IDictionary-2',
+    'ISet': 'ISet-2',
+    'IEnumerable': 'IEnumerable-1',
+    'Func': 'Func-1',
+
+    'NativeArray': 'NativeArray_1',
 }
 
+# similar to ext.extlinks
+EXTERNAL_SEARCH_PAGES = {
+    # Syntax:
+    # 'package': (api link, fallback search link)
+    # Use %s for where to substitute item
 
-def get_external_ref(name: str) -> (bool, nodes):
-    """ Try and create a reference to a type on MSDN
-    returns: bool true if the node should be ignored, Node None when a type was not found """
-    if name in IGNORE_XREF_TYPES:
-        return True, None
+    'msdn': ('https://docs.microsoft.com/en-us/dotnet/api/%s',
+             'https://docs.microsoft.com/en-us/search/?category=All&scope=.NET&terms=%s'),
+    'unity': ('https://docs.unity3d.com/ScriptReference/%s.html',
+              'https://docs.unity3d.com/ScriptReference/30_search.html?q=%s'),
+    'unityman': ('https://docs.unity3d.com/Manual/%s.html',
+                 'https://docs.unity3d.com/Manual/30_search.html?q=%s'),
+    'upm': ('https://docs.unity3d.com/Packages/%s',
+            'https://docs.unity3d.com/Packages/%s'),
+    'upm.xrtk': ('https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/%s.html',
+                 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/?%s'),
+    'upm.tmp': ('https://docs.unity3d.com/Packages/com.unity.textmeshpro@1.2/api/%s.html',
+                'https://docs.unity3d.com/Packages/com.unity.textmeshpro@1.2/?%s'),
+    'upm.ugui': ('https://docs.unity3d.com/Packages/com.unity.ugui@1.0/manual/script-%s.html',
+                 'https://docs.unity3d.com/Packages/com.unity.ugui@1.0/manual/index.html?%s')
+}
 
-    is_external = False
+def check_ignored_ref(name: str) -> bool:
+    """ Checks if the target is a built-in type or other ignored strings """
+    return name in IGNORE_XREF_TYPES
+
+
+def get_external_ref(name: str) -> nodes:
+    """
+    Looks in the predefined external targets and adds the link if it is found
+    returns: None if unsuccessful
+    """
+
     fullname = name
-    if name in EXTERNAL_XREF_TYPES:
-        is_external = True
-        fullname = EXTERNAL_XREF_TYPES[name]
+    name_split = name.rsplit('.', 1)
+    if len(name_split) == 2:
+        # We also have the namespace in the name
+        parent, name = name_split
+        matches = [(pkg, namespace) for pkg in EXTERNAL_TYPE_MAP
+                   for namespace in EXTERNAL_TYPE_MAP[pkg]
+                   if name in EXTERNAL_TYPE_MAP[pkg][namespace]
+                   and namespace.endswith(parent)]
+        if len(matches) > 1:
+            # Enforce exact match if there are several
+            matches_strict = [i for i in matches if i[1] == parent]
+            if len(matches_strict) >= 1:
+                matches = matches_strict
+    else:
+        # search all namespaces
+        parent = None
+        matches = [(pkg, namespace) for pkg in EXTERNAL_TYPE_MAP
+                   for namespace in EXTERNAL_TYPE_MAP[pkg]
+                   if name in EXTERNAL_TYPE_MAP[pkg][namespace]]
 
-        # i.e. append name itself if it is not a built in type (e.g. bool)
-        if not fullname.startswith('System.'):
-            fullname += '.' + name
+    if not matches:
+        return None
 
-    if is_external or name.startswith('System.') or name.startswith('UnityEngine.'):
-        link = EXTERNAL_LINKS.get(fullname.split('<', 1)[0], None)
+    if len(matches) > 1:
+        logger.warning(f"ambiguous external reference for '{fullname}' using first, "
+                       f"found matches: {matches}")
 
-        if not link:
-            logger.warning(f"Failed finding link for external type: {fullname} (short: {name})\n"
-                           f"Have you added it to EXTERNAL_XREF_TYPES but not EXTERNAL_LINKS?\n"
-                           f"You may want to add this to IGNORE_XREF_TYPES otherwise.")
+    pkg, parent = matches[0]
 
-            return True, None
+    link_name = name
+    if name in EXTERNAL_TYPE_SPECIAL_CASES:
+        link_name = EXTERNAL_TYPE_SPECIAL_CASES[name]
 
-        if link.startswith('msdn/'):
-            url = 'https://docs.microsoft.com/en-us/dotnet/api' + link[len('msdn'):]
-        elif link.startswith('unityapi/'):
-            url = 'https://docs.unity3d.com/ScriptReference' + link[len('unityapi'):]
-        elif link.startswith('unitypkg/'):
-            url = 'https://docs.unity3d.com/Packages' + link[len('unitypkg'):]
-        elif link.startswith('unityman/'):
-            url = 'https://docs.unity3d.com/Manual' + link[len('unityman'):]
-        else:
-            url = link
+    if parent:
+        # Skip for empty strings
+        fullname = parent + '.' + link_name
 
-        node = nodes.reference(fullname, shorten_type(name))
-        node['refuri'] = url
-        node['reftitle'] = name
+    try:
+        apilink = EXTERNAL_SEARCH_PAGES[pkg][0] % fullname
+    except KeyError:
+        logger.warning(f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
+                       f"target fullname: {fullname}")
+        return None
 
-        return False, node
-    return False, None
+    if get_external_ref.check_url_with_request:
+        try:
+            apilink_status_code = requests.get(apilink, timeout=3).status_code
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            get_external_ref.check_url_with_request = False
 
+    if not get_external_ref.check_url_with_request or apilink_status_code < 400:
+        url = apilink
+    else:
+        # Use search link or homepage instead
+        logger.warning(f"invalid API link, using fallback, "
+                       f"status_code={apilink_status_code}, apilink={apilink}")
+        url = EXTERNAL_SEARCH_PAGES[pkg][1] % fullname
+
+    node = nodes.reference(fullname, shorten_type(name))
+    node['refuri'] = url
+    node['reftitle'] = name
+
+    # TODO: Create cache dict (name, url)
+
+    # logger.info(f"found extlink: {name}, {url}")
+    return node
+
+# TODO: store this in the config?
+get_external_ref.check_url_with_request = True
 
 SHORTEN_TYPE_PREFIXES = [
     'System.',
@@ -860,14 +902,16 @@ class CSharpDomain(Domain):
         # 2. Search recognized built-in/external override types first, e.g. float, bool, void
         #    (currently also all other external types)
         for tgt in targets:
-            ignore_ref, ref = get_external_ref(tgt)
-            if ignore_ref:
+            if check_ignored_ref(tgt):
                 return None
-            if ref is not None:
-                return ref
+
 
         # 3. Found no local objects that match
         if len(objects) == 0:
+            # 3b Look externally
+            ref = get_external_ref(target)
+            if ref is not None:
+                return ref
             logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
                            f"searched in object types: {objtypes}")
                            # f", filter1: {[i for i in self.data['objects'] if i[1].endswith(target)]}"
@@ -897,6 +941,11 @@ class CSharpDomain(Domain):
                                         objects[match_objtype, match_tgt],
                                         match_objtype + '-' + match_tgt,
                                         contnode, match_tgt + ' ' + match_objtype)
+
+        # 6. Look externally
+        ref = get_external_ref(target)
+        if ref is not None:
+            return ref
 
         logger.warning(f"Failed to find xref for: {targets}, searched in object types: {objtypes}, parents: {parents}")
 

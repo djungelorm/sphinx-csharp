@@ -4,3 +4,5 @@ test-output
 *.egg-info
 
 test/_build/
+
+_build/
