@@ -438,7 +438,7 @@ class CSharpObject(ObjectDescription):
             return
         for modifier in modifiers:
             signode += nodes.emphasis(modifier, modifier)
-            signode += nodes.Text(u' ')
+            signode += nodes.Text('\xa0')
 
     def append_type(self, node, typ):
         typ, generic_types, inherited_types, array = parse_type_signature(typ)
@@ -486,10 +486,10 @@ class CSharpObject(ObjectDescription):
             self.append_modifiers(pnode, param.modifiers)
 
             self.append_type(pnode, param.typ)
-            pnode += nodes.Text(u' ')
+            pnode += nodes.Text('\xa0')
             pnode += nodes.emphasis(param.name, param.name)
             if param.default is not None:
-                default = u' = ' + param.default
+                default = ' = ' + param.default
                 pnode += nodes.emphasis(default, default)
             pnodes += pnode
         node += pnodes
@@ -500,10 +500,10 @@ class CSharpObject(ObjectDescription):
 
         for param in params:
             if pnodes.children:
-                pnodes += nodes.Text(u', ')
+                pnodes += nodes.Text(', ')
 
             self.append_type(pnodes, param.typ)
-            pnodes += nodes.Text(u' ')
+            pnodes += nodes.Text('\xa0')
             pnodes += nodes.emphasis(param.name, param.name)
 
         pnodes += nodes.Text(']')
@@ -595,11 +595,11 @@ class CSharpMethod(CSharpObject):
         self.append_modifiers(signode, modifiers)
         if typ is not None:
             self.append_type(signode, typ)
-            signode += nodes.Text(' ')
+            signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
         if generic_types is not None:
             signode += nodes.Text(generic_types)
-        signode += nodes.Text(' ')
+        signode += nodes.Text('\xa0')
         self.append_parameters(signode, params)
         return self.get_fullname(name)
 
@@ -612,7 +612,7 @@ class CSharpVariable(CSharpObject):
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, fulltype)
-        signode += nodes.Text(' ')
+        signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
 
         if default_value:
@@ -631,7 +631,7 @@ class CSharpProperty(CSharpObject):
         self.append_modifiers(signode, modifiers)
         if typ:
             self.append_type(signode, typ)
-        signode += nodes.Text(' ')
+        signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
         signode += nodes.Text(' { ')
         extra = []
@@ -657,7 +657,7 @@ class CSharpEvent(CSharpObject):
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, fulltype)
-        signode += nodes.Text(' ')
+        signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
 
         if default_value:
@@ -674,7 +674,7 @@ class CSharpIndexer(CSharpObject):
         modifiers, typ, params, getter, setter = parse_indexer_signature(sig)
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
-        signode += nodes.Text(' ')
+        signode += nodes.Text('\xa0')
         signode += addnodes.desc_name('this[]', 'this')
         self.append_indexer_parameters(signode, params)
         signode += nodes.Text(' { ')
@@ -715,7 +715,7 @@ class CSharpAttribute(CSharpObject):
         name, params = parse_attr_signature(sig)
         signode += addnodes.desc_name(name, name)
         if params:
-            signode += nodes.Text(' ')
+            signode += nodes.Text('\xa0')
             self.append_parameters(signode, params)
         return self.get_fullname(name)
 
