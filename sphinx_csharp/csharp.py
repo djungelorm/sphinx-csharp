@@ -27,9 +27,9 @@ TYPE_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
           r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
           r'(?P<array>\[,*\])?\s*(?:\*|&)?)\??'
 
+# TODO: use TYPE_RE and MODIFIERS_RE with named groups
 METH_SIG_RE = re.compile(
-    r'^((?:(?:' + MODIFIERS_RE_SIMPLE +
-    r')\s+)*)([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
+    r'^' + MODIFIERS_RE + r'([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
 
 VAR_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
@@ -42,6 +42,7 @@ IDXR_SIG_RE = re.compile(
     r')\s+)*)([^\s]+)\s*this\s*\[\s*((?:[^\s]+)\s+(?:[^\s]+)' +
     r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' +
     r'\{\s*(get;)?\s*(set;)?\s*\}$')
+
 PARAM_SIG_RE = re.compile(
     r'^((?:(?:' + PARAM_MODIFIERS_RE +
     r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
@@ -88,7 +89,9 @@ def parse_method_signature(sig):
     if not match:
         logger.warning('Method signature invalid: ' + sig)
         return sig.strip(), None
+
     modifiers, return_type, name, generic_types, params = match.groups()
+
     if params.strip() != '':
         params = split_sig(params)
         params = [parse_param_signature(x) for x in params]
@@ -630,6 +633,23 @@ class CSharpProperty(CSharpObject):
         return self.get_fullname(name)
 
 
+class CSharpEvent(CSharpObject):
+    """ Description of a C# event """
+
+    def handle_signature(self, sig, signode):
+        # Remove namespace for now, I think events are not yet supported by breathe?
+        sig = sig.rsplit('::', 1)[1]
+
+        prefix = 'event' + ' '
+        signode += addnodes.desc_annotation(prefix, prefix)
+
+        # self.append_modifiers(signode, modifiers)
+        # self.append_type(signode, fulltype)
+
+        signode += addnodes.desc_name(sig, sig)
+
+        return self.get_fullname(sig)
+
 class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
@@ -656,8 +676,9 @@ class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
 
     def handle_signature(self, sig, signode):
-        desc_name = 'enum %s' % sig
-        signode += addnodes.desc_name(desc_name, desc_name)
+        prefix = 'enum' + ' '
+        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += addnodes.desc_name(sig, sig)
         return self.get_fullname(sig)
 
 
