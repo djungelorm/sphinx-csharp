@@ -20,9 +20,13 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
                                 'extern', 'new', 'override', 'partial',
                                 'readonly', 'sealed', 'static', 'unsafe',
                                 'virtual', 'volatile', 'ref'])
-MODIFIERS_RE = r'\s*(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)?\s*'
 
-PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
+PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
+
+MODIFIERS_RE = r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)\s+)?'
+# Exaclty the same but with param modifiers
+PARAM_MODIFIERS_RE = r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*'
+
 
 TYPE_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
           r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
@@ -39,6 +43,8 @@ METH_SIG_RE = re.compile(
 
 VAR_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
+VAR_PARAM_SIG_RE = re.compile(
+    r'^' + PARAM_MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
 
 PROP_SIG_RE = re.compile(
     r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
@@ -48,10 +54,10 @@ IDXR_SIG_RE = re.compile(
     r')\s+)*)([^\s]+)\s*this\s*\[\s*((?:[^\s]+)\s+(?:[^\s]+)' +
     r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' +
     r'\{\s*(get;)?\s*(set;)?\s*\}$')
-
-PARAM_SIG_RE = re.compile(
-    r'^((?:(?:' + PARAM_MODIFIERS_RE +
-    r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
+#
+# PARAM_SIG_RE = re.compile(
+#     r'^((?:(?:' + PARAM_MODIFIERS_RE +
+#     r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
 
 INHERITS_RE = r'(?:\s*:\s*(?P<inherits>.*))?'
 CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE + TYPE_RE + INHERITS_RE + r'$')
@@ -94,14 +100,19 @@ def parse_method_signature(sig):
     match = METH_SIG_RE.match(sig.strip())
     if not match:
         logger.warning('Method signature invalid: ' + sig)
-        return sig.strip(), None
+        return sig.strip(), None, None, None, None, None
 
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split()
+    modifiers = groups['modifiers']
     return_type = groups['fulltype']
     name = groups['fname']
     generic_params = groups['genericparams']
     params = groups['params']
+
+    if not modifiers:
+        modifiers = []
+    else:
+        modifiers = modifiers.split()
 
     if return_type:
         return_type = return_type.strip()
@@ -116,22 +127,30 @@ def parse_method_signature(sig):
     return modifiers, return_type, name, generic_params, params
 
 
-def parse_variable_signature(sig):
-    """ Parse a variable signature of the form:
-        modifier* type name """
-    match = VAR_SIG_RE.match(sig.strip())
+def parse_variable_signature(sig, is_param=False):
+    """
+    Parse a variable signature of the form:
+    modifier* type name
+    is_param: interpret as parameter? uses parameter modifiers
+    """
+    match = (VAR_PARAM_SIG_RE if is_param else VAR_SIG_RE).match(sig.strip())
     if not match:
-        logger.warning('Variable signature invalid: ' + sig)
-        return sig.strip(), None
+        logger.warning(('Parameter' if is_param else 'Variable') + ' signature invalid: ' + sig)
+        return sig.strip(), None, None, None, None, None
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split()
+    modifiers = groups['modifiers']
     fulltype = groups['fulltype'].strip()
     typ = groups['type']
     generics = groups['generics']
     if not generics:
         generics = groups['templates']
     name = groups['name']
-    value = groups['value']
+    default_value = groups['value']
+
+    if not modifiers:
+        modifiers = []
+    else:
+        modifiers = modifiers.split()
 
     if not generics:
         generics = []
@@ -140,7 +159,7 @@ def parse_variable_signature(sig):
         generics = split_sig(generics[1:-1])
 
     # logger.info(f"parsed var: {modifiers, fulltype, typ, generics, name, value}")
-    return modifiers, fulltype, typ, generics, name, value
+    return modifiers, fulltype, typ, generics, name, default_value
 
 
 def parse_property_signature(sig):
@@ -168,7 +187,8 @@ def parse_indexer_signature(sig):
     match = IDXR_SIG_RE.match(sig.strip())
     if not match:
         logger.warning('Indexer signature invalid: ' + sig)
-        return sig.strip(), None
+        # TODO: return a better default value?
+        return sig.strip(), None, None, False, False
     modifiers, return_type, params, getter, setter = match.groups()
     params = split_sig(params)
     params = [parse_param_signature(x) for x in params]
@@ -177,16 +197,14 @@ def parse_indexer_signature(sig):
 
 
 def parse_param_signature(sig):
-    """ Parse a parameter signature of the form: type name (= default)? """
-    match = PARAM_SIG_RE.match(sig.strip())
-    if not match:
+    """ Parse a parameter signature of the form: type name (= default)?
+        Interprets as a variable with different modifiers """
+    modifiers, fulltype, typ, generics, name, default_value = parse_variable_signature(sig, True)
+    if not fulltype:
         logger.warning('Parameter signature invalid, got ' + sig)
-        return sig.strip(), None
-    groups = match.groups()
-    modifiers = groups[0].split()
-    typ, name, _, default = groups[-4:]
-    return ParamTuple(name=name, typ=typ,
-                      default=default, modifiers=modifiers)
+        return ParamTuple(sig.strip(), None, None, None)
+
+    return ParamTuple(name=name, typ=fulltype, default=default_value, modifiers=modifiers)
 
 
 def parse_type_signature(sig):
@@ -194,7 +212,7 @@ def parse_type_signature(sig):
     match = CLASS_SIG_RE.match(sig.strip())
     if not match:
         logger.warning('Type signature invalid, got ' + sig)
-        return sig.strip(), None, None, None
+        return sig.strip(), None, None, None, None
     groups = match.groupdict()
     typ = groups['type']
     generics = groups['generics']
@@ -235,6 +253,8 @@ def parse_attr_signature(sig):
     return name, params
 
 
+# --- External Linking ---
+
 IGNORE_XREF_TYPES = [
     '*',
     '&',
@@ -262,7 +282,7 @@ EXTERNAL_TYPE_MAP = {
     # ...
 
     'msdn': {
-        'System': ['bool', 'IDisposable', 'Func'],
+        'System': ['bool', 'Tuple', 'IDisposable', 'Func'],
         'System.Collections': ['IEnumerator'],
         'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet',
                                        'IEnumerable'],
@@ -405,7 +425,7 @@ def get_external_ref(name: str) -> nodes:
     return node
 
 # TODO: store this in the config?
-get_external_ref.check_url_with_request = True
+get_external_ref.check_url_with_request = False
 
 SHORTEN_TYPE_PREFIXES = [
     'System.',
@@ -653,7 +673,10 @@ class CSharpMethod(CSharpObject):
 
         # note: constructors don't have a return type
         if return_type is not None:
-            self.append_type(signode, return_type)
+            if generic_params and return_type in generic_params:
+                signode += nodes.Text(return_type)
+            else:
+                self.append_type(signode, return_type)
             signode += nodes.Text('\xa0')
 
         signode += addnodes.desc_name(name, name)
@@ -812,7 +835,7 @@ class CSharpDomain(Domain):
         'member': ObjType(_('member'), 'member', 'var'),
 
         'enum': ObjType(_('enum'), 'type', 'enum'),
-        'enumerator': ObjType(_('enumerator'), 'enumerator', 'value'),
+        'enumerator': ObjType(_('enumerator'), 'enumerator'),
         'attribute': ObjType(_('attribute'), 'attr'),
         'indexer': ObjType(_('indexer'), 'idxr'),
 
@@ -826,7 +849,7 @@ class CSharpDomain(Domain):
         'inherits':  CSharpInherits,
 
         'function':  CSharpMethod,
-        'method':    CSharpMethod,
+        # 'method':    CSharpMethod,
 
         'var':       CSharpVariable,
         'property':  CSharpProperty,
@@ -835,7 +858,6 @@ class CSharpDomain(Domain):
 
         'enum':      CSharpEnum,
         'enumerator': CSharpEnumValue,
-        'value':     CSharpEnumValue,
         'attribute': CSharpAttribute,
         'indexer':   CSharpIndexer,
     }
