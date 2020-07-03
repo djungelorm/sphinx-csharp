@@ -12,25 +12,31 @@ from sphinx.roles import XRefRole
 from sphinx.util.nodes import make_refnode
 from sphinx.util import logging
 
-MODIFIERS_RE = '|'.join(['public', 'private', 'internal', 'protected',
+MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
                          'abstract', 'async', 'const', 'event',
                          'extern', 'new', 'override', 'partial',
                          'readonly', 'sealed', 'static', 'unsafe',
                          'virtual', 'volatile'])
+MODIFIERS_RE = r'\s*(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)?\s*'
+
 PARAM_MODIFIERS_RE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
-TYPE_RE = r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*(?P<array>\[,*\])?\s*(?:\*|&)?)\??'
+TYPE_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
+          r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
+          r'(?P<array>\[,*\])?\s*(?:\*|&)?)\??'
 
 METH_SIG_RE = re.compile(
-    r'^((?:(?:' + MODIFIERS_RE +
+    r'^((?:(?:' + MODIFIERS_RE_SIMPLE +
     r')\s+)*)([^\s]+\s+)*([^\s<]+)\s*(<[^\(]+>)?\s*\((.*)\)$')
+
 VAR_SIG_RE = re.compile(
-    r'^\s*(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE + r'))*)\s*' + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^' + MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
 
 PROP_SIG_RE = re.compile(
     r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
+
 IDXR_SIG_RE = re.compile(
-    r'^((?:(?:' + MODIFIERS_RE +
+    r'^((?:(?:' + MODIFIERS_RE_SIMPLE +
     r')\s+)*)([^\s]+)\s*this\s*\[\s*((?:[^\s]+)\s+(?:[^\s]+)' +
     r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' +
     r'\{\s*(get;)?\s*(set;)?\s*\}$')
@@ -38,8 +44,11 @@ PARAM_SIG_RE = re.compile(
     r'^((?:(?:' + PARAM_MODIFIERS_RE +
     r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
 
-CLASS_SIG_RE = re.compile(r'^' + TYPE_RE + r'\s*(?P<inherits>:\s*.*)?$')
+INHERITS_RE = r'(?:\s*:\s*(?P<inherits>.*))?'
+CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE + TYPE_RE + INHERITS_RE + r'$')
+
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
+
 ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
 
 logger = logging.getLogger(__name__)
@@ -96,16 +105,18 @@ def parse_variable_signature(sig):
         return sig.strip(), None
     groups = match.groupdict()
     modifiers = groups['modifiers'].split()
-    fulltype = groups['fulltype']
+    fulltype = groups['fulltype'].strip()
     typ = groups['type']
     generics = groups['generics']
+    if not generics:
+        generics = groups['templates']
     name = groups['name']
     value = groups['value']
 
     if not generics:
         generics = []
 
-    print(f"matched var: {modifiers, fulltype, typ, generics, name, value}")
+    # logger.info(f"parsed var: {modifiers, fulltype, typ, generics, name, value}")
     return modifiers, fulltype, typ, generics, name, value
 
 
@@ -163,21 +174,26 @@ def parse_type_signature(sig):
         return sig.strip(), None, None, None
     groups = match.groupdict()
     typ = groups['type']
-    generic_types = groups['generics']
+    generics = groups['generics']
+    if not generics:
+        # In case where input is from doxygen, it is in C++ style
+        generics = groups['templates']
     inherited_types = groups['inherits']
     array = groups['array']
 
-    if not generic_types:
-        generic_types = []
+    if not generics:
+        generics = []
     else:
-        generic_types = split_sig(generic_types[1:-1])
+        # Remove outmost < > brackets
+        generics = split_sig(generics[1:-1])
 
     if not inherited_types:
         inherited_types = []
     else:
-        inherited_types = split_sig(inherited_types.strip()[1:])
+        inherited_types = split_sig(inherited_types)
 
-    return typ, generic_types, inherited_types, array
+    # logger.info(f"parsed type: {typ, generics, inherited_types, array}")
+    return typ, generics, inherited_types, array
 
 
 def parse_attr_signature(sig):
@@ -420,16 +436,20 @@ class CSharpObject(ObjectDescription):
         tnode += nodes.Text(shorten_type(typ))
         node += tnode
         if generic_types:
-            node += nodes.Text('<')
-            for i, typ_param in enumerate(generic_types):
-                self.append_type(node, typ_param)
-                if i != len(generic_types)-1:
-                    node += nodes.Text(', ')
-            node += nodes.Text('>')
+            self.append_generics(node, generic_types)
         if array:
             node += nodes.Text(array)
 
-    def append_inherits(self, node, inherits):
+    def append_generics(self, node, generics: List[str]):
+        node += nodes.Text('<')
+        for i, typ in enumerate(generics):
+            self.append_type(node, typ)
+            if i != len(generics) - 1:
+                node += nodes.Text(', ')
+        node += nodes.Text('>')
+
+    def append_inherits(self, node, inherits: List[str]):
+        """ Adds inherited types, inherits must be a list of string types """
         node += nodes.Text(' : ')
         for (i, typ) in enumerate(inherits):
             self.append_type(node, typ)
@@ -496,6 +516,8 @@ class CSharpClass(CSharpObject):
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
 
+        if generics:
+            self.append_generics(signode, generics)
         if inherits:
             self.append_inherits(signode, inherits)
         return self.get_fullname(typ)
@@ -510,6 +532,8 @@ class CSharpStruct(CSharpObject):
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
 
+        if generics:
+            self.append_generics(signode, generics)
         if inherits:
             self.append_inherits(signode, inherits)
         return self.get_fullname(typ)
@@ -524,6 +548,8 @@ class CSharpInterface(CSharpObject):
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
 
+        if generics:
+            self.append_generics(signode, generics)
         if inherits:
             self.append_inherits(signode, inherits)
         return self.get_fullname(typ)
