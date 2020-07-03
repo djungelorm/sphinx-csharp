@@ -2,6 +2,8 @@
 
 import re
 from collections import namedtuple
+from typing import List
+
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
@@ -212,6 +214,7 @@ def parse_attr_signature(sig):
 
 
 IGNORE_XREF_TYPES = [
+    # Built-in types
     '*',
     '&',
     'void',
@@ -224,6 +227,10 @@ IGNORE_XREF_TYPES = [
     'double',
     'byte',
     'bool',
+    'object',
+
+    # System types
+    'IDisposable',
 
     # Unity Types
     'Vector2',
@@ -251,6 +258,7 @@ EXTERNAL_XREF_TYPES = {
     'List': 'System.Collections.Generic.List',
     # 'IList': 'System.Collections.Generic.IList',
     'MonoBehaviour': 'UnityEngine',
+    'ScriptableObject': 'UnityEngine',
     'GameObject': 'UnityEngine',
     'Transform': 'UnityEngine',
     # 'RectTransform': 'UnityEngine',
@@ -440,10 +448,14 @@ class CSharpObject(ObjectDescription):
         if array:
             node += nodes.Text(array)
 
-    def append_generics(self, node, generics: List[str]):
+    def append_generics(self, node, generics: List[str], nolink=False):
+        """ nolink will disable xref's, use for newly declared generics in a class declaration """
         node += nodes.Text('<')
         for i, typ in enumerate(generics):
-            self.append_type(node, typ)
+            if nolink:
+                node += nodes.Text(typ)
+            else:
+                self.append_type(node, typ)
             if i != len(generics) - 1:
                 node += nodes.Text(', ')
         node += nodes.Text('>')
@@ -517,7 +529,7 @@ class CSharpClass(CSharpObject):
         signode += addnodes.desc_name(typ, typ)
 
         if generics:
-            self.append_generics(signode, generics)
+            self.append_generics(signode, generics, nolink=True)
         if inherits:
             self.append_inherits(signode, inherits)
         return self.get_fullname(typ)
@@ -533,7 +545,7 @@ class CSharpStruct(CSharpObject):
         signode += addnodes.desc_name(typ, typ)
 
         if generics:
-            self.append_generics(signode, generics)
+            self.append_generics(signode, generics, nolink=True)
         if inherits:
             self.append_inherits(signode, inherits)
         return self.get_fullname(typ)
@@ -549,7 +561,7 @@ class CSharpInterface(CSharpObject):
         signode += addnodes.desc_name(typ, typ)
 
         if generics:
-            self.append_generics(signode, generics)
+            self.append_generics(signode, generics, nolink=True)
         if inherits:
             self.append_inherits(signode, inherits)
         return self.get_fullname(typ)
