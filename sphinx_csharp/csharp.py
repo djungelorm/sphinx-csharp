@@ -601,12 +601,17 @@ class CSharpVariable(CSharpObject):
     """ Description of a C# variable """
 
     def handle_signature(self, sig, signode):
-        modifiers, fulltype, _, _, name, _ = parse_variable_signature(sig)
+        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig)
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, fulltype)
         signode += nodes.Text(' ')
         signode += addnodes.desc_name(name, name)
+
+        if default_value:
+            signode += nodes.Text(' = ')
+            signode += nodes.Text(default_value)
+
         return self.get_fullname(name)
 
 
@@ -638,17 +643,22 @@ class CSharpEvent(CSharpObject):
 
     def handle_signature(self, sig, signode):
         # Remove namespace for now, I think events are not yet supported by breathe?
-        sig = sig.rsplit('::', 1)[1]
+        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig)
 
         prefix = 'event' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
 
-        # self.append_modifiers(signode, modifiers)
-        # self.append_type(signode, fulltype)
+        self.append_modifiers(signode, modifiers)
+        self.append_type(signode, fulltype)
+        signode += nodes.Text(' ')
+        signode += addnodes.desc_name(name, name)
 
-        signode += addnodes.desc_name(sig, sig)
+        if default_value:
+            signode += nodes.Text(' = ')
+            signode += nodes.Text(default_value)
 
-        return self.get_fullname(sig)
+        return self.get_fullname(name)
+
 
 class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
