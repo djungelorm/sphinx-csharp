@@ -122,6 +122,12 @@ def parse_method_signature(sig):
     if return_type:
         return_type = return_type.strip()
 
+    if not generic_params:
+        generic_params = []
+    else:
+        # Remove outermost < > brackets
+        generic_params = split_sig(generic_params[1:-1])
+
     if params.strip() != '':
         params = split_sig(params)
         params = [parse_param_signature(x) for x in params]
@@ -411,14 +417,17 @@ class CSharpObject(ObjectDescription):
             if i != len(inherits) - 1:
                 node += nodes.Text(', ')
 
-    def append_parameters(self, node, params):
+    def append_parameters(self, node, params, ignore_types: List[str] = []):
         pnodes = addnodes.desc_parameterlist()
         for param in params:
             pnode = addnodes.desc_parameter('', '', noemph=True)
 
             self.append_modifiers(pnode, param.modifiers)
 
-            self.append_type(pnode, param.typ)
+            if param.typ in ignore_types:
+                pnode += addnodes.desc_type(param.typ, param.typ)
+            else:
+                self.append_type(pnode, param.typ)
             pnode += nodes.Text('\xa0')
             pnode += nodes.emphasis(param.name, param.name)
             if param.default is not None:
@@ -553,7 +562,7 @@ class CSharpMethod(CSharpObject):
             signode += nodes.Text(generic_params)
         signode += nodes.Text('\xa0')
 
-        self.append_parameters(signode, params)
+        self.append_parameters(signode, params, generic_params)
 
         return self.get_fullname(name)
 
