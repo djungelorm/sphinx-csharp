@@ -143,20 +143,21 @@ def parse_method_signature(sig):
 def parse_variable_signature(sig, is_param=False):
     """
     Parse a variable signature of the form:
-    modifier* type name
+    modifier* type name = value
     is_param: interpret as parameter? uses parameter modifiers
     """
     match = (VAR_PARAM_SIG_RE if is_param else VAR_SIG_RE).match(sig.strip())
     if not match:
         logger.warning(('Parameter' if is_param else 'Variable') + ' signature invalid: ' + sig)
         return sig.strip(), None, None, None, None, None
+
     groups = match.groupdict()
     modifiers = groups['modifiers']
     fulltype = groups['fulltype'].strip()
     typ = groups['type']
     generics = groups['generics']
     if not generics:
-        generics = groups['templates']
+        generics = groups['templates']  # Doxygen compatibility
     name = groups['name']
     default_value = groups['value']
 
@@ -185,6 +186,7 @@ def parse_property_signature(sig):
             logger.info(f'Property signature not valid, falling back to variable: {sig}')
         modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig)
         return modifiers, fulltype, name, False, False
+
     groups = match.groups()
     if groups[0] is not None:
         modifiers = [x.strip() for x in groups[:-4]]
@@ -207,18 +209,18 @@ def parse_indexer_signature(sig):
         logger.warning('Indexer signature invalid: ' + sig)
         # TODO: return a better default value?
         return sig.strip(), None, None, False, False
+
     modifiers, return_type, params, getter, setter = match.groups()
     params = split_sig(params)
     params = [parse_param_signature(x) for x in params]
 
     if CSDebug.parse_idxr:
         logger.info(f"parsed idxr: {modifiers.split(), return_type, params, getter is not None, setter is not None}")
-
     return modifiers.split(), return_type, params, getter is not None, setter is not None
 
 
 def parse_param_signature(sig):
-    """ Parse a parameter signature of the form: type name (= default)?
+    """ Parse a parameter signature of the form: modifier type name (= default)?
         Interprets as a variable with different modifiers """
     modifiers, fulltype, typ, generics, name, default_value = parse_variable_signature(sig, True)
     if not fulltype:
@@ -229,7 +231,7 @@ def parse_param_signature(sig):
 
 
 def parse_type_signature(sig):
-    """ Parse a type signature """
+    """ Parse a type declaration or usage signature """
     match = CLASS_SIG_RE.match(sig.strip())
     if not match:
         logger.warning('Type signature invalid, got ' + sig)
@@ -373,6 +375,7 @@ class CSharpObject(ObjectDescription):
             signode += nodes.Text('\xa0')
 
     def append_type(self, node, input_typ, ignored_types=None):
+        """ ignored_types is a list of types to ignore in the generics of this type """
         typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
@@ -399,13 +402,14 @@ class CSharpObject(ObjectDescription):
             node += nodes.Text(ptr)
 
     def append_generics(self, node, generics: List[str], nolink=False, ignored_types=None):
-        """ nolink will disable xref's, use for newly declared generics in a class declaration """
+        """ nolink will disable xref's, use for newly declared generics in a class declaration,
+         ignore_types is similar, but a list of types to disable xrefs for """
         node += nodes.Text('<')
         for i, typ in enumerate(generics):
             if nolink or ignored_types and typ in ignored_types:
                 node += addnodes.desc_type(typ, typ)
             else:
-                self.append_type(node, typ)
+                self.append_type(node, typ, ignored_types=ignored_types)
             if i != len(generics) - 1:
                 node += nodes.Text(', ')
         node += nodes.Text('>')
@@ -552,7 +556,7 @@ class CSharpInherits(CSharpObject):
 
     def handle_signature(self, sig, signode):
         typ, _, _, _, _ = parse_type_signature(sig)
-        signode += nodes.Text(': ')
+        signode += nodes.Text(' : ')
         self.append_type(signode, sig)
         return self.get_fullname(typ)
 
@@ -609,8 +613,7 @@ class CSharpProperty(CSharpObject):
         modifiers, typ, name, getter, setter = parse_property_signature(sig)
 
         self.append_modifiers(signode, modifiers)
-        if typ:
-            self.append_type(signode, typ)
+        self.append_type(signode, typ)
         signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
         signode += nodes.Text(' { ')

@@ -9,12 +9,6 @@ extensions = ['sphinx_csharp']
 
 pygments_style = 'sphinx'
 
-nitpick_ignore = [
-    ('csharp:type', 'void'),
-    ('csharp:type', 'T'),
-    ('csharp:type', 'List')
-]
-
 # Debug options
 sphinx_csharp_debug = False
 sphinx_csharp_debug_parse = False

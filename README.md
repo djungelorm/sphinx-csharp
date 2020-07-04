@@ -17,7 +17,7 @@ pip install sphinx-csharp
 To enable the extension, add the following to your conf.py:
 
 ```python
-extensions = ['sphinx_csharp.csharp']
+extensions = ['sphinx_csharp']
 ```
 
 See [this example](https://raw.githubusercontent.com/djungelorm/sphinx-csharp/master/test/index.rst) of how to document C# code.
