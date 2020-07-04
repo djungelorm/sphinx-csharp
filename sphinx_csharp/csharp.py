@@ -362,6 +362,8 @@ class CSharpObject(ObjectDescription):
             return
         for modifier in modifiers:
             signode += addnodes.desc_annotation(modifier, modifier)
+            signode += nodes.Text('\xa0')
+
 
     def append_type(self, node, input_typ):
         typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
