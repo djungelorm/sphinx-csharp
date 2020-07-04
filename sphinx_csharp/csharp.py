@@ -913,7 +913,10 @@ class CSharpDomain(Domain):
         # Get all objects that end with the initial target
         objtypes = self.objtypes_for_role(typ)
         objects = {key: val for (key, val) in self.data['objects'].items()
-                   if key[1].endswith(target) and key[0] in objtypes}
+                   # Filter by objtype and check that we end with the target
+                   if key[0] in objtypes and key[1].endswith(target) and
+                   # that the character before the target is a namespace separator or nothing
+                   (len(key[1]) == len(target) or key[1][:-len(target)][-1] == '.')}
 
         # 1. Found only one item that ends with the target, use this one
         if len(objects) == 1:
