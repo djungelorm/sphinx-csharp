@@ -226,7 +226,10 @@ def parse_type_signature(sig):
     if not match:
         logger.warning('Type signature invalid, got ' + sig)
         return sig.strip(), None, None, None, None
+
     groups = match.groupdict()
+
+    modifiers = groups['modifiers']
     typ = groups['type']
     generics = groups['generics']
     if not generics:
@@ -235,6 +238,11 @@ def parse_type_signature(sig):
     inherited_types = groups['inherits']
     array = groups['array']
     ptr = groups['ptr']
+
+    if not modifiers:
+        modifiers = []
+    else:
+        modifiers = modifiers.split()
 
     if not generics:
         generics = []
@@ -248,8 +256,8 @@ def parse_type_signature(sig):
         inherited_types = split_sig(inherited_types)
 
     if CSDebug.parse_type:
-        logger.info(f"parsed type: {typ, generics, inherited_types, array}")
-    return typ, generics, inherited_types, array, ptr
+        logger.info(f"parsed type: {typ, modifiers, generics, inherited_types, array}")
+    return typ, modifiers, generics, inherited_types, array, ptr
 
 
 def parse_attr_signature(sig):
@@ -356,7 +364,7 @@ class CSharpObject(ObjectDescription):
             signode += addnodes.desc_annotation(modifier, modifier)
 
     def append_type(self, node, input_typ):
-        typ, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
+        typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
             reftarget=typ, modname=None, classname=None)
@@ -366,6 +374,9 @@ class CSharpObject(ObjectDescription):
             tnode['cs:parent'] = None
         else:
             tnode['cs:parent'] = self.get_parent()
+
+        if modifiers:
+            self.append_modifiers(node, modifiers)
 
         typ_short = shorten_type(typ)
         tnode += addnodes.desc_type(typ_short, typ_short)
@@ -453,7 +464,11 @@ class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig, signode):
-        typ, generics, inherits, _, _ = parse_type_signature(sig)
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig)
+
+        if modifiers:
+            self.append_modifiers(signode, modifiers)
+
         prefix = 'class' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
@@ -469,7 +484,11 @@ class CSharpStruct(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig, signode):
-        typ, generics, inherits, _, _ = parse_type_signature(sig)
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig)
+
+        if modifiers:
+            self.append_modifiers(signode, modifiers)
+
         prefix = 'struct' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
@@ -485,7 +504,11 @@ class CSharpInterface(CSharpObject):
     """ Description of a C# interface """
 
     def handle_signature(self, sig, signode):
-        typ, generics, inherits, _, _ = parse_type_signature(sig)
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig)
+
+        if modifiers:
+            self.append_modifiers(signode, modifiers)
+
         prefix = 'interface' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(typ, typ)
