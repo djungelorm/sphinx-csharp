@@ -15,5 +15,17 @@ def setup(app: Sphinx) -> None:
     app.add_config_value('sphinx_csharp_external_type_rename', None, 'env')
     app.add_config_value('sphinx_csharp_ext_search_pages', None, 'env')
 
+    # Debug
+    app.add_config_value('sphinx_csharp_debug', False, '')
+    app.add_config_value('sphinx_csharp_debug_parse', False, '')
+    app.add_config_value('sphinx_csharp_debug_parse_func', False, '')
+    app.add_config_value('sphinx_csharp_debug_parse_var', False, '')
+    app.add_config_value('sphinx_csharp_debug_parse_prop', False, '')
+    app.add_config_value('sphinx_csharp_debug_parse_attr', False, '')
+    app.add_config_value('sphinx_csharp_debug_parse_idxr', False, '')
+    app.add_config_value('sphinx_csharp_debug_parse_type', False, '')
+    app.add_config_value('sphinx_csharp_debug_xref', False, '')
+    app.add_config_value('sphinx_csharp_debug_ext_links', False, '')
+
     # Register callbacks
     app.connect('config-inited', CSharpDomain.apply_config)
