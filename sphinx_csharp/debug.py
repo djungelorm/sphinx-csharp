@@ -14,6 +14,7 @@ class CSDebug:
     ext_links = False
 
     # State related
+    has_printed_test_links = False
     has_printed_xref_objects = False
 
     @classmethod

@@ -127,6 +127,7 @@ def parse_method_signature(sig):
     else:
         # Remove outermost < > brackets
         generic_params = split_sig(generic_params[1:-1])
+        # TODO: create ref target with namespace+function name when parsing
 
     if params.strip() != '':
         params = split_sig(params)
@@ -180,7 +181,8 @@ def parse_property_signature(sig):
         modifier* type name { (get;)? (set;)? } """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
-        logger.info(f'Property signature not valid, falling back to variable: {sig}')
+        if CSDebug.parse_prop:
+            logger.info(f'Property signature not valid, falling back to variable: {sig}')
         modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig)
         return modifiers, fulltype, name, False, False
     groups = match.groups()
@@ -1093,6 +1095,9 @@ class CSharpDomain(Domain):
 
         test_links = self.env.config['sphinx_csharp_test_links']
         if test_links:
+            if CSDebug.has_printed_test_links:
+                CSDebug.has_printed_test_links = True
+                logger.info("csharp: external link testing is enabled")
             try:
                 apilink_status_code = requests.get(apilink, timeout=3).status_code
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
