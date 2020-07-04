@@ -370,8 +370,7 @@ class CSharpObject(ObjectDescription):
             signode += addnodes.desc_annotation(modifier, modifier)
             signode += nodes.Text('\xa0')
 
-
-    def append_type(self, node, input_typ):
+    def append_type(self, node, input_typ, ignored_types=None):
         typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
@@ -391,17 +390,17 @@ class CSharpObject(ObjectDescription):
         node += tnode
 
         if generic_types:
-            self.append_generics(node, generic_types)
+            self.append_generics(node, generic_types, ignored_types=ignored_types)
         if array:
             node += nodes.Text(array)
         if ptr:
             node += nodes.Text(ptr)
 
-    def append_generics(self, node, generics: List[str], nolink=False):
+    def append_generics(self, node, generics: List[str], nolink=False, ignored_types=None):
         """ nolink will disable xref's, use for newly declared generics in a class declaration """
         node += nodes.Text('<')
         for i, typ in enumerate(generics):
-            if nolink:
+            if nolink or ignored_types and typ in ignored_types:
                 node += addnodes.desc_type(typ, typ)
             else:
                 self.append_type(node, typ)
@@ -417,17 +416,19 @@ class CSharpObject(ObjectDescription):
             if i != len(inherits) - 1:
                 node += nodes.Text(', ')
 
-    def append_parameters(self, node, params, ignore_types: List[str] = []):
+    def append_parameters(self, node, params, ignore_types=None):
+        if ignore_types is None:
+            ignore_types = []
         pnodes = addnodes.desc_parameterlist()
         for param in params:
             pnode = addnodes.desc_parameter('', '', noemph=True)
 
             self.append_modifiers(pnode, param.modifiers)
 
-            if param.typ in ignore_types:
+            if ignore_types and param.typ in ignore_types:
                 pnode += addnodes.desc_type(param.typ, param.typ)
             else:
-                self.append_type(pnode, param.typ)
+                self.append_type(pnode, param.typ, ignore_types)
             pnode += nodes.Text('\xa0')
             pnode += nodes.emphasis(param.name, param.name)
             if param.default is not None:
@@ -550,8 +551,9 @@ class CSharpMethod(CSharpObject):
 
         # note: constructors don't have a return type
         if return_type is not None:
+            # Dont link if its a generic type
             if generic_params and return_type in generic_params:
-                signode += nodes.Text(return_type)
+                signode += addnodes.desc_type(return_type, return_type)
             else:
                 self.append_type(signode, return_type)
             signode += nodes.Text('\xa0')
@@ -559,7 +561,7 @@ class CSharpMethod(CSharpObject):
         signode += addnodes.desc_name(name, name)
 
         if generic_params is not None:
-            signode += nodes.Text(generic_params)
+            self.append_generics(signode, generic_params, True)
         signode += nodes.Text('\xa0')
 
         self.append_parameters(signode, params, generic_params)
