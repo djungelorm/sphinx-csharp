@@ -474,6 +474,20 @@ class CSharpCurrentNamespace(Directive):
         return []
 
 
+class CSharpNamespacePlain(CSharpObject):
+    """ Visual rendering of a C# namespace,
+     without updating the parent like the directive CSharpCurrentNamespace.
+     Used by breathe. """
+
+    def handle_signature(self, sig, signode):
+        logger.info(f"namespace handlesig {sig}")
+        prefix = 'namespace' + ' '
+        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += addnodes.desc_name(sig, sig)
+
+        return sig
+
+
 class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
@@ -495,7 +509,7 @@ class CSharpClass(CSharpObject):
 
 
 class CSharpStruct(CSharpObject):
-    """ Description of a C# class """
+    """ Description of a C# struct """
 
     def handle_signature(self, sig, signode):
         typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig)
