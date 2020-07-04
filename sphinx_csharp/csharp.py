@@ -1,5 +1,7 @@
 """ C# sphinx domain """
 
+from .debug import CSDebug
+
 import re
 from collections import namedtuple
 from typing import List
@@ -126,7 +128,7 @@ def parse_method_signature(sig):
     else:
         params = []
 
-    if CSharpDomain.debug_parse_func:
+    if CSDebug.parse_func:
         logger.info(f"parsed func: {modifiers, return_type, name, generic_params, params}")
     return modifiers, return_type, name, generic_params, params
 
@@ -162,7 +164,7 @@ def parse_variable_signature(sig, is_param=False):
         # Remove outermost < > brackets
         generics = split_sig(generics[1:-1])
 
-    if CSharpDomain.debug_parse_var:
+    if CSDebug.parse_var:
         logger.info(f"parsed var: {modifiers, fulltype, typ, generics, name, default_value}")
     return modifiers, fulltype, typ, generics, name, default_value
 
@@ -184,7 +186,7 @@ def parse_property_signature(sig):
         groups = groups[1:]
     typ, name, getter, setter = groups
 
-    if CSharpDomain.debug_parse_prop:
+    if CSDebug.parse_prop:
         logger.info(f"parsed prop: {modifiers, typ, name, getter is not None, setter is not None}")
     return modifiers, typ, name, getter is not None, setter is not None
 
@@ -201,7 +203,7 @@ def parse_indexer_signature(sig):
     params = split_sig(params)
     params = [parse_param_signature(x) for x in params]
 
-    if CSharpDomain.debug_parse_idxr:
+    if CSDebug.parse_idxr:
         logger.info(f"parsed idxr: {modifiers.split(), return_type, params, getter is not None, setter is not None}")
 
     return modifiers.split(), return_type, params, getter is not None, setter is not None
@@ -245,7 +247,7 @@ def parse_type_signature(sig):
     else:
         inherited_types = split_sig(inherited_types)
 
-    if CSharpDomain.debug_parse_type:
+    if CSDebug.parse_type:
         logger.info(f"parsed type: {typ, generics, inherited_types, array}")
     return typ, generics, inherited_types, array, ptr
 
@@ -263,7 +265,7 @@ def parse_attr_signature(sig):
     else:
         params = []
 
-    if CSharpDomain.debug_parse_attr:
+    if CSDebug.parse_attr:
         logger.info(f"parsed attr: {name, params}")
     return name, params
 
@@ -732,8 +734,6 @@ class CSharpDomain(Domain):
 
     extlink_cache = {}
 
-    debug_has_printed_objects = True
-
     # --- External Linking ---
 
     """ Types and strings to ignore when looking for a reference """
@@ -828,35 +828,12 @@ class CSharpDomain(Domain):
                 'https://docs.unity3d.com/Packages/%s'),
     }
 
-    debug = False
-    debug_parse = False
-    debug_parse_func = False
-    debug_parse_var = False
-    debug_parse_prop = False
-    debug_parse_attr = False
-    debug_parse_idxr = False
-    debug_parse_type = False
-    debug_xref = False
-    debug_ext_links = False
-
     @staticmethod
     def apply_config(app: "Sphinx", config: Config) -> None:
         """ Read in the config variables and merges them with the defaults """
 
-
         try:
-            # Setup debug booleans
-            cls = CSharpDomain
-            cls.debug = config['sphinx_csharp_debug']
-            cls.debug_parse = cls.debug or config['sphinx_csharp_debug_parse']
-            cls.debug_parse_func = cls.debug or cls.debug_parse or config['sphinx_csharp_debug_parse_func']
-            cls.debug_parse_var = cls.debug or cls.debug_parse or config['sphinx_csharp_debug_parse_var']
-            cls.debug_parse_prop = cls.debug or cls.debug_parse or config['sphinx_csharp_debug_parse_prop']
-            cls.debug_parse_attr = cls.debug or cls.debug_parse or config['sphinx_csharp_debug_parse_attr']
-            cls.debug_parse_idxr = cls.debug or cls.debug_parse or config['sphinx_csharp_debug_parse_idxr']
-            cls.debug_parse_type = cls.debug or cls.debug_parse or config['sphinx_csharp_debug_parse_type']
-            cls.debug_xref = cls.debug or config['sphinx_csharp_debug_xref']
-            cls.debug_ext_links = cls.debug or config['sphinx_csharp_debug_ext_links']
+            CSDebug.set_config_values(config)
 
             # Initialize external links
             # *Merge* config values with the default values
@@ -948,9 +925,9 @@ class CSharpDomain(Domain):
                            f"searched in object types: {objtypes}")
                            # f", filter1: {[i for i in self.data['objects'] if i[1].endswith(target)]}"
                            # f", filter2: {[i for i in self.data['objects'] if i[0] in objtypes]}")
-            if self.debug_has_printed_objects:
-                self.debug_has_printed_objects = False
-                logger.warning(f"all objects: {self.data['objects']}")
+            if not CSDebug.has_printed_xref_objects:
+                CSDebug.has_printed_xref_objects = True
+                logger.warning(f"all xref objects: {self.data['objects']}")
             return None
 
         # 4. Search inside this namespace and its direct parents
@@ -972,7 +949,7 @@ class CSharpDomain(Domain):
                 if len(matches) >= 1:
                     match_objtype, match_tgt = matches[0]
 
-                    if self.env.config['sphinx_csharp_debug_xref']:
+                    if CSDebug.xref:
                         logger.info(f"Success finding xref, closest match: {objtype}, {tgt}, matches: {len(matches)}")
 
                     return make_refnode(builder, fromdocname,
@@ -986,9 +963,9 @@ class CSharpDomain(Domain):
             return ref
 
         logger.warning(f"Failed to find xref for: {targets}, searched in object types: {objtypes}, parents: {parents}")
-        if self.env.config['sphinx_csharp_debug_xref'] and self.debug_has_printed_objects:
-            self.debug_has_printed_objects = False
-            logger.warning(f"all objects: {objects}")
+        if CSDebug.xref and not CSDebug.has_printed_xref_objects:
+            CSDebug.has_printed_xref_objects = False
+            logger.warning(f"all xref objects: {objects}")
 
         return None
 
@@ -1025,7 +1002,7 @@ class CSharpDomain(Domain):
 
         # Use existing link if we have already determined it, for performance
         if name in CSharpDomain.extlink_cache:
-            if self.env.config['sphinx_csharp_debug_ext_links']:
+            if CSDebug.ext_links:
                 logger.info(f"found in extlink_cache for {name}")
             return create_node(CSharpDomain.extlink_cache[input_name][0],
                                CSharpDomain.extlink_cache[input_name][1],
@@ -1098,6 +1075,6 @@ class CSharpDomain(Domain):
         # Store result in cache dict
         CSharpDomain.extlink_cache[input_name] = fullname, name, url
 
-        if self.env.config['sphinx_csharp_debug_ext_links']:
+        if CSDebug.ext_links:
             logger.info(f"found external link: {input_name, fullname, name, url}")
         return node
