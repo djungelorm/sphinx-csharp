@@ -46,9 +46,9 @@ METH_SIG_RE = re.compile(
                                     r'\((?P<params>.*)?\)$')
 
 VAR_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^' + MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{(=]+)\s*(?:=\s*(?P<value>.+))?$')
 VAR_PARAM_SIG_RE = re.compile(
-    r'^' + PARAM_MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^' + PARAM_MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
 
 PROP_SIG_RE = re.compile(
     r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
