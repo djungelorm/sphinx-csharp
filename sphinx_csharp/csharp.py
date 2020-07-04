@@ -688,7 +688,7 @@ class CSharpDomain(Domain):
 
         'class':     CSharpClass,
         'struct':    CSharpStruct,
-        'interface': CSharpClass,
+        'interface': CSharpInterface,
         'inherits':  CSharpInherits,
 
         'function':  CSharpMethod,
@@ -814,7 +814,7 @@ class CSharpDomain(Domain):
     """
     Where do we search for api documentation
     Syntax:
-    'package': (api link, fallback search link)
+    'package': ('api link', 'fallback search link')
     Use %s for where to substitute item, every link *must* contain this
     """
     external_search_pages = {
