@@ -262,7 +262,7 @@ IGNORE_XREF_TYPES = [
 
     # Built-in types
     'string',
-    # 'bool',
+    'bool',
     'int',
     'long',
     'uint',
@@ -273,29 +273,33 @@ IGNORE_XREF_TYPES = [
     'object',
 ]
 
+"""
+Format the content like this:
+Where Namespace1 is the namespace for the link (which may not match the real namespace)
 
+'site': {
+    'Namespace1': ['member1', ...],
+    ...
+},
+...
+"""
 EXTERNAL_TYPE_MAP = {
-    # 'site': {
-    #     'Namespace1': ['member1', ...],
-    #     ...
-    # },
-    # ...
-
     'msdn': {
-        'System': ['bool', 'Tuple', 'IDisposable', 'Func'],
+        'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action'],
         'System.Collections': ['IEnumerator'],
-        'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet',
-                                       'IEnumerable'],
+        'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable'],
+        'System.Threading': ['Thread'],
+        'System.Runtime.InteropServices': ['GCHandle', 'Marshal'],
     },
     'unity': {
         '': ['MonoBehaviour', 'ScriptableObject',
              'GameObject', 'Transform', 'RectTransform',
-             'MeshRenderer', 'MeshFilter', 'Animator',
+             'Mesh', 'MeshRenderer', 'MeshFilter', 'Animator',
              'Collider', 'SphereCollider', 'BoxCollider',
              'Material', 'Sprite',
              'Vector2', 'Vector3', 'Vector4', 'Quaternion', 'Color', 'Gradient',
-             'Coroutine', 'Space',
-             'AssetPostprocessor'
+             'Coroutine', 'Space', 'LayerMask', 'Layer',
+             'AssetPostprocessor',
              ],
         'XR': ['InputDevice', 'InputDeviceCharacteristics'],
         'Unity.Collections': ['NativeArray'],
@@ -308,10 +312,11 @@ EXTERNAL_TYPE_MAP = {
     'upm.ugui': {'': ['Image', 'Button', 'Toggle']},
 }
 
+"""
+Put special cases in here that should be renamed, use it for generics
+The name is swapped after searching EXTERNAL_TYPE_MAP, just before constructing the url link
+"""
 EXTERNAL_TYPE_SPECIAL_CASES = {
-    # Put special cases in here that should be renamed, use it for generics
-    # The name is swapped after searching EXTERNAL_TYPE_MAP, just before constructing the url link
-    'bool': 'Boolean',
     'List': 'List-1',
     'Dictionary': 'Dictionary-2',
     'IList': 'IList-1',
@@ -322,13 +327,13 @@ EXTERNAL_TYPE_SPECIAL_CASES = {
 
     'NativeArray': 'NativeArray_1',
 }
-
-# similar to ext.extlinks
+"""
+similar to ext.extlinks
+Syntax:
+'package': (api link, fallback search link)
+Use %s for where to substitute item, every link must contain this
+"""
 EXTERNAL_SEARCH_PAGES = {
-    # Syntax:
-    # 'package': (api link, fallback search link)
-    # Use %s for where to substitute item
-
     'msdn': ('https://docs.microsoft.com/en-us/dotnet/api/%s',
              'https://docs.microsoft.com/en-us/search/?category=All&scope=.NET&terms=%s'),
     'unity': ('https://docs.unity3d.com/ScriptReference/%s.html',
