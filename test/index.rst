@@ -139,7 +139,18 @@
 
    Another attribute.
 
-Class ref :type:`MyClass`
+References
+----------
+
+Type ref :type:`MyClass`
+
+Class ref :class:`MyClass`
+
+Class ref :class:`MyClass2`
+
+Struct ref :struct:`MyStruct`
+
+Interface ref :interface:`MyInterface`
 
 Method ref: :func:`MyClass.MyMethod`
 
@@ -160,3 +171,31 @@ Attribute ref :attr:`MyAttribute1`
 Attribute ref :attr:`MyAttribute2`
 
 Indexer ref :idxr:`MyClass.this[]`
+
+
+More Tests
+----------
+
+.. namespace:: OtherNamespace
+
+.. struct:: public MyStruct < T, U > : IList
+.. interface:: public MyInterface < T, U > : IList
+
+.. namespace:: OtherNamespace.Subspace
+
+
+.. class:: public unsafe MyClass2 < T , U > : Dictionary, MyInterface
+
+   .. function:: public MyStruct MyFunc ( ref int a = 3, float b, ref GameObject c, ref List < GameObject > d = default)
+
+   .. var:: private int a = 0
+
+   .. var:: private MyEnum a = MyEnum.Bar
+
+   .. var:: private static const List < MyInterface > GenericVar
+
+   .. var:: private static const List < MyInterface > TwoGenericBrackets = new List < MyInterface > ()
+
+   .. function:: private List < MyInterface<int, float> > GenericsGaloreFunc <T, U> (ref List <T> a = default,  List < MyInterface<int, float> > b = default)
+
+   .. function:: private T ReturnGeneric < T, U > (int a = 0)
