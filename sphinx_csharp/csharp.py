@@ -1108,7 +1108,7 @@ class CSharpDomain(Domain):
 
         test_links = self.env.config['sphinx_csharp_test_links']
         if test_links:
-            if CSDebug.has_printed_test_links:
+            if not CSDebug.has_printed_test_links:
                 CSDebug.has_printed_test_links = True
                 logger.info("csharp: external link testing is enabled")
             try:
