@@ -480,7 +480,6 @@ class CSharpNamespacePlain(CSharpObject):
      Used by breathe. """
 
     def handle_signature(self, sig, signode):
-        logger.info(f"namespace handlesig {sig}")
         prefix = 'namespace' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(sig, sig)
