@@ -8,6 +8,8 @@ import requests
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
+from sphinx.application import Sphinx
+from sphinx.config import Config
 from sphinx.domains import Domain, ObjType
 from sphinx.locale import _
 from sphinx.directives import ObjectDescription
@@ -810,6 +812,46 @@ class CSharpDomain(Domain):
         'upm': ('https://docs.unity3d.com/Packages/%s',
                 'https://docs.unity3d.com/Packages/%s'),
     }
+
+    @staticmethod
+    def apply_config(app: "Sphinx", config: Config) -> None:
+        """ Read in the config variables and merges them with the defaults """
+        try:
+            # Initialize external links
+            # *Merge* config values with the default values
+            if config['sphinx_csharp_ignore_xref'] is not None:
+                CSharpDomain.ignore_xref_types += config['sphinx_csharp_ignore_xref']
+
+            if config['sphinx_csharp_external_type_rename'] is not None:
+                CSharpDomain.external_type_rename.update(config['sphinx_csharp_external_type_rename'])
+
+            if config['sphinx_csharp_ext_search_pages'] is not None:
+                CSharpDomain.external_search_pages.update(config['sphinx_csharp_ext_search_pages'])
+
+            if config['sphinx_csharp_ext_type_map'] is not None:
+                a = CSharpDomain.external_type_map
+                b = config['sphinx_csharp_ext_type_map']
+
+                # Merge keys in both
+                for pkg in set(b).intersection(a):
+                    # Add new namespaces
+                    for ns in set(b[pkg]).difference(a[pkg]):
+                        a[pkg][ns] = b[pkg][ns].copy()
+
+                    # Concat lists for existing namespaces
+                    for ns in set(b[pkg]).intersection(a[pkg]):
+                        a[pkg][ns] += b[pkg][ns]
+
+                # Add new keys
+                for pkg in set(b).difference(a):
+                    a[pkg] = b[pkg].copy()
+
+                # logger.info(f"merged external_type_map: {CSharpDomain.external_type_map}")
+
+        except Exception as e:
+            # Manually print the error here as sphinx does not do it for ExtensionErrors
+            logger.error(f"Error in CSharpDomain.apply_config(): {e}, \nCheck that your config variables are correct.")
+            raise
 
     def clear_doc(self, docname):
         for (typ, name), doc in dict(self.data['objects']).items():
