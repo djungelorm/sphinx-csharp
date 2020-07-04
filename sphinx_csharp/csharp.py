@@ -555,10 +555,9 @@ class CSharpInherits(CSharpObject):
     """ Description of an inherited C# struct """
 
     def handle_signature(self, sig, signode):
-        typ, _, _, _, _ = parse_type_signature(sig)
         signode += nodes.Text(' : ')
         self.append_type(signode, sig)
-        return self.get_fullname(typ)
+        return self.get_fullname(sig)
 
 
 class CSharpMethod(CSharpObject):
@@ -579,7 +578,7 @@ class CSharpMethod(CSharpObject):
 
         signode += addnodes.desc_name(name, name)
 
-        if generic_params is not None:
+        if generic_params:
             self.append_generics(signode, generic_params, True)
         signode += nodes.Text('\xa0')
 
@@ -1048,7 +1047,7 @@ class CSharpDomain(Domain):
 
         def create_node(fullname: str, name: str, url: str) -> nodes:
             """ Small local helper function """
-            node = nodes.reference(fullname, shorten_type(name))
+            node = nodes.reference(fullname, name)
             node['refuri'] = url
             node['reftitle'] = fullname
 
@@ -1127,6 +1126,7 @@ class CSharpDomain(Domain):
                            f"status_code={apilink_status_code}, apilink={apilink}")
             url = CSharpDomain.external_search_pages[pkg][1] % fullname
 
+        name = shorten_type(name)
         node = create_node(fullname, name, url)
 
         # Store result in cache dict
