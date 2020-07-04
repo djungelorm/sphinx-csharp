@@ -253,188 +253,9 @@ def parse_attr_signature(sig):
     return name, params
 
 
-# --- External Linking ---
-
-IGNORE_XREF_TYPES = [
-    '*',
-    '&',
-    'void',
-
-    # Built-in types
-    'string',
-    'bool',
-    'int',
-    'long',
-    'uint',
-    'ulong',
-    'float',
-    'double',
-    'byte',
-    'object',
-]
-
-"""
-Format the content like this:
-Where Namespace1 is the namespace for the link (which may not match the real namespace)
-
-'site': {
-    'Namespace1': ['member1', ...],
-    ...
-},
-...
-"""
-EXTERNAL_TYPE_MAP = {
-    'msdn': {
-        'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action'],
-        'System.Collections': ['IEnumerator'],
-        'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable'],
-        'System.Threading': ['Thread'],
-        'System.Runtime.InteropServices': ['GCHandle', 'Marshal'],
-    },
-    'unity': {
-        '': ['MonoBehaviour', 'ScriptableObject',
-             'GameObject', 'Transform', 'RectTransform',
-             'Mesh', 'MeshRenderer', 'MeshFilter', 'Animator',
-             'Collider', 'SphereCollider', 'BoxCollider',
-             'Material', 'Sprite',
-             'Vector2', 'Vector3', 'Vector4', 'Quaternion', 'Color', 'Gradient',
-             'Coroutine', 'Space', 'LayerMask', 'Layer',
-             'AssetPostprocessor',
-             ],
-        'XR': ['InputDevice', 'InputDeviceCharacteristics'],
-        'Unity.Collections': ['NativeArray'],
-        'Experimental.AssetImporters': ['AssetImportContext', 'MeshImportPostprocessor', 'ScriptedImporter'],
-        'Rendering': ['VertexAttributeDescriptor'],
-        'Events': ['UnityAction'],
-    },
-    'upm.xrtk': {'UnityEngine.XR.Interaction.Toolkit': ['XRRayInteractor', 'XRBaseInteractable', 'XRController']},
-    'upm.tmp': {'TMPro': ['TMP_Text']},
-    'upm.ugui': {'': ['Image', 'Button', 'Toggle']},
-}
-
-"""
-Put special cases in here that should be renamed, use it for generics
-The name is swapped after searching EXTERNAL_TYPE_MAP, just before constructing the url link
-"""
-EXTERNAL_TYPE_SPECIAL_CASES = {
-    'List': 'List-1',
-    'Dictionary': 'Dictionary-2',
-    'IList': 'IList-1',
-    'IDictionary': 'IDictionary-2',
-    'ISet': 'ISet-2',
-    'IEnumerable': 'IEnumerable-1',
-    'Func': 'Func-1',
-
-    'NativeArray': 'NativeArray_1',
-}
-"""
-similar to ext.extlinks
-Syntax:
-'package': (api link, fallback search link)
-Use %s for where to substitute item, every link must contain this
-"""
-EXTERNAL_SEARCH_PAGES = {
-    'msdn': ('https://docs.microsoft.com/en-us/dotnet/api/%s',
-             'https://docs.microsoft.com/en-us/search/?category=All&scope=.NET&terms=%s'),
-    'unity': ('https://docs.unity3d.com/ScriptReference/%s.html',
-              'https://docs.unity3d.com/ScriptReference/30_search.html?q=%s'),
-    'unityman': ('https://docs.unity3d.com/Manual/%s.html',
-                 'https://docs.unity3d.com/Manual/30_search.html?q=%s'),
-    'upm': ('https://docs.unity3d.com/Packages/%s',
-            'https://docs.unity3d.com/Packages/%s'),
-    'upm.xrtk': ('https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/%s.html',
-                 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/?%s'),
-    'upm.tmp': ('https://docs.unity3d.com/Packages/com.unity.textmeshpro@1.2/api/%s.html',
-                'https://docs.unity3d.com/Packages/com.unity.textmeshpro@1.2/?%s'),
-    'upm.ugui': ('https://docs.unity3d.com/Packages/com.unity.ugui@1.0/manual/script-%s.html',
-                 'https://docs.unity3d.com/Packages/com.unity.ugui@1.0/manual/index.html?%s')
-}
-
-def check_ignored_ref(name: str) -> bool:
-    """ Checks if the target is a built-in type or other ignored strings """
-    return name in IGNORE_XREF_TYPES
-
-
-def get_external_ref(name: str) -> nodes:
-    """
-    Looks in the predefined external targets and adds the link if it is found
-    returns: None if unsuccessful
-    """
-
-    fullname = name
-    name_split = name.rsplit('.', 1)
-    if len(name_split) == 2:
-        # We also have the namespace in the name
-        parent, name = name_split
-        matches = [(pkg, namespace) for pkg in EXTERNAL_TYPE_MAP
-                   for namespace in EXTERNAL_TYPE_MAP[pkg]
-                   if name in EXTERNAL_TYPE_MAP[pkg][namespace]
-                   and namespace.endswith(parent)]
-        if len(matches) > 1:
-            # Enforce exact match if there are several
-            matches_strict = [i for i in matches if i[1] == parent]
-            if len(matches_strict) >= 1:
-                matches = matches_strict
-    else:
-        # search all namespaces
-        parent = None
-        matches = [(pkg, namespace) for pkg in EXTERNAL_TYPE_MAP
-                   for namespace in EXTERNAL_TYPE_MAP[pkg]
-                   if name in EXTERNAL_TYPE_MAP[pkg][namespace]]
-
-    if not matches:
-        return None
-
-    if len(matches) > 1:
-        logger.warning(f"ambiguous external reference for '{fullname}' using first, "
-                       f"found matches: {matches}")
-
-    pkg, parent = matches[0]
-
-    link_name = name
-    if name in EXTERNAL_TYPE_SPECIAL_CASES:
-        link_name = EXTERNAL_TYPE_SPECIAL_CASES[name]
-
-    if parent:
-        # Skip for empty strings
-        fullname = parent + '.' + link_name
-
-    try:
-        apilink = EXTERNAL_SEARCH_PAGES[pkg][0] % fullname
-    except KeyError:
-        logger.warning(f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
-                       f"target fullname: {fullname}")
-        return None
-
-    if get_external_ref.check_url_with_request:
-        try:
-            apilink_status_code = requests.get(apilink, timeout=3).status_code
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            get_external_ref.check_url_with_request = False
-
-    if not get_external_ref.check_url_with_request or apilink_status_code < 400:
-        url = apilink
-    else:
-        # Use search link or homepage instead
-        logger.warning(f"invalid API link, using fallback, "
-                       f"status_code={apilink_status_code}, apilink={apilink}")
-        url = EXTERNAL_SEARCH_PAGES[pkg][1] % fullname
-
-    node = nodes.reference(fullname, shorten_type(name))
-    node['refuri'] = url
-    node['reftitle'] = name
-
-    # TODO: Create cache dict (name, url)
-
-    # logger.info(f"found extlink: {name}, {url}")
-    return node
-
-# TODO: store this in the config?
-get_external_ref.check_url_with_request = False
-
 SHORTEN_TYPE_PREFIXES = [
     'System.',
-    'System.Collections.Generic.'
+    'System.Collections.Generic.',
 ]
 
 
@@ -894,6 +715,102 @@ class CSharpDomain(Domain):
         'objects': {},  # fullname -> docname, objtype
     }
 
+    extlink_cache = {}
+
+    # --- External Linking ---
+
+    """ Types and strings to ignore when looking for a reference """
+    ignore_xref_types = [
+        '*',
+        '&',
+        'void',
+
+        # Built-in types
+        'string',
+        'bool',
+        'int',
+        'long',
+        'uint',
+        'ulong',
+        'float',
+        'double',
+        'byte',
+        'object',
+    ]
+
+    """
+    Contains recognised types and their namespaces as well as the package name.
+    The package name references the key in external_search_pages
+    
+    Format the content like this:
+    Where Namespace1 is the namespace for the link (which may not match the real namespace)::
+    
+        'package': {
+            'Namespace1': ['member1', ...],
+            ...
+        },
+        ...
+    """
+    external_type_map = {
+        'msdn': {
+            'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action'],
+            'System.Collections': ['IEnumerator'],
+            'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable'],
+            'System.Threading': ['Thread'],
+            'System.Runtime.InteropServices': ['GCHandle', 'Marshal'],
+        },
+        'unity': {
+            '': ['MonoBehaviour', 'ScriptableObject',
+                 'GameObject', 'Transform', 'RectTransform',
+                 'Mesh', 'MeshRenderer', 'MeshFilter', 'Animator',
+                 'Collider', 'SphereCollider', 'BoxCollider',
+                 'Material', 'Sprite',
+                 'Vector2', 'Vector3', 'Vector4', 'Quaternion', 'Color', 'Gradient',
+                 'Coroutine', 'Space', 'LayerMask', 'Layer',
+                 'AssetPostprocessor',
+                 ],
+            'XR': ['InputDevice'],
+            'Unity.Collections': ['NativeArray'],
+            'Experimental.AssetImporters': ['AssetImportContext', 'MeshImportPostprocessor', 'ScriptedImporter'],
+            'Rendering': ['VertexAttributeDescriptor'],
+            'Events': ['UnityAction'],
+        },
+        'upm.xrtk': {'UnityEngine.XR.Interaction.Toolkit': ['XRRayInteractor', 'XRBaseInteractable', 'XRController']},
+        'upm.tmp': {'TMPro': ['TMP_Text']},
+        'upm.ugui': {'': ['Image', 'Button', 'Toggle']},
+    }
+
+    """
+    Put special cases in here that should be renamed when used in links, use it for generics
+    The name is swapped *after* searching EXTERNAL_TYPE_MAP, just before constructing the url link
+    """
+    external_type_rename = {
+        'List': 'List-1',
+        'Dictionary': 'Dictionary-2',
+        'IList': 'IList-1',
+        'IDictionary': 'IDictionary-2',
+        'ISet': 'ISet-2',
+        'IEnumerable': 'IEnumerable-1',
+        'Func': 'Func-1',
+    }
+
+    """
+    Where do we search for api documentation
+    Syntax:
+    'package': (api link, fallback search link)
+    Use %s for where to substitute item, every link *must* contain this
+    """
+    external_search_pages = {
+        'msdn': ('https://docs.microsoft.com/en-us/dotnet/api/%s',
+                 'https://docs.microsoft.com/en-us/search/?category=All&scope=.NET&terms=%s'),
+        'unity': ('https://docs.unity3d.com/ScriptReference/%s.html',
+                  'https://docs.unity3d.com/ScriptReference/30_search.html?q=%s'),
+        'unityman': ('https://docs.unity3d.com/Manual/%s.html',
+                     'https://docs.unity3d.com/Manual/30_search.html?q=%s'),
+        'upm': ('https://docs.unity3d.com/Packages/%s',
+                'https://docs.unity3d.com/Packages/%s'),
+    }
+
     def clear_doc(self, docname):
         for (typ, name), doc in dict(self.data['objects']).items():
             if doc == docname:
@@ -934,14 +851,14 @@ class CSharpDomain(Domain):
         # 2. Search recognized built-in/external override types first, e.g. float, bool, void
         #    (currently also all other external types)
         for tgt in targets:
-            if check_ignored_ref(tgt):
+            if self.check_ignored_ref(tgt):
                 return None
 
 
         # 3. Found no local objects that match
         if len(objects) == 0:
             # 3b Look externally
-            ref = get_external_ref(target)
+            ref = self.get_external_ref(target)
             if ref is not None:
                 return ref
             logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
@@ -975,7 +892,7 @@ class CSharpDomain(Domain):
                                         contnode, match_tgt + ' ' + match_objtype)
 
         # 6. Look externally
-        ref = get_external_ref(target)
+        ref = self.get_external_ref(target)
         if ref is not None:
             return ref
 
@@ -994,3 +911,99 @@ class CSharpDomain(Domain):
     def resolve_any_xref(self, env, fromdocname, builder,
                          target, node, contnode):
         raise NotImplementedError
+
+    def check_ignored_ref(self, name: str) -> bool:
+        """ Checks if the target is a built-in type or other ignored strings """
+        return name in CSharpDomain.ignore_xref_types
+
+    def get_external_ref(self, name: str) -> nodes:
+        """
+        Looks in the predefined external targets and adds the link if it is found
+        returns: None if unsuccessful
+        """
+        input_name = name
+
+        def create_node(fullname: str, name: str, url: str) -> nodes:
+            """ Small local helper function """
+            node = nodes.reference(fullname, shorten_type(name))
+            node['refuri'] = url
+            node['reftitle'] = fullname
+
+            return node
+
+        # Use existing link if we have already determined it, for performance
+        if name in CSharpDomain.extlink_cache:
+            # logger.info(f"found in extlink_cache: {name}")
+            return create_node(CSharpDomain.extlink_cache[input_name][0],
+                               CSharpDomain.extlink_cache[input_name][1],
+                               CSharpDomain.extlink_cache[input_name][2])
+
+        # Start search in the CSharpDomain.external_type_map
+        fullname = name
+        name_split = name.rsplit('.', 1)
+        if len(name_split) == 2:
+            # We also have the namespace in the name
+            parent, name = name_split
+            matches = [(pkg, namespace) for pkg in CSharpDomain.external_type_map
+                       for namespace in CSharpDomain.external_type_map[pkg]
+                       if name in CSharpDomain.external_type_map[pkg][namespace]
+                       and namespace.endswith(parent)]
+            if len(matches) > 1:
+                # Enforce exact match if there are several
+                matches_strict = [i for i in matches if i[1] == parent]
+                if len(matches_strict) >= 1:
+                    matches = matches_strict
+        else:
+            # search all namespaces
+            parent = None
+            matches = [(pkg, namespace) for pkg in CSharpDomain.external_type_map
+                       for namespace in CSharpDomain.external_type_map[pkg]
+                       if name in CSharpDomain.external_type_map[pkg][namespace]]
+
+        if not matches:
+            return None
+
+        if len(matches) > 1:
+            logger.warning(f"ambiguous external reference for '{fullname}' using first, "
+                           f"found matches: {matches}")
+
+        pkg, parent = matches[0]
+
+        link_name = name
+        if name in CSharpDomain.external_type_rename:
+            link_name = CSharpDomain.external_type_rename[name]
+
+        if parent:
+            # Skip for empty strings
+            fullname = parent + '.' + link_name
+
+        try:
+            apilink = CSharpDomain.external_search_pages[pkg][0] % fullname
+        except KeyError:
+            logger.warning(
+                f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
+                f"target fullname: {fullname}")
+            return None
+
+        test_links = self.env.config['sphinx_csharp_test_links']
+        if test_links:
+            try:
+                apilink_status_code = requests.get(apilink, timeout=3).status_code
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                test_links = False
+
+        if not test_links or apilink_status_code < 400:
+            url = apilink
+        else:
+            # Use search link or homepage instead
+            logger.warning(f"invalid API link, using fallback, "
+                           f"status_code={apilink_status_code}, apilink={apilink}")
+            url = CSharpDomain.external_search_pages[pkg][1] % fullname
+
+        node = create_node(fullname, name, url)
+
+        # Store result in cache dict
+        CSharpDomain.extlink_cache[input_name] = fullname, name, url
+
+        # logger.info(f"found extlink: {input_name, fullname, name, url}")
+        return node
