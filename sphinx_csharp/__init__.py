@@ -12,6 +12,7 @@ def setup(app: Sphinx) -> None:
 
     # Add variables available in conf.py
     app.add_config_value('sphinx_csharp_test_links', False, 'env')
+    app.add_config_value('sphinx_csharp_shorten_type_prefixes', None, 'env')
     app.add_config_value('sphinx_csharp_ignore_xref', None, 'env')
     app.add_config_value('sphinx_csharp_ext_type_map', None, 'env')
     app.add_config_value('sphinx_csharp_external_type_rename', None, 'env')

@@ -1,12 +1,12 @@
 """ C# sphinx domain """
 
+from .extrefs import ExternalRefs
 from .debug import CSDebug
 
 import re
 from collections import namedtuple
 from typing import List
 
-import requests
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
@@ -28,7 +28,7 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
 PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
 MODIFIERS_RE = r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)\s+)?'
-# Exaclty the same but with param modifiers
+# Exactly the same but with param modifiers
 PARAM_MODIFIERS_RE = r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*'
 
 
@@ -288,22 +288,6 @@ def parse_attr_signature(sig):
     return name, params
 
 
-SHORTEN_TYPE_PREFIXES = [
-    'System.',
-    'System.Collections.Generic.',
-]
-
-
-def shorten_type(typ):
-    """ Shorten a type. E.g. drops 'System.' """
-    offset = 0
-    for prefix in SHORTEN_TYPE_PREFIXES:
-        if typ.startswith(prefix):
-            if len(prefix) > offset:
-                offset = len(prefix)
-    return typ[offset:]
-
-
 class CSharpObject(ObjectDescription):
     """ Description of generic C# objects """
 
@@ -390,7 +374,7 @@ class CSharpObject(ObjectDescription):
         if modifiers:
             self.append_modifiers(node, modifiers)
 
-        typ_short = shorten_type(typ)
+        typ_short = ExternalRefs.shorten_type(typ)
         tnode += addnodes.desc_type(typ_short, typ_short)
         node += tnode
 
@@ -785,140 +769,13 @@ class CSharpDomain(Domain):
         'objects': {},  # fullname -> docname, objtype
     }
 
-    extlink_cache = {}
-
-    # --- External Linking ---
-
-    """ Types and strings to ignore when looking for a reference """
-    ignore_xref_types = [
-        '*',
-        '&',
-        'void',
-
-        # Built-in types
-        'string',
-        'bool',
-        'int',
-        'long',
-        'uint',
-        'ulong',
-        'float',
-        'double',
-        'byte',
-        'object',
-    ]
-
-    """
-    Contains recognised types and their namespaces as well as the package name.
-    The package name references the key in external_search_pages
-    
-    Format the content like this:
-    Where Namespace1 is the namespace for the link (which may not match the real namespace)::
-    
-        'package': {
-            'Namespace1': ['member1', ...],
-            ...
-        },
-        ...
-    """
-    external_type_map = {
-        'msdn': {
-            'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action'],
-            'System.Collections': ['IEnumerator'],
-            'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable'],
-            'System.Threading': ['Thread'],
-            'System.Runtime.InteropServices': ['GCHandle', 'Marshal'],
-        },
-        'unity': {
-            '': ['MonoBehaviour', 'ScriptableObject',
-                 'GameObject', 'Transform', 'RectTransform',
-                 'Mesh', 'MeshRenderer', 'MeshFilter', 'Animator',
-                 'Collider', 'SphereCollider', 'BoxCollider',
-                 'Material', 'Sprite',
-                 'Vector2', 'Vector3', 'Vector4', 'Quaternion', 'Color', 'Gradient',
-                 'Coroutine', 'Space', 'LayerMask', 'Layer',
-                 'AssetPostprocessor',
-                 ],
-            'XR': ['InputDevice'],
-            'Unity.Collections': ['NativeArray'],
-            'Experimental.AssetImporters': ['AssetImportContext', 'MeshImportPostprocessor', 'ScriptedImporter'],
-            'Rendering': ['VertexAttributeDescriptor'],
-            'Events': ['UnityAction'],
-        },
-        'upm.xrtk': {'UnityEngine.XR.Interaction.Toolkit': ['XRRayInteractor', 'XRBaseInteractable', 'XRController']},
-        'upm.tmp': {'TMPro': ['TMP_Text']},
-        'upm.ugui': {'': ['Image', 'Button', 'Toggle']},
-    }
-
-    """
-    Put special cases in here that should be renamed when used in links, use it for generics
-    The name is swapped *after* searching EXTERNAL_TYPE_MAP, just before constructing the url link
-    """
-    external_type_rename = {
-        'List': 'List-1',
-        'Dictionary': 'Dictionary-2',
-        'IList': 'IList-1',
-        'IDictionary': 'IDictionary-2',
-        'ISet': 'ISet-2',
-        'IEnumerable': 'IEnumerable-1',
-        'Func': 'Func-1',
-    }
-
-    """
-    Where do we search for api documentation
-    Syntax:
-    'package': ('api link', 'fallback search link')
-    Use %s for where to substitute item, every link *must* contain this
-    """
-    external_search_pages = {
-        'msdn': ('https://docs.microsoft.com/en-us/dotnet/api/%s',
-                 'https://docs.microsoft.com/en-us/search/?category=All&scope=.NET&terms=%s'),
-        'unity': ('https://docs.unity3d.com/ScriptReference/%s.html',
-                  'https://docs.unity3d.com/ScriptReference/30_search.html?q=%s'),
-        'unityman': ('https://docs.unity3d.com/Manual/%s.html',
-                     'https://docs.unity3d.com/Manual/30_search.html?q=%s'),
-        'upm': ('https://docs.unity3d.com/Packages/%s',
-                'https://docs.unity3d.com/Packages/%s'),
-    }
-
     @staticmethod
     def apply_config(app: "Sphinx", config: Config) -> None:
-        """ Read in the config variables and merges them with the defaults """
+        """ Read in the config variables, called once the config is initialized (this is a callback) """
 
         try:
             CSDebug.set_config_values(config)
-
-            # Initialize external links
-            # *Merge* config values with the default values
-            if config['sphinx_csharp_ignore_xref'] is not None:
-                CSharpDomain.ignore_xref_types += config['sphinx_csharp_ignore_xref']
-
-            if config['sphinx_csharp_external_type_rename'] is not None:
-                CSharpDomain.external_type_rename.update(config['sphinx_csharp_external_type_rename'])
-
-            if config['sphinx_csharp_ext_search_pages'] is not None:
-                CSharpDomain.external_search_pages.update(config['sphinx_csharp_ext_search_pages'])
-
-            if config['sphinx_csharp_ext_type_map'] is not None:
-                a = CSharpDomain.external_type_map
-                b = config['sphinx_csharp_ext_type_map']
-
-                # Merge keys in both
-                for pkg in set(b).intersection(a):
-                    # Add new namespaces
-                    for ns in set(b[pkg]).difference(a[pkg]):
-                        a[pkg][ns] = b[pkg][ns].copy()
-
-                    # Concat lists for existing namespaces
-                    for ns in set(b[pkg]).intersection(a[pkg]):
-                        a[pkg][ns] += b[pkg][ns]
-
-                # Add new keys
-                for pkg in set(b).difference(a):
-                    a[pkg] = b[pkg].copy()
-
-                # logger.info(f"merged external_type_map: {CSharpDomain.external_type_map}")
-
+            ExternalRefs.apply_config(config)
         except Exception as e:
             # Manually print the error here as sphinx does not do it for ExtensionErrors
             logger.error(f"Error in CSharpDomain.apply_config(): {e}, \nCheck that your config variables are correct.")
@@ -964,14 +821,14 @@ class CSharpDomain(Domain):
         # 2. Search recognized built-in/external override types first, e.g. float, bool, void
         #    (currently also all other external types)
         for tgt in targets:
-            if self.check_ignored_ref(tgt):
+            if ExternalRefs.check_ignored_ref(tgt):
                 return None
 
 
         # 3. Found no local objects that match
         if len(objects) == 0:
             # 3b Look externally
-            ref = self.get_external_ref(target)
+            ref = ExternalRefs.get_external_ref(target)
             if ref is not None:
                 return ref
             logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
@@ -1011,7 +868,7 @@ class CSharpDomain(Domain):
                                         contnode, match_tgt + ' ' + match_objtype)
 
         # 6. Look externally
-        ref = self.get_external_ref(target)
+        ref = ExternalRefs.get_external_ref(target)
         if ref is not None:
             return ref
 
@@ -1034,104 +891,3 @@ class CSharpDomain(Domain):
                          target, node, contnode):
         raise NotImplementedError
 
-    def check_ignored_ref(self, name: str) -> bool:
-        """ Checks if the target is a built-in type or other ignored strings """
-        return name in CSharpDomain.ignore_xref_types
-
-    def get_external_ref(self, name: str) -> nodes:
-        """
-        Looks in the predefined external targets and adds the link if it is found
-        returns: None if unsuccessful
-        """
-        input_name = name
-
-        def create_node(fullname: str, name: str, url: str) -> nodes:
-            """ Small local helper function """
-            node = nodes.reference(fullname, name)
-            node['refuri'] = url
-            node['reftitle'] = fullname
-
-            return node
-
-        # Use existing link if we have already determined it, for performance
-        if name in CSharpDomain.extlink_cache:
-            if CSDebug.ext_links:
-                logger.info(f"found in extlink_cache for {name}")
-            return create_node(CSharpDomain.extlink_cache[input_name][0],
-                               CSharpDomain.extlink_cache[input_name][1],
-                               CSharpDomain.extlink_cache[input_name][2])
-
-        # Start search in the CSharpDomain.external_type_map
-        fullname = name
-        name_split = name.rsplit('.', 1)
-        if len(name_split) == 2:
-            # We also have the namespace in the name
-            parent, name = name_split
-            matches = [(pkg, namespace) for pkg in CSharpDomain.external_type_map
-                       for namespace in CSharpDomain.external_type_map[pkg]
-                       if name in CSharpDomain.external_type_map[pkg][namespace]
-                       and namespace.endswith(parent)]
-            if len(matches) > 1:
-                # Enforce exact match if there are several
-                matches_strict = [i for i in matches if i[1] == parent]
-                if len(matches_strict) >= 1:
-                    matches = matches_strict
-        else:
-            # search all namespaces
-            parent = None
-            matches = [(pkg, namespace) for pkg in CSharpDomain.external_type_map
-                       for namespace in CSharpDomain.external_type_map[pkg]
-                       if name in CSharpDomain.external_type_map[pkg][namespace]]
-
-        if not matches:
-            return None
-
-        if len(matches) > 1:
-            logger.warning(f"ambiguous external reference for '{fullname}' using first, "
-                           f"found matches: {matches}")
-
-        pkg, parent = matches[0]
-
-        link_name = name
-        if name in CSharpDomain.external_type_rename:
-            link_name = CSharpDomain.external_type_rename[name]
-
-        if parent:
-            # Skip for empty strings
-            fullname = parent + '.' + link_name
-
-        try:
-            apilink = CSharpDomain.external_search_pages[pkg][0] % fullname
-        except KeyError:
-            logger.warning(
-                f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
-                f"target fullname: {fullname}")
-            return None
-
-        test_links = self.env.config['sphinx_csharp_test_links']
-        if test_links:
-            if not CSDebug.has_printed_test_links:
-                CSDebug.has_printed_test_links = True
-                logger.info("csharp: external link testing is enabled")
-            try:
-                apilink_status_code = requests.get(apilink, timeout=3).status_code
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                test_links = False
-
-        if not test_links or apilink_status_code < 400:
-            url = apilink
-        else:
-            # Use search link or homepage instead
-            logger.warning(f"invalid API link, using fallback, "
-                           f"status_code={apilink_status_code}, apilink={apilink}")
-            url = CSharpDomain.external_search_pages[pkg][1] % fullname
-
-        name = shorten_type(name)
-        node = create_node(fullname, name, url)
-
-        # Store result in cache dict
-        CSharpDomain.extlink_cache[input_name] = fullname, name, url
-
-        if CSDebug.ext_links:
-            logger.info(f"found external link: {input_name, fullname, name, url}")
-        return node

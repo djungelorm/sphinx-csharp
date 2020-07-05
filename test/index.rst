@@ -6,6 +6,7 @@
 
    .. inherits:: System.Collections.Generic.IList<string>
    .. inherits:: System.IDisposable
+   .. inherits:: System.IO.FileFormatException
 
    This is a class with methods and properties.
 
