@@ -44,6 +44,7 @@ class ExternalRefsData:
             'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action'],
             'System.Collections': ['IEnumerator'],
             'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable'],
+            'System.IO': ['FileFormatException'],
             'System.Threading': ['Thread'],
             'System.Runtime.InteropServices': ['GCHandle', 'Marshal'],
         },
@@ -95,6 +96,4 @@ class ExternalRefsData:
                   'https://docs.unity3d.com/ScriptReference/30_search.html?q=%s'),
         'unityman': ('https://docs.unity3d.com/Manual/%s.html',
                      'https://docs.unity3d.com/Manual/30_search.html?q=%s'),
-        'upm': ('https://docs.unity3d.com/Packages/%s',
-                'https://docs.unity3d.com/Packages/%s'),
     }

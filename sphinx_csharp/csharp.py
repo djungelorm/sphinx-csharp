@@ -13,6 +13,7 @@ from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.config import Config
 from sphinx.domains import Domain, ObjType
+# noinspection PyProtectedMember
 from sphinx.locale import _
 from sphinx.directives import ObjectDescription
 from sphinx.roles import XRefRole
@@ -41,23 +42,24 @@ TYPE_OPTIONAL_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
           r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\s+)?\??'
 
 METH_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE + TYPE_OPTIONAL_RE + r'(?P<fname>[^\s<(]+)\s*'
-                                    r'(?P<genericparams><[^\(]+>)?\s*'
-                                    r'\((?P<params>.*)?\)$')
+    r'^' + MODIFIERS_RE + TYPE_OPTIONAL_RE +
+    r'(?P<fname>[^\s<(]+)\s*'
+    r'(?P<genericparams><[^(]+>)?\s*'
+    r'\((?P<params>.*)?\)$')
 
 VAR_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{(=]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^' + MODIFIERS_RE + TYPE_RE + r'\s+(?P<name>[^\s<{(=]+)\s*(?:=\s*(?P<value>.+))?$')
 VAR_PARAM_SIG_RE = re.compile(
-    r'^' + PARAM_MODIFIERS_RE + TYPE_RE + '\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^' + PARAM_MODIFIERS_RE + TYPE_RE + r'\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
 
 PROP_SIG_RE = re.compile(
-    r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*\{\s*(get;)?\s*(set;)?\s*\}$')
+    r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*{\s*(get;)?\s*(set;)?\s*}$')
 
 IDXR_SIG_RE = re.compile(
     r'^((?:(?:' + MODIFIERS_RE_SIMPLE +
     r')\s+)*)([^\s]+)\s*this\s*\[\s*((?:[^\s]+)\s+(?:[^\s]+)' +
     r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' +
-    r'\{\s*(get;)?\s*(set;)?\s*\}$')
+    r'{\s*(get;)?\s*(set;)?\s*}$')
 #
 # PARAM_SIG_RE = re.compile(
 #     r'^((?:(?:' + PARAM_MODIFIERS_RE +
@@ -769,6 +771,7 @@ class CSharpDomain(Domain):
         'objects': {},  # fullname -> docname, objtype
     }
 
+    # noinspection PyUnusedLocal
     @staticmethod
     def apply_config(app: "Sphinx", config: Config) -> None:
         """ Read in the config variables, called once the config is initialized (this is a callback) """
@@ -824,7 +827,6 @@ class CSharpDomain(Domain):
             if ExternalRefs.check_ignored_ref(tgt):
                 return None
 
-
         # 3. Found no local objects that match
         if len(objects) == 0:
             # 3b Look externally
@@ -860,7 +862,8 @@ class CSharpDomain(Domain):
                     match_objtype, match_tgt = matches[0]
 
                     if CSDebug.xref:
-                        logger.info(f"Success finding xref, closest match: {objtype}, {tgt}, matches: {len(matches)}")
+                        logger.info(f"Success finding xref for {target}, closest match: {match_objtype}, {match_tgt}, "
+                                    f"matches: {len(matches)}")
 
                     return make_refnode(builder, fromdocname,
                                         objects[match_objtype, match_tgt],
@@ -890,4 +893,3 @@ class CSharpDomain(Domain):
     def resolve_any_xref(self, env, fromdocname, builder,
                          target, node, contnode):
         raise NotImplementedError
-
