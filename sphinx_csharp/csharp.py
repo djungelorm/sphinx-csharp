@@ -837,7 +837,7 @@ class CSharpDomain(Domain):
                            f"searched in object types: {objtypes}")
                            # f", filter1: {[i for i in self.data['objects'] if i[1].endswith(target)]}"
                            # f", filter2: {[i for i in self.data['objects'] if i[0] in objtypes]}")
-            if not CSDebug.has_printed_xref_objects:
+            if CSDebug.xref and not CSDebug.has_printed_xref_objects:
                 CSDebug.has_printed_xref_objects = True
                 logger.warning(f"all xref objects: {self.data['objects']}")
             return None
