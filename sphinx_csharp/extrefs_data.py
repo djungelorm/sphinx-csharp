@@ -58,15 +58,7 @@ class ExternalRefsData:
                  'Coroutine', 'Space', 'LayerMask', 'Layer',
                  'AssetPostprocessor',
                  ],
-            'XR': ['InputDevice'],
-            'Unity.Collections': ['NativeArray'],
-            'Experimental.AssetImporters': ['AssetImportContext', 'MeshImportPostprocessor', 'ScriptedImporter'],
-            'Rendering': ['VertexAttributeDescriptor'],
-            'Events': ['UnityAction'],
         },
-        'upm.xrtk': {'UnityEngine.XR.Interaction.Toolkit': ['XRRayInteractor', 'XRBaseInteractable', 'XRController']},
-        'upm.tmp': {'TMPro': ['TMP_Text']},
-        'upm.ugui': {'': ['Image', 'Button', 'Toggle']},
     }
 
     """
