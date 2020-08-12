@@ -15,12 +15,14 @@ class ExternalRefs:
 
     extlink_cache = {}
     test_links = False
+    multi_lang = False
 
     @classmethod
     def apply_config(cls, config: Config):
         """ Read in the config variables and merge them with the defaults """
 
         cls.test_links = config['sphinx_csharp_test_links']
+        cls.multi_lang = config['sphinx_csharp_multi_language']
 
         # *Merge* config values with the default values
         if config['sphinx_csharp_shorten_type_prefixes'] is not None:
@@ -76,7 +78,7 @@ class ExternalRefs:
         return typ[offset:]
 
     @classmethod
-    def get_external_ref(cls, name: str) -> nodes:
+    def get_external_ref(cls, name: str, objtype: str) -> nodes:
         """
         Looks in the predefined external targets and adds the link if it is found
         returns: None if unsuccessful
@@ -87,7 +89,7 @@ class ExternalRefs:
             """ Small local helper function """
             node = nodes.reference(fullname, name)
             node['refuri'] = url
-            node['reftitle'] = fullname
+            node['reftitle'] = ('C# ' if cls.multi_lang else '') + f'{objtype}: {fullname}'
 
             return node
 
@@ -136,7 +138,9 @@ class ExternalRefs:
 
         if parent:
             # Skip for empty strings
-            fullname = parent + '.' + link_name
+            fullname = f'{pkg} ~> {parent}.{name}'
+        else:
+            fullname = f'{pkg} ~> {name}'
 
         try:
             apilink = ExternalRefsData.external_search_pages[pkg][0] % fullname

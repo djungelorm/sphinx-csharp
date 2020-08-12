@@ -819,7 +819,7 @@ class CSharpDomain(Domain):
             return make_refnode(builder, fromdocname,
                                 objects[objtype, tgt],
                                 objtype + '-' + tgt,
-                                contnode, tgt + ' ' + objtype)
+                                contnode, (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {tgt}')
 
         # 2. Search recognized built-in/external override types first, e.g. float, bool, void
         #    (currently also all other external types)
@@ -830,7 +830,7 @@ class CSharpDomain(Domain):
         # 3. Found no local objects that match
         if len(objects) == 0:
             # 3b Look externally
-            ref = ExternalRefs.get_external_ref(target)
+            ref = ExternalRefs.get_external_ref(target, typ)
             if ref is not None:
                 return ref
             logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
@@ -849,7 +849,7 @@ class CSharpDomain(Domain):
                     return make_refnode(builder, fromdocname,
                                         objects[objtype, tgt],
                                         objtype + '-' + tgt,
-                                        contnode, tgt + ' ' + objtype)
+                                        contnode, (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {tgt}')
 
         # 5. Search in other namespaces by closest match starting at the parent namespace
         if len(objects) > 1:
@@ -868,10 +868,10 @@ class CSharpDomain(Domain):
                     return make_refnode(builder, fromdocname,
                                         objects[match_objtype, match_tgt],
                                         match_objtype + '-' + match_tgt,
-                                        contnode, match_tgt + ' ' + match_objtype)
+                                        contnode, (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{match_objtype}: {match_tgt}')
 
         # 6. Look externally
-        ref = ExternalRefs.get_external_ref(target)
+        ref = ExternalRefs.get_external_ref(target, typ)
         if ref is not None:
             return ref
 
