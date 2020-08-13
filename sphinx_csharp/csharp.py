@@ -702,24 +702,24 @@ class CSharpDomain(Domain):
 
     object_types = {
         # 'key': ObjType(_('key in directives?'), 'roles keys that can reference this')
-        'namespace': ObjType(_('namespace'), 'namespace'),
+        'namespace': ObjType(_('namespace'), 'namespace', 'ref'),
 
-        'class': ObjType(_('class'), 'type', 'class'),
-        'struct': ObjType(_('struct'), 'type', 'struct'),
-        'interface': ObjType(_('interface'), 'type', 'interface'),
+        'class': ObjType(_('class'), 'type', 'class', 'ref'),
+        'struct': ObjType(_('struct'), 'type', 'struct', 'ref'),
+        'interface': ObjType(_('interface'), 'type', 'interface', 'ref'),
 
-        'function': ObjType(_('function'), 'type', 'function', 'func', 'meth'),
-        # 'method': ObjType(_('method'), 'type', 'meth'),
+        'function': ObjType(_('function'), 'type', 'function', 'func', 'meth', 'ref'),
+        # 'method': ObjType(_('method'), 'type', 'meth', 'ref'),
 
-        'var': ObjType(_('var'), 'var', 'member', 'type'),
-        'property': ObjType(_('property'), 'prop'),
-        'event': ObjType(_('event'), 'type', 'event'),
-        'member': ObjType(_('member'), 'member', 'var'),
+        'var': ObjType(_('var'), 'var', 'member', 'type', 'ref'),
+        'property': ObjType(_('property'), 'prop', 'ref'),
+        'event': ObjType(_('event'), 'type', 'event', 'ref'),
+        'member': ObjType(_('member'), 'member', 'var', 'ref'),
 
-        'enum': ObjType(_('enum'), 'type', 'enum'),
-        'enumerator': ObjType(_('enumerator'), 'enumerator'),
-        'attribute': ObjType(_('attribute'), 'attr'),
-        'indexer': ObjType(_('indexer'), 'idxr'),
+        'enum': ObjType(_('enum'), 'type', 'enum', 'ref'),
+        'enumerator': ObjType(_('enumerator'), 'enumerator', 'ref'),
+        'attribute': ObjType(_('attribute'), 'attr', 'ref'),
+        'indexer': ObjType(_('indexer'), 'idxr', 'ref'),
 
     }
     directives = {
@@ -766,6 +766,7 @@ class CSharpDomain(Domain):
         'idxr': CSharpXRefRole(),
 
         'type': CSharpXRefRole(),
+        'ref': CSharpXRefRole(),
     }
     initial_data = {
         'objects': {},  # fullname -> docname, objtype
