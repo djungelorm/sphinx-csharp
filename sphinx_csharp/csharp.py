@@ -794,7 +794,7 @@ class CSharpDomain(Domain):
         targets = []
         parents = []
         # Search in this namespace, note parent may not be where the target resides
-        if node['cs:parent'] is not None:
+        if node.get('cs:parent') is not None:
             parts = node['cs:parent'].split('.')
             while parts:
                 targets.append('.'.join(parts)+'.'+target)
@@ -804,6 +804,10 @@ class CSharpDomain(Domain):
         # By adding this last we ensure the list targets is sorted by decreasing string length
         targets.append(target)
         parents.append('')
+
+        if target is None:
+            # Fallback to contnode text if the target is None, the case for xrefs created by breathe inside docreftext
+            target = contnode.astext()
 
         # Get all objects that end with the initial target
         objtypes = self.objtypes_for_role(typ)
