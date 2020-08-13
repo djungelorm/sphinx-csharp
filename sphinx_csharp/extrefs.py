@@ -138,12 +138,13 @@ class ExternalRefs:
 
         if parent:
             # Skip for empty strings
+            link_name = f'{parent}.{link_name}'
             fullname = f'{pkg} ~> {parent}.{name}'
         else:
             fullname = f'{pkg} ~> {name}'
 
         try:
-            apilink = ExternalRefsData.external_search_pages[pkg][0] % fullname
+            apilink = ExternalRefsData.external_search_pages[pkg][0] % link_name
         except KeyError:
             logger.warning(
                 f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
@@ -166,7 +167,7 @@ class ExternalRefs:
             # Use search link or homepage instead
             logger.warning(f"invalid API link, using fallback, "
                            f"status_code={apilink_status_code}, apilink={apilink}")
-            url = ExternalRefsData.external_search_pages[pkg][1] % fullname
+            url = ExternalRefsData.external_search_pages[pkg][1] % link_name
 
         name = cls.shorten_type(name)
         node = create_node(fullname, name, url)
