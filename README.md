@@ -1,9 +1,7 @@
-sphinx-csharp [![Build Status](https://travis-ci.org/djungelorm/sphinx-csharp.svg?branch=master)](https://travis-ci.org/djungelorm/sphinx-csharp)
-=============
+sphinx-csharp (forked from djungelorm)
+====================================
 
-C# domain for Sphinx.
-
-Note: Work-in-progress. Only a subset of C# is currently supported.
+See [this example](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) end-product.
 
 Usage
 -----
@@ -11,7 +9,7 @@ Usage
 Install using pip:
 
 ```
-pip install sphinx-csharp
+pip install git+https://github.com/rogerbarton/sphinx-csharp.git
 ```
 
 To enable the extension, add the following to your conf.py:
@@ -20,4 +18,4 @@ To enable the extension, add the following to your conf.py:
 extensions = ['sphinx_csharp']
 ```
 
-See [this example](https://raw.githubusercontent.com/djungelorm/sphinx-csharp/master/test/index.rst) of how to document C# code.
+See https://github.com/djungelorm/sphinx-csharp/pull/8 for usage/changes from upstream and also [this rst example](https://raw.githubusercontent.com/rogerbarton/sphinx-csharp/master/test/index.rst).
