@@ -362,7 +362,7 @@ class CSharpObject(ObjectDescription):
 
     def append_type(self, node, input_typ, ignored_types=None):
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ, node)
+        typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ, (self.env.docname, self.lineno))
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
             reftarget=typ, modname=None, classname=None)
