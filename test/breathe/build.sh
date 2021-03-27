@@ -1,6 +1,6 @@
 #!/bin/bash
 
-pip install ../../
+pip install -e ../../
 
 doxygen
 echo ""

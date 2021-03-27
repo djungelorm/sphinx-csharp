@@ -1,8 +1,5 @@
 """ C# sphinx domain """
 
-from .extrefs import ExternalRefs
-from .debug import CSDebug
-
 import re
 from collections import namedtuple
 from typing import List
@@ -12,13 +9,16 @@ from docutils.parsers.rst import Directive
 from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.config import Config
+from sphinx.directives import ObjectDescription
 from sphinx.domains import Domain, ObjType
 # noinspection PyProtectedMember
 from sphinx.locale import _
-from sphinx.directives import ObjectDescription
 from sphinx.roles import XRefRole
-from sphinx.util.nodes import make_refnode
 from sphinx.util import logging
+from sphinx.util.nodes import make_refnode
+
+from .debug import CSDebug
+from .extrefs import ExternalRefs
 
 MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
                                 'abstract', 'async', 'const', 'event', 'delegate',
@@ -28,29 +28,29 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
 
 PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
-MODIFIERS_RE = r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)\s+)?'
+MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)\s+)?')
 # Exactly the same but with param modifiers
-PARAM_MODIFIERS_RE = r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*'
+PARAM_MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*')
 
 
-TYPE_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
-          r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
-          r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\??'
+TYPE_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
+                     r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
+                     r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\??')
 
-TYPE_OPTIONAL_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*' \
-          r'(?:(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*' \
-          r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\s+)?\??'
+TYPE_OPTIONAL_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
+                              r'(?:(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
+                              r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\s+)?\??')
 
 METH_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE + TYPE_OPTIONAL_RE +
+    r'^' + MODIFIERS_RE.pattern + TYPE_OPTIONAL_RE.pattern +
     r'(?P<fname>[^\s<(]+)\s*'
     r'(?P<genericparams><[^(]+>)?\s*'
     r'\((?P<params>.*)?\)$')
 
 VAR_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE + TYPE_RE + r'\s+(?P<name>[^\s<{(=]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{(=]+)\s*(?:=\s*(?P<value>.+))?$')
 VAR_PARAM_SIG_RE = re.compile(
-    r'^' + PARAM_MODIFIERS_RE + TYPE_RE + r'\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
+    r'^' + PARAM_MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
 
 PROP_SIG_RE = re.compile(
     r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*{\s*(get;)?\s*(set;)?\s*}\s*=?\s*(.+)?\s*$')
@@ -65,8 +65,8 @@ IDXR_SIG_RE = re.compile(
 #     r'^((?:(?:' + PARAM_MODIFIERS_RE +
 #     r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
 
-INHERITS_RE = r'(?:\s*:\s*(?P<inherits>.*))?'
-CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE + TYPE_RE + INHERITS_RE + r'$')
+INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*))?')
+CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern + r'$')
 
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 
