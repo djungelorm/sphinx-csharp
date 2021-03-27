@@ -102,11 +102,11 @@ def split_sig(params):
     return result
 
 
-def parse_method_signature(sig: str, signode: addnodes.desc_signature):
+def parse_method_signature(sig: str, location):
     """ Parse a method signature of the form: modifier* type name (params) """
     match = METH_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning(f'Method signature invalid: {sig} ({signode.source}:{signode.line})')
+        logger.warning(f'Method signature invalid: {sig}', location=location)
         return sig, None, None, None, None, None
 
     groups = match.groupdict()
@@ -133,7 +133,7 @@ def parse_method_signature(sig: str, signode: addnodes.desc_signature):
 
     if params.strip() != '':
         params = split_sig(params)
-        params = [parse_param_signature(x, signode) for x in params]
+        params = [parse_param_signature(x, location) for x in params]
     else:
         params = []
 
@@ -142,7 +142,7 @@ def parse_method_signature(sig: str, signode: addnodes.desc_signature):
     return modifiers, return_type, name, generic_params, params
 
 
-def parse_variable_signature(sig: str, signode: addnodes.desc_signature, is_param=False):
+def parse_variable_signature(sig: str, location, is_param=False):
     """
     Parse a variable signature of the form:
     modifier* type name = value
@@ -150,8 +150,7 @@ def parse_variable_signature(sig: str, signode: addnodes.desc_signature, is_para
     """
     match = (VAR_PARAM_SIG_RE if is_param else VAR_SIG_RE).match(sig.strip())
     if not match:
-        logger.warning(('Parameter' if is_param else 'Variable') +
-                       f' signature invalid: {sig} ({signode.source}:{signode.line})')
+        logger.warning(('Parameter' if is_param else 'Variable') + f' signature invalid: {sig}', location=location)
         return sig, None, None, None, None, None
 
     groups = match.groupdict()
@@ -180,14 +179,14 @@ def parse_variable_signature(sig: str, signode: addnodes.desc_signature, is_para
     return modifiers, fulltype, typ, generics, name, default_value
 
 
-def parse_property_signature(sig: str, signode: addnodes.desc_signature):
+def parse_property_signature(sig: str, location):
     """ Parse a property signature of the form:
         modifier* type name { (get;)? (set;)? } """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
         if CSDebug.parse_prop:
-            logger.info(f'Property signature not valid, falling back to variable: {sig} ({signode.source}:{signode.line})')
-        modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig, signode)
+            logger.info(f'Property signature not valid, falling back to variable: {sig}', location=location)
+        modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig, location)
         return modifiers, fulltype, name, False, False
 
     groups = match.groups()
@@ -204,40 +203,40 @@ def parse_property_signature(sig: str, signode: addnodes.desc_signature):
     return modifiers, typ, name, getter is not None, setter is not None, default_val
 
 
-def parse_indexer_signature(sig: str, signode: addnodes.desc_signature):
+def parse_indexer_signature(sig: str, location):
     """ Parse a indexer signature of the form:
         modifier* type this[params] { (get;)? (set;)? } """
     match = IDXR_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning(f'Indexer signature invalid: {sig} ({signode.source}:{signode.line})')
+        logger.warning(f'Indexer signature invalid: {sig}', location=location)
         # TODO: return a better default value?
         return sig, None, None, False, False
 
     modifiers, return_type, params, getter, setter = match.groups()
     params = split_sig(params)
-    params = [parse_param_signature(x, signode) for x in params]
+    params = [parse_param_signature(x, location) for x in params]
 
     if CSDebug.parse_idxr:
         logger.info(f"parsed idxr: {modifiers.split(), return_type, params, getter is not None, setter is not None}")
     return modifiers.split(), return_type, params, getter is not None, setter is not None
 
 
-def parse_param_signature(sig: str, signode: addnodes.desc_signature):
+def parse_param_signature(sig: str, location):
     """ Parse a parameter signature of the form: modifier type name (= default)?
         Interprets as a variable with different modifiers """
-    modifiers, fulltype, typ, generics, name, default_value = parse_variable_signature(sig, signode, True)
+    modifiers, fulltype, typ, generics, name, default_value = parse_variable_signature(sig, location, True)
     if not fulltype:
-        logger.warning(f'Parameter signature invalid: {sig} ({signode.source}:{signode.line})')
+        logger.warning(f'Parameter signature invalid: {sig}', location=location)
         return ParamTuple(sig, None, None, None)
 
     return ParamTuple(name=name, typ=fulltype, default=default_value, modifiers=modifiers)
 
 
-def parse_type_signature(sig: str, signode: addnodes.desc_signature):
+def parse_type_signature(sig: str, location):
     """ Parse a type declaration or usage signature """
     match = CLASS_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning(f'Type signature invalid: {sig} ({signode.source}:{signode.line})')
+        logger.warning(f'Type signature invalid: {sig}', location=location)
         return sig, None, None, None, None
 
     groups = match.groupdict()
@@ -273,16 +272,16 @@ def parse_type_signature(sig: str, signode: addnodes.desc_signature):
     return typ, modifiers, generics, inherited_types, array, ptr
 
 
-def parse_attr_signature(sig: str, signode: addnodes.desc_signature):
+def parse_attr_signature(sig: str, location):
     """ Parse an attribute signature """
     match = ATTR_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning(f'Attribute signature invalid: {sig} ({signode.source}:{signode.line})')
+        logger.warning(f'Attribute signature invalid: {sig}', location=location)
         return sig, None
     name, _, params = match.groups()
     if params is not None and params.strip() != '':
         params = split_sig(params)
-        params = [parse_param_signature(x, signode) for x in params]
+        params = [parse_param_signature(x, location) for x in params]
     else:
         params = []
 
@@ -482,7 +481,7 @@ class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, signode)
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
 
         if modifiers:
             self.append_modifiers(signode, modifiers)
@@ -502,7 +501,7 @@ class CSharpStruct(CSharpObject):
     """ Description of a C# struct """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, signode)
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
 
         if modifiers:
             self.append_modifiers(signode, modifiers)
@@ -522,7 +521,7 @@ class CSharpInterface(CSharpObject):
     """ Description of a C# interface """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, signode)
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
 
         if modifiers:
             self.append_modifiers(signode, modifiers)
@@ -551,7 +550,7 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        modifiers, return_type, name, generic_params, params = parse_method_signature(sig, signode)
+        modifiers, return_type, name, generic_params, params = parse_method_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
 
         # note: constructors don't have a return type
@@ -578,7 +577,7 @@ class CSharpVariable(CSharpObject):
     """ Description of a C# variable """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, signode)
+        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, fulltype)
@@ -596,7 +595,7 @@ class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        modifiers, typ, name, getter, setter, default_val = parse_property_signature(sig, signode)
+        modifiers, typ, name, getter, setter, default_val = parse_property_signature(sig, (self.env.docname, self.lineno))
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
@@ -621,7 +620,7 @@ class CSharpEvent(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
         # Remove namespace for now, I think events are not yet supported by breathe?
-        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, signode)
+        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
 
         prefix = 'event' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
@@ -642,7 +641,7 @@ class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        modifiers, typ, params, getter, setter = parse_indexer_signature(sig, signode)
+        modifiers, typ, params, getter, setter = parse_indexer_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
         signode += nodes.Text('\xa0')
@@ -683,7 +682,7 @@ class CSharpAttribute(CSharpObject):
     """ Description of a C# attribute """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        name, params = parse_attr_signature(sig, signode)
+        name, params = parse_attr_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
         if params:
             signode += nodes.Text('\xa0')
@@ -842,12 +841,12 @@ class CSharpDomain(Domain):
             if ref is not None:
                 return ref
             logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
-                           f"searched in object types: {objtypes}")
+                           f"searched in object types: {objtypes}", location=node)
                            # f", filter1: {[i for i in self.data['objects'] if i[1].endswith(target)]}"
                            # f", filter2: {[i for i in self.data['objects'] if i[0] in objtypes]}")
             if CSDebug.xref and not CSDebug.has_printed_xref_objects:
                 CSDebug.has_printed_xref_objects = True
-                logger.warning(f"all xref objects: {self.data['objects']}")
+                logger.warning(f"all xref objects: {self.data['objects']}", location=node)
             return None
 
         # 4. Search inside this namespace and its direct parents
@@ -861,7 +860,7 @@ class CSharpDomain(Domain):
 
         # 5. Search in other namespaces by closest match starting at the parent namespace
         if len(objects) > 1:
-            logger.warning(f"Ambiguous reference to {target}, potential matches: {objects}")
+            logger.warning(f"Ambiguous reference to {target}, potential matches: {objects}", location=node)
 
             # Get closest to the parent namespace
             for parent in parents:
@@ -871,7 +870,7 @@ class CSharpDomain(Domain):
 
                     if CSDebug.xref:
                         logger.info(f"Success finding xref for {target}, closest match: {match_objtype}, {match_tgt}, "
-                                    f"matches: {len(matches)}")
+                                    f"matches: {len(matches)}", location=node)
 
                     return make_refnode(builder, fromdocname,
                                         objects[match_objtype, match_tgt],
@@ -883,10 +882,11 @@ class CSharpDomain(Domain):
         if ref is not None:
             return ref
 
-        logger.warning(f"Failed to find xref for: {targets}, searched in object types: {objtypes}, parents: {parents}")
+        logger.warning(f"Failed to find xref for: {targets}, searched in object types: {objtypes}, parents: {parents}",
+                       location=node)
         if CSDebug.xref and not CSDebug.has_printed_xref_objects:
             CSDebug.has_printed_xref_objects = False
-            logger.warning(f"all xref objects: {objects}")
+            logger.warning(f"all xref objects: {objects}", location=node)
 
         return None
 

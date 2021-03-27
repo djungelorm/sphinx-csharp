@@ -5,4 +5,4 @@ pip install -e ../../
 doxygen
 echo ""
 echo "--- Running spinx-build ---"
-sphinx-build . _build
+sphinx-build -E . _build
