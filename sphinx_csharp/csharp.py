@@ -102,12 +102,12 @@ def split_sig(params):
     return result
 
 
-def parse_method_signature(sig):
+def parse_method_signature(sig: str, signode: addnodes.desc_signature):
     """ Parse a method signature of the form: modifier* type name (params) """
     match = METH_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning('Method signature invalid: ' + sig)
-        return sig.strip(), None, None, None, None, None
+        logger.warning(f'Method signature invalid: {sig} ({signode.source}:{signode.line})')
+        return sig, None, None, None, None, None
 
     groups = match.groupdict()
     modifiers = groups['modifiers']
@@ -133,7 +133,7 @@ def parse_method_signature(sig):
 
     if params.strip() != '':
         params = split_sig(params)
-        params = [parse_param_signature(x) for x in params]
+        params = [parse_param_signature(x, signode) for x in params]
     else:
         params = []
 
@@ -142,7 +142,7 @@ def parse_method_signature(sig):
     return modifiers, return_type, name, generic_params, params
 
 
-def parse_variable_signature(sig, is_param=False):
+def parse_variable_signature(sig: str, signode: addnodes.desc_signature, is_param=False):
     """
     Parse a variable signature of the form:
     modifier* type name = value
@@ -150,8 +150,9 @@ def parse_variable_signature(sig, is_param=False):
     """
     match = (VAR_PARAM_SIG_RE if is_param else VAR_SIG_RE).match(sig.strip())
     if not match:
-        logger.warning(('Parameter' if is_param else 'Variable') + ' signature invalid: ' + sig)
-        return sig.strip(), None, None, None, None, None
+        logger.warning(('Parameter' if is_param else 'Variable') +
+                       f' signature invalid: {sig} ({signode.source}:{signode.line})')
+        return sig, None, None, None, None, None
 
     groups = match.groupdict()
     modifiers = groups['modifiers']
@@ -179,14 +180,14 @@ def parse_variable_signature(sig, is_param=False):
     return modifiers, fulltype, typ, generics, name, default_value
 
 
-def parse_property_signature(sig):
+def parse_property_signature(sig: str, signode: addnodes.desc_signature):
     """ Parse a property signature of the form:
         modifier* type name { (get;)? (set;)? } """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
         if CSDebug.parse_prop:
-            logger.info(f'Property signature not valid, falling back to variable: {sig}')
-        modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig)
+            logger.info(f'Property signature not valid, falling back to variable: {sig} ({signode.source}:{signode.line})')
+        modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig, signode)
         return modifiers, fulltype, name, False, False
 
     groups = match.groups()
@@ -203,41 +204,41 @@ def parse_property_signature(sig):
     return modifiers, typ, name, getter is not None, setter is not None, default_val
 
 
-def parse_indexer_signature(sig):
+def parse_indexer_signature(sig: str, signode: addnodes.desc_signature):
     """ Parse a indexer signature of the form:
         modifier* type this[params] { (get;)? (set;)? } """
     match = IDXR_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning('Indexer signature invalid: ' + sig)
+        logger.warning(f'Indexer signature invalid: {sig} ({signode.source}:{signode.line})')
         # TODO: return a better default value?
-        return sig.strip(), None, None, False, False
+        return sig, None, None, False, False
 
     modifiers, return_type, params, getter, setter = match.groups()
     params = split_sig(params)
-    params = [parse_param_signature(x) for x in params]
+    params = [parse_param_signature(x, signode) for x in params]
 
     if CSDebug.parse_idxr:
         logger.info(f"parsed idxr: {modifiers.split(), return_type, params, getter is not None, setter is not None}")
     return modifiers.split(), return_type, params, getter is not None, setter is not None
 
 
-def parse_param_signature(sig):
+def parse_param_signature(sig: str, signode: addnodes.desc_signature):
     """ Parse a parameter signature of the form: modifier type name (= default)?
         Interprets as a variable with different modifiers """
-    modifiers, fulltype, typ, generics, name, default_value = parse_variable_signature(sig, True)
+    modifiers, fulltype, typ, generics, name, default_value = parse_variable_signature(sig, signode, True)
     if not fulltype:
-        logger.warning('Parameter signature invalid, got ' + sig)
-        return ParamTuple(sig.strip(), None, None, None)
+        logger.warning(f'Parameter signature invalid: {sig} ({signode.source}:{signode.line})')
+        return ParamTuple(sig, None, None, None)
 
     return ParamTuple(name=name, typ=fulltype, default=default_value, modifiers=modifiers)
 
 
-def parse_type_signature(sig):
+def parse_type_signature(sig: str, signode: addnodes.desc_signature):
     """ Parse a type declaration or usage signature """
     match = CLASS_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning('Type signature invalid, got ' + sig)
-        return sig.strip(), None, None, None, None
+        logger.warning(f'Type signature invalid: {sig} ({signode.source}:{signode.line})')
+        return sig, None, None, None, None
 
     groups = match.groupdict()
 
@@ -272,16 +273,16 @@ def parse_type_signature(sig):
     return typ, modifiers, generics, inherited_types, array, ptr
 
 
-def parse_attr_signature(sig):
+def parse_attr_signature(sig: str, signode: addnodes.desc_signature):
     """ Parse an attribute signature """
     match = ATTR_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning('Attribute signature invalid, got ' + sig)
-        return sig.strip(), None
+        logger.warning(f'Attribute signature invalid: {sig} ({signode.source}:{signode.line})')
+        return sig, None
     name, _, params = match.groups()
     if params is not None and params.strip() != '':
         params = split_sig(params)
-        params = [parse_param_signature(x) for x in params]
+        params = [parse_param_signature(x, signode) for x in params]
     else:
         params = []
 
@@ -362,7 +363,7 @@ class CSharpObject(ObjectDescription):
 
     def append_type(self, node, input_typ, ignored_types=None):
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ)
+        typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ, node)
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
             reftarget=typ, modname=None, classname=None)
@@ -480,8 +481,8 @@ class CSharpNamespacePlain(CSharpObject):
 class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
-    def handle_signature(self, sig, signode):
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, signode)
 
         if modifiers:
             self.append_modifiers(signode, modifiers)
@@ -500,8 +501,8 @@ class CSharpClass(CSharpObject):
 class CSharpStruct(CSharpObject):
     """ Description of a C# struct """
 
-    def handle_signature(self, sig, signode):
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, signode)
 
         if modifiers:
             self.append_modifiers(signode, modifiers)
@@ -520,8 +521,8 @@ class CSharpStruct(CSharpObject):
 class CSharpInterface(CSharpObject):
     """ Description of a C# interface """
 
-    def handle_signature(self, sig, signode):
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, signode)
 
         if modifiers:
             self.append_modifiers(signode, modifiers)
@@ -540,7 +541,7 @@ class CSharpInterface(CSharpObject):
 class CSharpInherits(CSharpObject):
     """ Description of an inherited C# struct """
 
-    def handle_signature(self, sig, signode):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
         signode += nodes.Text(' : ')
         self.append_type(signode, sig)
         return self.get_fullname(sig)
@@ -549,8 +550,8 @@ class CSharpInherits(CSharpObject):
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
-    def handle_signature(self, sig, signode):
-        modifiers, return_type, name, generic_params, params = parse_method_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        modifiers, return_type, name, generic_params, params = parse_method_signature(sig, signode)
         self.append_modifiers(signode, modifiers)
 
         # note: constructors don't have a return type
@@ -576,8 +577,8 @@ class CSharpMethod(CSharpObject):
 class CSharpVariable(CSharpObject):
     """ Description of a C# variable """
 
-    def handle_signature(self, sig, signode):
-        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, signode)
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, fulltype)
@@ -594,8 +595,8 @@ class CSharpVariable(CSharpObject):
 class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
-    def handle_signature(self, sig, signode):
-        modifiers, typ, name, getter, setter, default_val = parse_property_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        modifiers, typ, name, getter, setter, default_val = parse_property_signature(sig, signode)
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
@@ -618,9 +619,9 @@ class CSharpProperty(CSharpObject):
 class CSharpEvent(CSharpObject):
     """ Description of a C# event """
 
-    def handle_signature(self, sig, signode):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
         # Remove namespace for now, I think events are not yet supported by breathe?
-        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig)
+        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, signode)
 
         prefix = 'event' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
@@ -640,8 +641,8 @@ class CSharpEvent(CSharpObject):
 class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
-    def handle_signature(self, sig, signode):
-        modifiers, typ, params, getter, setter = parse_indexer_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        modifiers, typ, params, getter, setter = parse_indexer_signature(sig, signode)
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
         signode += nodes.Text('\xa0')
@@ -662,7 +663,7 @@ class CSharpIndexer(CSharpObject):
 class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
 
-    def handle_signature(self, sig, signode):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
         prefix = 'enum' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(sig, sig)
@@ -672,7 +673,7 @@ class CSharpEnum(CSharpObject):
 class CSharpEnumValue(CSharpObject):
     """ Description of a C# enum value """
 
-    def handle_signature(self, sig, signode):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
         name = sig
         signode += addnodes.desc_name(name, name)
         return self.get_fullname(name)
@@ -681,8 +682,8 @@ class CSharpEnumValue(CSharpObject):
 class CSharpAttribute(CSharpObject):
     """ Description of a C# attribute """
 
-    def handle_signature(self, sig, signode):
-        name, params = parse_attr_signature(sig)
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+        name, params = parse_attr_signature(sig, signode)
         signode += addnodes.desc_name(name, name)
         if params:
             signode += nodes.Text('\xa0')
