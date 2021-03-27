@@ -2,8 +2,10 @@ Namespaces
 ==========
 
 .. doxygennamespace:: MyNamespace
+    :no-link:
 
 .. doxygennamespace:: OtherNamespace
+    :no-link:
 
 .. doxygenclass:: MyNamespace::MyClass
    :members:

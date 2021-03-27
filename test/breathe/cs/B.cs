@@ -11,7 +11,7 @@ namespace OtherNamespace
     {
         public GameObject* gameObject;
 
-        public readonly LibiglMesh Mesh;
+        public readonly float Mesh;
 
         /// <summary>
         /// Create a behaviour for the <see cref="MonoBehaviour"/> component.
