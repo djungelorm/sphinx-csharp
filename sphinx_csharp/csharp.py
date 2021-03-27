@@ -53,7 +53,7 @@ VAR_PARAM_SIG_RE = re.compile(
     r'^' + PARAM_MODIFIERS_RE + TYPE_RE + r'\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
 
 PROP_SIG_RE = re.compile(
-    r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*{\s*(get;)?\s*(set;)?\s*}$')
+    r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*{\s*(get;)?\s*(set;)?\s*}\s*=?\s*(.+)?\s*$')
 
 IDXR_SIG_RE = re.compile(
     r'^((?:(?:' + MODIFIERS_RE_SIMPLE +
@@ -196,11 +196,11 @@ def parse_property_signature(sig):
     else:
         modifiers = []
         groups = groups[1:]
-    typ, name, getter, setter = groups
+    typ, name, getter, setter, default_val = groups
 
     if CSDebug.parse_prop:
         logger.info(f"parsed prop: {modifiers, typ, name, getter is not None, setter is not None}")
-    return modifiers, typ, name, getter is not None, setter is not None
+    return modifiers, typ, name, getter is not None, setter is not None, default_val
 
 
 def parse_indexer_signature(sig):
@@ -595,7 +595,7 @@ class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
     def handle_signature(self, sig, signode):
-        modifiers, typ, name, getter, setter = parse_property_signature(sig)
+        modifiers, typ, name, getter, setter, default_val = parse_property_signature(sig)
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
@@ -610,6 +610,8 @@ class CSharpProperty(CSharpObject):
         extra_str = ' '.join(extra)
         signode += addnodes.desc_annotation(extra_str, extra_str)
         signode += nodes.Text(' }')
+        if default_val is not None:
+            signode += nodes.Text(' = ' + default_val)
         return self.get_fullname(name)
 
 
