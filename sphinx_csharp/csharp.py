@@ -24,7 +24,7 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
                                 'abstract', 'async', 'const', 'event', 'delegate',
                                 'extern', 'new', 'override', 'partial',
                                 'readonly', 'sealed', 'static', 'unsafe',
-                                'virtual', 'volatile', 'ref'])
+                                'virtual', 'volatile', 'ref', 'inline'])
 
 PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
