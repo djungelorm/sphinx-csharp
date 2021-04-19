@@ -191,8 +191,8 @@ def parse_property_signature(sig: str, location):
 
     groups = match.groups()
     if groups[0] is not None:
-        modifiers = [x.strip() for x in groups[:-4]]
-        groups = groups[-4:]
+        modifiers = [x.strip() for x in groups[:-5]]
+        groups = groups[-5:]
     else:
         modifiers = []
         groups = groups[1:]
