@@ -702,73 +702,75 @@ class CSharpDomain(Domain):
     name = 'cs'
     label = 'C#'
 
+    # role to object type map
     object_types = {
-        # 'key': ObjType(_('key in directives?'), 'roles keys that can reference this')
-        'namespace': ObjType(_('namespace'), 'namespace', 'ref'),
+        # 'role': ObjType
+        'namespace' : ObjType(_('namespace'), 'namespace'),
 
-        'class': ObjType(_('class'), 'type', 'class', 'ref'),
-        'struct': ObjType(_('struct'), 'type', 'struct', 'ref'),
-        'interface': ObjType(_('interface'), 'type', 'interface', 'ref'),
+        # Types
+        'class'     : ObjType(_('class'), 'class', 'type'),
+        'struct'    : ObjType(_('struct'), 'struct', 'type'),
+        'interface' : ObjType(_('interface'), 'interface', 'type'),
+        'enum'      : ObjType(_('enum'), 'enum', 'type'),
 
-        'function': ObjType(_('function'), 'type', 'function', 'func', 'meth', 'ref'),
-        # 'method': ObjType(_('method'), 'type', 'meth', 'ref'),
+        'function'  : ObjType(_('function'), 'function', 'func', 'meth', 'member'),
+        # 'method'    : ObjType(_('method'), 'meth'),
 
-        'var': ObjType(_('var'), 'var', 'member', 'type', 'ref'),
-        'property': ObjType(_('property'), 'prop', 'ref'),
-        'event': ObjType(_('event'), 'type', 'event', 'ref'),
-        'member': ObjType(_('member'), 'member', 'var', 'ref'),
+        'var'       : ObjType(_('var'), 'var', 'member'),
+        'property'  : ObjType(_('property'), 'prop', 'member'),
+        'event'     : ObjType(_('event'), 'event', 'member'),
+        # 'member'    : ObjType(_('member'), 'member', 'var'),
 
-        'enum': ObjType(_('enum'), 'type', 'enum', 'ref'),
-        'enumerator': ObjType(_('enumerator'), 'enumerator', 'ref'),
-        'attribute': ObjType(_('attribute'), 'attr', 'ref'),
-        'indexer': ObjType(_('indexer'), 'idxr', 'ref'),
-
+        'enumerator': ObjType(_('enumerator'), 'enumerator'),
+        'attribute' : ObjType(_('attribute'), 'attr'),
+        'indexer'   : ObjType(_('indexer'), 'idxr'),
     }
     directives = {
-        'namespace': CSharpCurrentNamespace,
+        'namespace' : CSharpCurrentNamespace,
 
-        'class':     CSharpClass,
-        'struct':    CSharpStruct,
-        'interface': CSharpInterface,
-        'inherits':  CSharpInherits,
+        'class'     : CSharpClass,
+        'struct'    : CSharpStruct,
+        'interface' : CSharpInterface,
+        'inherits'  : CSharpInherits,
 
-        'function':  CSharpMethod,
-        # 'method':    CSharpMethod,
+        'function'  : CSharpMethod,
+        # 'method'    : CSharpMethod,
 
-        'var':       CSharpVariable,
-        'property':  CSharpProperty,
-        'event':     CSharpEvent,
-        'member':    CSharpVariable,
+        'var'       : CSharpVariable,
+        'property'  : CSharpProperty,
+        'event'     : CSharpEvent,
+        # 'member'    : CSharpVariable,
 
-        'enum':      CSharpEnum,
+        'enum'      : CSharpEnum,
         'enumerator': CSharpEnumValue,
-        'attribute': CSharpAttribute,
-        'indexer':   CSharpIndexer,
+        'attribute' : CSharpAttribute,
+        'indexer'   : CSharpIndexer,
     }
+    # See https://www.sphinx-doc.org/en/master/usage/restructuredtext/roles.html
     roles = {
         # 'key, rst to write a reference': 'type of reference'
-        'namespace': CSharpXRefRole(),
+        'namespace' : CSharpXRefRole(),
 
-        'class': CSharpXRefRole(),
-        'struct': CSharpXRefRole(),
-        'interface': CSharpXRefRole(),
+        'class'     : CSharpXRefRole(),
+        'struct'    : CSharpXRefRole(),
+        'interface' : CSharpXRefRole(),
 
-        'func': CSharpXRefRole(),
-        'meth': CSharpXRefRole(),
+        'func'      : CSharpXRefRole(),
+        'meth'      : CSharpXRefRole(),
 
-        'var': CSharpXRefRole(),
-        'prop': CSharpXRefRole(),
-        'event': CSharpXRefRole(),
-        'member': CSharpXRefRole(),
+        'var'       : CSharpXRefRole(),
+        'prop'      : CSharpXRefRole(),
+        'event'     : CSharpXRefRole(),
+        'member'    : CSharpXRefRole(),
 
-        'enum': CSharpXRefRole(),
+        'enum'      : CSharpXRefRole(),
         'enumerator': CSharpXRefRole(),
-        'value': CSharpXRefRole(),
-        'attr': CSharpXRefRole(),
-        'idxr': CSharpXRefRole(),
+        'value'     : CSharpXRefRole(),
+        'attr'      : CSharpXRefRole(),
+        'idxr'      : CSharpXRefRole(),
 
-        'type': CSharpXRefRole(),
-        'ref': CSharpXRefRole(),
+        'type'      : CSharpXRefRole(),
+        'ref'       : CSharpXRefRole(),
     }
     initial_data = {
         'objects': {},  # fullname -> docname, objtype
