@@ -1,4 +1,5 @@
-pip install ../../
+pip install -e ../../
+pip install -e ../../../breathe
 
 doxygen
 echo

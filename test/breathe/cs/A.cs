@@ -16,6 +16,8 @@ namespace MyNamespace
 
         public readonly int Mesh;
 
+        public int MyProp {get; set;} = 1;
+
         /// <summary>
         /// Create a behaviour for the <see cref="MonoBehaviour"/> component.
         /// Every Mesh has one behaviour.

@@ -10,6 +10,8 @@ breathe_projects = {'test-project': "_doxygen/xml"}
 
 pygments_style = 'sphinx'
 
+html_theme = 'sphinx_rtd_theme'
+
 # Debug options
 sphinx_csharp_debug = False
 sphinx_csharp_debug_parse = False
