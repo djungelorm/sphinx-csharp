@@ -2,18 +2,12 @@ Namespaces
 ==========
 
 .. doxygennamespace:: MyNamespace
-    :no-link:
-
-.. doxygennamespace:: OtherNamespace
-    :no-link:
-
-.. doxygenclass:: MyNamespace::MyClass
    :members:
    :protected-members:
    :private-members:
    :undoc-members:
 
-.. doxygenclass:: OtherNamespace::B
+.. doxygennamespace:: OtherNamespace
    :members:
    :protected-members:
    :private-members:
