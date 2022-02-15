@@ -34,12 +34,12 @@ PARAM_MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIE
 
 
 TYPE_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                     r'(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
-                     r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\??')
+                     r'(?P<fulltype>(?P<type>[^\s<\[{*&?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
+                     r'(?P<array>\[,*\])?\s*(?P<ptr>[*&?])?)\??')
 
 TYPE_OPTIONAL_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                              r'(?:(?P<fulltype>(?P<type>[^\s<\[{\*&\?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
-                              r'(?P<array>\[,*\])?\s*(?P<ptr>\*|&)?)\s+)?\??')
+                              r'(?:(?P<fulltype>(?P<type>[^\s<\[{*&?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
+                              r'(?P<array>\[,*\])?\s*(?P<ptr>[*&?])?)\s+)?\??')
 
 METH_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + TYPE_OPTIONAL_RE.pattern +
