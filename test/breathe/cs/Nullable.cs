@@ -22,9 +22,9 @@ namespace OtherNamespace
         /// <summary>
         /// A nullable function.
         /// </summary>
-        /// <param name="bValue">A nullable bool.</param>
+        /// <param name="bValue">A nullable MyClass.</param>
         /// <returns>A nullable int.</returns>
-        public int? FooBar(bool? bValue)
+        public int? FooBar(MyClass? bValue)
         {
             return null;
         }
