@@ -27,8 +27,10 @@ extensions = ['sphinx_csharp']
 See https://github.com/djungelorm/sphinx-csharp/pull/8 for usage/changes from upstream and also [this rst example](https://raw.githubusercontent.com/rogerbarton/sphinx-csharp/master/test/index.rst).
 
 ### `conf.py` Options
-Various options can be set in the sphinx `conf.py`. See `__init__.py:setup()` for available options. Defaults for external references are indicated or in [`extrefs_data.py`](https://github.com/rogerbarton/sphinx-csharp/blob/master/sphinx_csharp/extrefs_data.py). 
-See also `csharp.py:apply_config(cls, config: Config)` for exact defaults. 
+Various options can be set in the sphinx `conf.py`. See [`__init__.py:setup()`](https://github.com/rogerbarton/sphinx-csharp/blob/master/sphinx_csharp/__init__.py) for available options. Defaults for external references are indicated or in [`extrefs_data.py`](https://github.com/rogerbarton/sphinx-csharp/blob/master/sphinx_csharp/extrefs_data.py). 
+See also [`csharp.py:apply_config(cls, config: Config)`](https://github.com/rogerbarton/sphinx-csharp/blob/master/sphinx_csharp/csharp.py) for exact defaults. 
+
+Here are the default values for all available options:
 
 ```py
 # Are other languages used in the sphinx project, if yes add language (domain) prefix to reference labels
@@ -79,8 +81,8 @@ sphinx_csharp_external_type_rename = {
 }
 
 # Debug options, these enable various verbose logging features.
-sphinx_csharp_debug = False
-sphinx_csharp_debug_parse = False
+sphinx_csharp_debug = False # enables all debug options
+sphinx_csharp_debug_parse = False # enables all parsing options
 sphinx_csharp_debug_parse_func = False
 sphinx_csharp_debug_parse_var = False
 sphinx_csharp_debug_parse_prop = False
