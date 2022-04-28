@@ -43,6 +43,14 @@
 
       A method with a templated argument.
 
+   .. function:: void MyMethodTwoDArrayArg (int[][] arg)
+
+      A method with two-dimensional array argument.
+
+   .. function:: int[][] MyMethod2DArrayReturn ()
+
+      A method returning a two-dimensional array
+
    .. function:: MyClass MyMethodClass (MyClass arg)
 
       A method with a class as the parameter and return types.
