@@ -16,7 +16,7 @@ class ExternalRefs:
     extlink_cache = {}
     test_links = False
     multi_lang = False
-    shorten_type_prefixes = []
+    unqualified_namespaces = []
     ignore_xref_types = []
     external_type_map = {}
     external_type_rename = {}
@@ -30,8 +30,8 @@ class ExternalRefs:
         cls.multi_lang = config['sphinx_csharp_multi_language']
 
         # Start from copies so that the defaults are never modified
-        cls.shorten_type_prefixes = ExternalRefsData.shorten_type_prefixes + \
-            (config['sphinx_csharp_shorten_type_prefixes'] or [])
+        cls.unqualified_namespaces = ExternalRefsData.unqualified_namespaces + \
+            (config['sphinx_csharp_unqualified_namespaces'] or [])
         cls.ignore_xref_types = ExternalRefsData.ignore_xref_types + (config['sphinx_csharp_ignore_xref'] or [])
         cls.external_type_rename = {**ExternalRefsData.external_type_rename,
                                     **(config['sphinx_csharp_external_type_rename'] or {})}
@@ -51,17 +51,11 @@ class ExternalRefs:
 
     @classmethod
     def shorten_type(cls, typ: str) -> str:
-        """ Shorten a type. E.g. drops 'System.' """
-        # Find largest prefix that matches
-        offset = 0
-        for prefix in cls.shorten_type_prefixes:
-            if typ.startswith(prefix):
-                offset = max(offset, len(prefix))
-
-        # remove trailing dot
-        if typ[offset] == '.':
-            offset += 1
-        return typ[offset:]
+        """ Drop the namespace from a type in one of the unqualified namespaces, such as System.Text """
+        namespace, _, name = typ.rpartition('.')
+        if any(namespace == ns or namespace.startswith(ns + '.') for ns in cls.unqualified_namespaces):
+            return name
+        return typ
 
     @classmethod
     def get_external_ref(cls, name: str, objtype: str, contnode: nodes.Node,  # noqa: PLR0912, PLR0915

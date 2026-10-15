@@ -1,10 +1,9 @@
 class ExternalRefsData:
     """ This class just holds data used for external linking. Keeps data separate from functionality """
 
-    shorten_type_prefixes = [
-        'System.',
-        'System.IO',
-        'System.Collections.Generic.',
+    """ Types in these namespaces, or namespaces nested inside them, are shown without their namespace """
+    unqualified_namespaces = [
+        'System',
     ]
 
     """ Types and strings to ignore when looking for a reference """

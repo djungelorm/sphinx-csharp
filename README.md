@@ -36,11 +36,9 @@ sphinx_csharp_multi_language = False
 # Should generated external links be tested for validity
 sphinx_csharp_test_links = False
 
-# Remove these common prefixes from labels
-sphinx_csharp_shorten_type_prefixes = [
-    'System.',
-    'System.IO',
-    ...
+# Show types in these namespaces, and in namespaces nested inside them, without their namespace
+sphinx_csharp_unqualified_namespaces = [
+    'System',
 ]
 
 # Do not create cross references for these standard/build-in types

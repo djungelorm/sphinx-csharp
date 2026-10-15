@@ -85,7 +85,7 @@ def test_external_reference(app):
 
 
 @pytest.mark.parametrize('sig, links', [
-    ('void Foo (System.Text.StringBuilder a)', {'Text.StringBuilder': 'System.Text.StringBuilder'}),
+    ('void Foo (System.Text.StringBuilder a)', {'StringBuilder': 'System.Text.StringBuilder'}),
     ('void Foo (System.Func<int, string, bool> a)',
      {'Func': 'System.Func-3', 'int': 'System.Int32', 'string': 'System.String', 'bool': 'System.Boolean'}),
     ('void Foo (System.Collections.Generic.Dictionary<string, decimal> a)',
@@ -111,6 +111,19 @@ def test_invalid_signature_is_shown_as_written(build, directive, sig):
     assert 'signature invalid' in warnings(app)[0]
     doctree = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
     assert next(doctree.findall(addnodes.desc_signature)).astext() == sig
+
+
+@pytest.mark.parametrize('namespaces, text', [
+    (None, 'MyCompany.Tools.Widget Foo ()'),
+    (['MyCompany'], 'Widget Foo ()'),
+    (['MyCompany.Tools'], 'Widget Foo ()'),
+    (['MyCompany.Other'], 'MyCompany.Tools.Widget Foo ()'),
+    (['MyComp'], 'MyCompany.Tools.Widget Foo ()'),
+])
+def test_unqualified_namespaces(build, namespaces, text):
+    app = build('.. cs:class:: MyCompany.Tools.Widget\n\n.. cs:function:: MyCompany.Tools.Widget Foo ()\n',
+                sphinx_csharp_unqualified_namespaces=namespaces)
+    assert signatures(app)['function-Foo'] == text
 
 
 def test_ref_and_value_roles(build):
