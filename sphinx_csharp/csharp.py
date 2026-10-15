@@ -753,7 +753,7 @@ class CSharpDomain(Domain):
         'idxr': CSharpXRefRole(),
 
         'type': CSharpXRefRole(),
-        'ref': CSharpXRefRole(),
+        'obj': CSharpXRefRole(),
     }
     initial_data = {
         'objects': {},  # (objtype, fullname) -> docname
@@ -812,7 +812,7 @@ class CSharpDomain(Domain):
             # Breathe creates references without a target
             target = contnode.astext()
 
-        objtypes = list(self.object_types) if typ == 'ref' else self.objtypes_for_role(typ) or []
+        objtypes = list(self.object_types) if typ == 'obj' else self.objtypes_for_role(typ) or []
         matches = self.find_objects(target, node.get('cs:parent'), objtypes)
         if len(matches) > 1:
             logger.warning(f'ambiguous reference to {target}, matches: {[name for _, name in matches]}',
