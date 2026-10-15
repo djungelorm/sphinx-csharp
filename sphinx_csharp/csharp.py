@@ -896,8 +896,9 @@ class CSharpDomain(Domain):
             yield name, name, typ, docname, typ + '-' + name, 1
 
     def merge_domaindata(self, docnames, otherdata):
-        # TODO: implement to allow parallel builds
-        raise NotImplementedError
+        for key, docname in otherdata['objects'].items():
+            if docname in docnames:
+                self.data['objects'][key] = docname
 
     def resolve_any_xref(self, env, fromdocname, builder,
                          target, node, contnode):

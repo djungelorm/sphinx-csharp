@@ -14,10 +14,12 @@ def rootdir():
 
 @pytest.fixture
 def build(make_app, tmp_path):
-    """ Build a single page project from reStructuredText and return the app """
-    def _build(rst, parallel=0, **confoverrides):
+    """ Build a project from reStructuredText for the index and any other pages, and return the app """
+    def _build(rst, pages=None, parallel=0, **confoverrides):
         (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
         (tmp_path / 'index.rst').write_text(rst)
+        for name, page in (pages or {}).items():
+            (tmp_path / f'{name}.rst').write_text(page)
         app = make_app('html', srcdir=tmp_path, parallel=parallel,
                        confoverrides={'nitpicky': True, **confoverrides})
         app.build()

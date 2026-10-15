@@ -82,9 +82,11 @@ def test_any_role(build):
     assert warnings(app) == []
 
 
-@pytest.mark.xfail(reason='The extension does not declare that it is parallel safe')
 def test_parallel_build(build):
-    app = build(SOURCE, parallel=2)
+    pages = {f'page{i}': f'Page {i}\n======\n\n.. cs:class:: Page{i}Class\n' for i in range(6)}
+    toctree = '.. toctree::\n\n' + ''.join(f'   {name}\n' for name in pages)
+    rst = toctree + '\n' + ''.join(f':cs:type:`Page{i}Class` ' for i in range(6)) + '\n'
+    app = build(rst, pages=pages, parallel=2)
     assert warnings(app) == []
 
 
