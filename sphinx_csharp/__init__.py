@@ -1,12 +1,13 @@
 from importlib.metadata import version
 
 from sphinx.application import Sphinx
+from sphinx.util.typing import ExtensionMetadata
 
 from .csharp import CSharpDomain
 from .debug import CSDebug
 
 
-def setup(app: Sphinx) -> dict:
+def setup(app: Sphinx) -> ExtensionMetadata:
     """ Setup called by sphinx when the module is added to the extensions list in conf.py """
 
     # Register domain

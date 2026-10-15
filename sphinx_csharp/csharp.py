@@ -1,16 +1,18 @@
 """ C# sphinx domain """
 
 import re
-from collections import namedtuple
-from typing import List
+from collections.abc import Iterable, Iterator, Set
+from typing import Any, NamedTuple
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
 from sphinx.application import Sphinx
+from sphinx.builders import Builder
 from sphinx.config import Config
 from sphinx.directives import ObjectDescription
 from sphinx.domains import Domain, ObjType
+from sphinx.environment import BuildEnvironment
 from sphinx.locale import _
 from sphinx.roles import XRefRole
 from sphinx.util import logging
@@ -70,12 +72,69 @@ CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERI
 
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 
-ParamTuple = namedtuple('ParamTuple', ['name', 'typ', 'default', 'modifiers'])
+# Source location of a signature, as a (docname, line) pair
+Location = tuple[str, int] | None
+
+
+class ParamTuple(NamedTuple):
+    name: str
+    typ: str
+    default: str | None
+    modifiers: list[str]
+
+
+class MethodSig(NamedTuple):
+    modifiers: list[str]
+    return_type: str | None
+    name: str
+    generic_params: list[str]
+    params: list[ParamTuple]
+
+
+class VariableSig(NamedTuple):
+    modifiers: list[str]
+    fulltype: str
+    typ: str
+    generics: list[str]
+    name: str
+    default: str | None
+
+
+class PropertySig(NamedTuple):
+    modifiers: list[str]
+    typ: str
+    name: str
+    getter: bool
+    setter: bool
+    default: str | None
+
+
+class IndexerSig(NamedTuple):
+    modifiers: list[str]
+    return_type: str
+    params: list[ParamTuple]
+    getter: bool
+    setter: bool
+
+
+class TypeSig(NamedTuple):
+    typ: str
+    modifiers: list[str]
+    generics: list[str]
+    inherits: list[str]
+    array: str | None
+    ptr: str | None
+
+
+class AttrSig(NamedTuple):
+    name: str
+    params: list[ParamTuple]
+
 
 logger = logging.getLogger(__name__)
 
 
-def split_sig(params):
+def split_sig(params: str) -> list[str]:
     """
     Split a list of parameters/types by commas,
     whilst respecting brackets.
@@ -102,53 +161,48 @@ def split_sig(params):
     return result
 
 
-def invalid_signature(kind, sig, location):
+def split_generics(generics: str | None) -> list[str]:
+    """ Split a <...> generic argument list, or return an empty list if there is none """
+    if not generics:
+        return []
+    # Remove outermost < > brackets
+    return split_sig(generics[1:-1])
+
+
+def parse_params(params: str | None, location: Location) -> list[ParamTuple]:
+    """ Parse a comma-separated parameter list """
+    if params is None or params.strip() == '':
+        return []
+    return [parse_param_signature(x, location) for x in split_sig(params)]
+
+
+def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
     """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
     logger.warning(f'{kind} signature invalid: {sig}', location=location)
     return ValueError(f'{kind} signature invalid: {sig}')
 
 
-def parse_method_signature(sig: str, location):
+def parse_method_signature(sig: str, location: Location) -> MethodSig:
     """ Parse a method signature of the form: modifier* type name (params) """
     match = METH_SIG_RE.match(sig.strip())
     if not match:
         raise invalid_signature('Method', sig, location)
 
     groups = match.groupdict()
-    modifiers = groups['modifiers']
-    return_type = groups['fulltype']
-    name = groups['fname']
+    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    return_type = groups['fulltype'].strip() if groups['fulltype'] else None
     # Doxygen writes generic parameters as a C++ template prefix
-    generic_params = groups['genericparams'] or groups['templates']
-    params = groups['params']
+    generic_params = split_generics(groups['genericparams'] or groups['templates'])
+    # TODO: create ref target with namespace+function name when parsing
+    params = parse_params(groups['params'], location)
 
-    if not modifiers:
-        modifiers = []
-    else:
-        modifiers = modifiers.split()
-
-    if return_type:
-        return_type = return_type.strip()
-
-    if not generic_params:
-        generic_params = []
-    else:
-        # Remove outermost < > brackets
-        generic_params = split_sig(generic_params[1:-1])
-        # TODO: create ref target with namespace+function name when parsing
-
-    if params.strip() != '':
-        params = split_sig(params)
-        params = [parse_param_signature(x, location) for x in params]
-    else:
-        params = []
-
+    result = MethodSig(modifiers, return_type, groups['fname'], generic_params, params)
     if CSDebug.parse_func:
-        logger.info(f"parsed func: {modifiers, return_type, name, generic_params, params}")
-    return modifiers, return_type, name, generic_params, params
+        logger.info(f"parsed func: {tuple(result)}")
+    return result
 
 
-def parse_variable_signature(sig: str, location, is_param=False):
+def parse_variable_signature(sig: str, location: Location, is_param: bool = False) -> VariableSig:
     """
     Parse a variable signature of the form:
     modifier* type name = value
@@ -159,55 +213,37 @@ def parse_variable_signature(sig: str, location, is_param=False):
         raise invalid_signature('Parameter' if is_param else 'Variable', sig, location)
 
     groups = match.groupdict()
-    modifiers = groups['modifiers']
-    fulltype = groups['fulltype'].strip()
-    typ = groups['type']
-    generics = groups['generics']
-    if not generics:
-        generics = groups['templates']  # Doxygen compatibility
-    name = groups['name']
-    default_value = groups['value']
+    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    # The templates group is the Doxygen form of the generics
+    generics = split_generics(groups['generics'] or groups['templates'])
 
-    if not modifiers:
-        modifiers = []
-    else:
-        modifiers = modifiers.split()
-
-    if not generics:
-        generics = []
-    else:
-        # Remove outermost < > brackets
-        generics = split_sig(generics[1:-1])
-
+    result = VariableSig(modifiers, groups['fulltype'].strip(), groups['type'], generics,
+                         groups['name'], groups['value'])
     if CSDebug.parse_var:
-        logger.info(f"parsed var: {modifiers, fulltype, typ, generics, name, default_value}")
-    return modifiers, fulltype, typ, generics, name, default_value
+        logger.info(f"parsed var: {tuple(result)}")
+    return result
 
 
-def parse_property_signature(sig: str, location):
+def parse_property_signature(sig: str, location: Location) -> PropertySig:
     """ Parse a property signature of the form:
         modifier* type name { (get;)? (set;)? } """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
         if CSDebug.parse_prop:
             logger.info(f'Property signature not valid, falling back to variable: {sig}', location=location)
-        modifiers, fulltype, _, _, name, default_val = parse_variable_signature(sig, location)
-        return modifiers, fulltype, name, False, False, default_val
+        var = parse_variable_signature(sig, location)
+        return PropertySig(var.modifiers, var.fulltype, var.name, False, False, var.default)
 
     groups = match.groupdict()
     modifiers = groups['modifiers'].split() if groups['modifiers'] else []
-    typ = groups['fulltype'].strip()
-    name = groups['name']
-    getter = groups['getter']
-    setter = groups['setter']
-    default_val = groups['value']
-
+    result = PropertySig(modifiers, groups['fulltype'].strip(), groups['name'],
+                         groups['getter'] is not None, groups['setter'] is not None, groups['value'])
     if CSDebug.parse_prop:
-        logger.info(f"parsed prop: {modifiers, typ, name, getter is not None, setter is not None}")
-    return modifiers, typ, name, getter is not None, setter is not None, default_val
+        logger.info(f"parsed prop: {tuple(result)}")
+    return result
 
 
-def parse_indexer_signature(sig: str, location):
+def parse_indexer_signature(sig: str, location: Location) -> IndexerSig:
     """ Parse a indexer signature of the form:
         modifier* type this[params] { (get;)? (set;)? } """
     match = IDXR_SIG_RE.match(sig.strip())
@@ -215,86 +251,60 @@ def parse_indexer_signature(sig: str, location):
         raise invalid_signature('Indexer', sig, location)
 
     modifiers, return_type, params, getter, setter = match.groups()
-    params = split_sig(params)
-    params = [parse_param_signature(x, location) for x in params]
-
+    result = IndexerSig(modifiers.split(), return_type, parse_params(params, location),
+                        getter is not None, setter is not None)
     if CSDebug.parse_idxr:
-        logger.info(f"parsed idxr: {modifiers.split(), return_type, params, getter is not None, setter is not None}")
-    return modifiers.split(), return_type, params, getter is not None, setter is not None
+        logger.info(f"parsed idxr: {tuple(result)}")
+    return result
 
 
-def parse_param_signature(sig: str, location):
+def parse_param_signature(sig: str, location: Location) -> ParamTuple:
     """ Parse a parameter signature of the form: modifier type name (= default)?
         Interprets as a variable with different modifiers """
-    modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, location, True)
-    return ParamTuple(name=name, typ=fulltype, default=default_value, modifiers=modifiers)
+    var = parse_variable_signature(sig, location, True)
+    return ParamTuple(name=var.name, typ=var.fulltype, default=var.default, modifiers=var.modifiers)
 
 
-def parse_type_signature(sig: str, location):
+def parse_type_signature(sig: str, location: Location) -> TypeSig:
     """ Parse a type declaration or usage signature """
     match = CLASS_SIG_RE.match(sig.strip()) if sig else None
     if not match:
         raise invalid_signature('Type', sig, location)
 
     groups = match.groupdict()
+    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    # In case where input is from doxygen, it is in C++ style
+    generics = split_generics(groups['generics'] or groups['templates'])
+    inherits = split_sig(groups['inherits']) if groups['inherits'] else []
 
-    modifiers = groups['modifiers']
-    typ = groups['type']
-    generics = groups['generics']
-    if not generics:
-        # In case where input is from doxygen, it is in C++ style
-        generics = groups['templates']
-    inherited_types = groups['inherits']
-    array = groups['array']
-    ptr = groups['ptr']
-
-    if not modifiers:
-        modifiers = []
-    else:
-        modifiers = modifiers.split()
-
-    if not generics:
-        generics = []
-    else:
-        # Remove outermost < > brackets
-        generics = split_sig(generics[1:-1])
-
-    if not inherited_types:
-        inherited_types = []
-    else:
-        inherited_types = split_sig(inherited_types)
-
+    result = TypeSig(groups['type'], modifiers, generics, inherits, groups['array'], groups['ptr'])
     if CSDebug.parse_type:
-        logger.info(f"parsed type: {typ, modifiers, generics, inherited_types, array}")
-    return typ, modifiers, generics, inherited_types, array, ptr
+        logger.info(f"parsed type: {tuple(result)}")
+    return result
 
 
-def parse_attr_signature(sig: str, location):
+def parse_attr_signature(sig: str, location: Location) -> AttrSig:
     """ Parse an attribute signature """
     match = ATTR_SIG_RE.match(sig.strip())
     if not match:
         raise invalid_signature('Attribute', sig, location)
     name, _, params = match.groups()
-    if params is not None and params.strip() != '':
-        params = split_sig(params)
-        params = [parse_param_signature(x, location) for x in params]
-    else:
-        params = []
 
+    result = AttrSig(name, parse_params(params, location))
     if CSDebug.parse_attr:
-        logger.info(f"parsed attr: {name, params}")
-    return name, params
+        logger.info(f"parsed attr: {tuple(result)}")
+    return result
 
 
-class CSharpObject(ObjectDescription):
+class CSharpObject(ObjectDescription[str]):
     """ Description of generic C# objects """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.parentname_set = None
-        self.parentname_saved = None
+        self.parentname_set = False
+        self.parentname_saved: str | None = None
 
-    def add_target_and_index(self, name, _, signode):
+    def add_target_and_index(self, name: str, _: str, signode: addnodes.desc_signature) -> None:
         targetname = self.objtype + '-' + name
         if targetname not in self.state.document.ids:
             signode['names'].append(targetname)
@@ -315,14 +325,14 @@ class CSharpObject(ObjectDescription):
             self.indexnode['entries'].append(
                 ('single', indextext, targetname, ''))
 
-    def get_index_text(self, name):
+    def get_index_text(self, name: str) -> str:
         if self.objtype == 'directive':
             return _('%s (directive)') % name
         if self.objtype == 'role':
             return _('%s (role)') % name
         return ''
 
-    def before_content(self):
+    def before_content(self) -> None:
         lastname = self.names and self.names[-1]
         if lastname:
             self.parentname_set = True
@@ -331,32 +341,33 @@ class CSharpObject(ObjectDescription):
         else:
             self.parentname_set = False
 
-    def after_content(self):
+    def after_content(self) -> None:
         if self.parentname_set:
             self.env.ref_context['cs:parent'] = self.parentname_saved
 
-    def has_parent(self):
+    def has_parent(self) -> bool:
         return 'cs:parent' in self.env.ref_context and \
             self.env.ref_context['cs:parent'] is not None
 
-    def get_parent(self):
-        return self.env.ref_context['cs:parent']
+    def get_parent(self) -> str:
+        parent: str = self.env.ref_context['cs:parent']
+        return parent
 
-    def get_fullname(self, name):
+    def get_fullname(self, name: str) -> str:
         fullname = name
         if self.has_parent():
             fullname = self.get_parent()+'.'+fullname
         return fullname
 
     @staticmethod
-    def append_modifiers(signode, modifiers):
+    def append_modifiers(signode: nodes.Element, modifiers: list[str]) -> None:
         if not modifiers:
             return
         for modifier in modifiers:
             signode += addnodes.desc_annotation(modifier, modifier)
             signode += nodes.Text('\xa0')
 
-    def append_type(self, node, input_typ, ignored_types=None):
+    def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
         typ, modifiers, generic_types, _, array, ptr = parse_type_signature(
             input_typ, (self.env.docname, self.lineno))
@@ -389,7 +400,8 @@ class CSharpObject(ObjectDescription):
         if ptr:
             node += nodes.Text(ptr)
 
-    def append_generics(self, node, generics: List[str], nolink=False, ignored_types=None):
+    def append_generics(self, node: nodes.Element, generics: list[str], nolink: bool = False,
+                        ignored_types: list[str] | None = None) -> None:
         """ nolink will disable xref's, use for newly declared generics in a class declaration,
          ignore_types is similar, but a list of types to disable xrefs for """
         node += nodes.Text('<')
@@ -402,7 +414,7 @@ class CSharpObject(ObjectDescription):
                 node += nodes.Text(', ')
         node += nodes.Text('>')
 
-    def append_inherits(self, node, inherits: List[str]):
+    def append_inherits(self, node: nodes.Element, inherits: list[str]) -> None:
         """ Adds inherited types, inherits must be a list of string types """
         node += nodes.Text(' : ')
         for (i, typ) in enumerate(inherits):
@@ -410,7 +422,8 @@ class CSharpObject(ObjectDescription):
             if i != len(inherits) - 1:
                 node += nodes.Text(', ')
 
-    def append_parameters(self, node, params, ignore_types=None):
+    def append_parameters(self, node: nodes.Element, params: list[ParamTuple],
+                          ignore_types: list[str] | None = None) -> None:
         if ignore_types is None:
             ignore_types = []
         pnodes = addnodes.desc_parameterlist()
@@ -431,7 +444,7 @@ class CSharpObject(ObjectDescription):
             pnodes += pnode
         node += pnodes
 
-    def append_indexer_parameters(self, node, params):
+    def append_indexer_parameters(self, node: nodes.Element, params: list[ParamTuple]) -> None:
         pnodes = addnodes.desc_addname()
         pnodes += nodes.Text('[')
 
@@ -456,7 +469,7 @@ class CSharpCurrentNamespace(Directive):
     final_argument_whitespace = False
     option_spec = {}
 
-    def run(self):
+    def run(self) -> list[nodes.Node]:
         env = self.state.document.settings.env
         namespace = self.arguments[0].strip()
         if namespace == 'None':
@@ -471,7 +484,7 @@ class CSharpNamespacePlain(CSharpObject):
      without updating the parent like the directive CSharpCurrentNamespace.
      Used by breathe. """
 
-    def handle_signature(self, sig, signode):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         prefix = 'namespace' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(sig, sig)
@@ -482,7 +495,7 @@ class CSharpNamespacePlain(CSharpObject):
 class CSharpClass(CSharpObject):
     """ Description of a C# class """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
 
         if modifiers:
@@ -502,7 +515,7 @@ class CSharpClass(CSharpObject):
 class CSharpStruct(CSharpObject):
     """ Description of a C# struct """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
 
         if modifiers:
@@ -522,7 +535,7 @@ class CSharpStruct(CSharpObject):
 class CSharpInterface(CSharpObject):
     """ Description of a C# interface """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
 
         if modifiers:
@@ -542,7 +555,7 @@ class CSharpInterface(CSharpObject):
 class CSharpInherits(CSharpObject):
     """ Description of an inherited C# struct """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         signode += nodes.Text(' : ')
         self.append_type(signode, sig)
         return self.get_fullname(sig)
@@ -551,7 +564,7 @@ class CSharpInherits(CSharpObject):
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         modifiers, return_type, name, generic_params, params = parse_method_signature(
             sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
@@ -579,7 +592,7 @@ class CSharpMethod(CSharpObject):
 class CSharpVariable(CSharpObject):
     """ Description of a C# variable """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
 
         self.append_modifiers(signode, modifiers)
@@ -597,7 +610,7 @@ class CSharpVariable(CSharpObject):
 class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         modifiers, typ, name, getter, setter, default_val = parse_property_signature(
             sig, (self.env.docname, self.lineno))
 
@@ -622,7 +635,7 @@ class CSharpProperty(CSharpObject):
 class CSharpEvent(CSharpObject):
     """ Description of a C# event """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         # Remove namespace for now, I think events are not yet supported by breathe?
         modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
 
@@ -644,7 +657,7 @@ class CSharpEvent(CSharpObject):
 class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         modifiers, typ, params, getter, setter = parse_indexer_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
@@ -666,7 +679,7 @@ class CSharpIndexer(CSharpObject):
 class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         prefix = 'enum' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(sig, sig)
@@ -676,7 +689,7 @@ class CSharpEnum(CSharpObject):
 class CSharpEnumValue(CSharpObject):
     """ Description of a C# enum value """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         name = sig
         signode += addnodes.desc_name(name, name)
         return self.get_fullname(name)
@@ -685,7 +698,7 @@ class CSharpEnumValue(CSharpObject):
 class CSharpAttribute(CSharpObject):
     """ Description of a C# attribute """
 
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature):
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         name, params = parse_attr_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
         if params:
@@ -695,7 +708,8 @@ class CSharpAttribute(CSharpObject):
 
 
 class CSharpXRefRole(XRefRole):
-    def process_link(self, env, refnode, has_explicit_title, title, target):
+    def process_link(self, env: BuildEnvironment, refnode: nodes.Element, has_explicit_title: bool,
+                     title: str, target: str) -> tuple[str, str]:
         refnode['cs:parent'] = env.ref_context.get('cs:parent')
         return super().process_link(
             env, refnode, has_explicit_title, title, target)
@@ -777,7 +791,7 @@ class CSharpDomain(Domain):
         'ref': CSharpXRefRole(),
     }
     initial_data = {
-        'objects': {},  # fullname -> docname, objtype
+        'objects': {},  # (objtype, fullname) -> docname
     }
 
     # noinspection PyUnusedLocal
@@ -793,14 +807,20 @@ class CSharpDomain(Domain):
             logger.error(f"Error in CSharpDomain.apply_config(): {e}, \nCheck that your config variables are correct.")
             raise
 
-    def clear_doc(self, docname):
-        for (typ, name), doc in dict(self.data['objects']).items():
+    def clear_doc(self, docname: str) -> None:
+        for (typ, name), doc in dict(self.objects).items():
             if doc == docname:
-                del self.data['objects'][typ, name]
+                del self.objects[typ, name]
 
-    def find_objects(self, target, parent, objtypes):
+    @property
+    def objects(self) -> dict[tuple[str, str], str]:
+        """ The documented objects, keyed by object type and full name, with the document they are in """
+        objects: dict[tuple[str, str], str] = self.data['objects']
+        return objects
+
+    def find_objects(self, target: str, parent: str | None, objtypes: Iterable[str]) -> list[tuple[str, str]]:
         """ Find the objects of the given types that a target refers to from within a parent namespace """
-        matches = [key for key in self.data['objects']
+        matches = [key for key in self.objects
                    if key[0] in objtypes and (key[1] == target or key[1].endswith('.' + target))]
         if len(matches) <= 1:
             return matches
@@ -822,7 +842,8 @@ class CSharpDomain(Domain):
                 return inside
         return matches
 
-    def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
+    def resolve_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, typ: str, target: str,
+                     node: addnodes.pending_xref, contnode: nodes.Element) -> nodes.reference | None:
         if target is None:
             # Breathe creates references without a target
             target = contnode.astext()
@@ -833,7 +854,8 @@ class CSharpDomain(Domain):
             logger.warning(f'ambiguous reference to {target}, matches: {[name for _, name in matches]}',
                            location=node)
         if matches:
-            return self.make_refnode(builder, fromdocname, *matches[0], contnode)
+            objtype, name = matches[0]
+            return self.make_refnode(builder, fromdocname, objtype, name, contnode)
 
         if ExternalRefs.check_ignored_ref(target):
             return None
@@ -842,22 +864,25 @@ class CSharpDomain(Domain):
             logger.info(f'no C# object found for {target}, searched object types {objtypes}', location=node)
         return ref
 
-    def resolve_any_xref(self, env, fromdocname, builder, target, node, contnode):
+    def resolve_any_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, target: str,
+                         node: addnodes.pending_xref,
+                         contnode: nodes.Element) -> list[tuple[str, nodes.reference]]:
         matches = self.find_objects(target, node.get('cs:parent'), list(self.object_types))
-        return [('cs:' + self.role_for_objtype(objtype),
+        return [('cs:' + self.object_types[objtype].roles[0],
                  self.make_refnode(builder, fromdocname, objtype, name, contnode))
                 for objtype, name in matches]
 
-    def make_refnode(self, builder, fromdocname, objtype, name, contnode):
+    def make_refnode(self, builder: Builder, fromdocname: str, objtype: str, name: str,
+                     contnode: nodes.Element) -> nodes.reference:
         title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {name}'
-        return make_refnode(builder, fromdocname, self.data['objects'][objtype, name],
+        return make_refnode(builder, fromdocname, self.objects[objtype, name],
                             objtype + '-' + name, contnode, title)
 
-    def get_objects(self):
-        for (typ, name), docname in self.data['objects'].items():
+    def get_objects(self) -> Iterator[tuple[str, str, str, str, str, int]]:
+        for (typ, name), docname in self.objects.items():
             yield name, name, typ, docname, typ + '-' + name, 1
 
-    def merge_domaindata(self, docnames, otherdata):
+    def merge_domaindata(self, docnames: Set[str], otherdata: dict[str, Any]) -> None:
         for key, docname in otherdata['objects'].items():
             if docname in docnames:
-                self.data['objects'][key] = docname
+                self.objects[key] = docname

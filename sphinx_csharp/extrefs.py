@@ -13,17 +13,17 @@ class ExternalRefs:
     """ Resolves links to external non-sphinx documentation, e.g. MSDN or Unity.
     All data is stored in a separate file in the class ExternalRefsData """
 
-    extlink_cache = {}
+    extlink_cache: dict[tuple[str, int], tuple[str, str]] = {}
     test_links = False
     multi_lang = False
-    unqualified_namespaces = []
-    ignore_xref_types = []
-    external_type_map = {}
-    external_type_rename = {}
-    external_search_pages = {}
+    unqualified_namespaces: list[str] = []
+    ignore_xref_types: list[str] = []
+    external_type_map: dict[str, dict[str, list[str]]] = {}
+    external_type_rename: dict[str, str] = {}
+    external_search_pages: dict[str, tuple[str, str]] = {}
 
     @classmethod
-    def apply_config(cls, config: Config):
+    def apply_config(cls, config: Config) -> None:
         """ Merge the config values with the defaults in ExternalRefsData """
         cls.extlink_cache = {}
         cls.test_links = config['sphinx_csharp_test_links']
@@ -97,7 +97,7 @@ class ExternalRefs:
                     matches = matches_strict
         else:
             # search all namespaces
-            parent = None
+            parent = ''
             matches = [(pkg, namespace) for pkg, namespaces in cls.external_type_map.items()
                        for namespace, members in namespaces.items()
                        if name in members]
