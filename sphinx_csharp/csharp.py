@@ -11,7 +11,6 @@ from sphinx.application import Sphinx
 from sphinx.config import Config
 from sphinx.directives import ObjectDescription
 from sphinx.domains import Domain, ObjType
-# noinspection PyProtectedMember
 from sphinx.locale import _
 from sphinx.roles import XRefRole
 from sphinx.util import logging
@@ -801,9 +800,8 @@ class CSharpDomain(Domain):
             if doc == docname:
                 del self.data['objects'][typ, name]
 
-    def resolve_xref(self, _, fromdocname, builder,
+    def resolve_xref(self, _, fromdocname, builder,  # noqa: PLR0911, PLR0912
                      typ, target, node, contnode):
-        # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
         targets = []
         parents = []
         # Search in this namespace, note parent may not be where the target resides

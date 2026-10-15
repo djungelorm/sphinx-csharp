@@ -34,13 +34,10 @@ Homepage = "https://github.com/djungelorm/sphinx-csharp"
 include = ["sphinx_csharp", "test", "CHANGES.txt"]
 
 [tool.hatch.envs.lint]
-dependencies = ["pycodestyle", "pylint"]
+dependencies = ["ruff"]
 
 [tool.hatch.envs.lint.scripts]
-check = [
-    "pycodestyle --max-line-length=120 sphinx_csharp",
-    "pylint sphinx_csharp",
-]
+check = "ruff check sphinx_csharp"
 
 [tool.hatch.envs.test]
 dependencies = ["breathe"]
@@ -56,12 +53,12 @@ breathe = [
 ]
 all = ["basic", "breathe"]
 
-[tool.pylint.main]
-disable = [
-    "missing-docstring",
-    "fixme",
-    "too-few-public-methods",
-    "too-many-positional-arguments",
-]
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "PL"]
+ignore = ["PLR2004"]
+
+[tool.ruff.lint.pylint]
 max-args = 10
-max-line-length = 120

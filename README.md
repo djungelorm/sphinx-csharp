@@ -97,7 +97,7 @@ See also [this example](https://github.com/rogerbarton/vr-modeling/blob/69885cd4
 The project uses [Hatch](https://hatch.pypa.io). The Breathe test also needs [Doxygen](https://www.doxygen.nl) on the PATH.
 
 ```
-hatch run lint:check            # pycodestyle and pylint
+hatch run lint:check            # ruff
 hatch run test:all              # both test projects on every supported Python
 hatch run +py=3.14 test:basic   # one test project on one Python
 hatch build                     # sdist and wheel in dist/
