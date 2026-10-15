@@ -97,7 +97,7 @@ See also [this example](https://github.com/rogerbarton/vr-modeling/blob/69885cd4
 
 ### Examples and Tests
 
-The test projects are in `test`. Run them with `make test`, which needs Doxygen and Breathe installed. This is quite incomplete at the moment. The [vr-modeling example](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) will likely be most useful as a reference.
+The test projects are in `test`. Run them with `hatch run test:all`, which needs [Hatch](https://hatch.pypa.io) and Doxygen installed. This is quite incomplete at the moment. The [vr-modeling example](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) will likely be most useful as a reference.
 
 
 ## Common Bug Sources
