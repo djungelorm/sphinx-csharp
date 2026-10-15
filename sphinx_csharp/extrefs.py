@@ -1,5 +1,3 @@
-from typing import cast
-
 import requests
 from docutils import nodes
 from sphinx.config import Config
@@ -18,58 +16,45 @@ class ExternalRefs:
     extlink_cache = {}
     test_links = False
     multi_lang = False
+    shorten_type_prefixes = []
+    ignore_xref_types = []
+    external_type_map = {}
+    external_type_rename = {}
+    external_search_pages = {}
 
     @classmethod
     def apply_config(cls, config: Config):
-        """ Read in the config variables and merge them with the defaults """
-
+        """ Merge the config values with the defaults in ExternalRefsData """
+        cls.extlink_cache = {}
         cls.test_links = config['sphinx_csharp_test_links']
         cls.multi_lang = config['sphinx_csharp_multi_language']
 
-        # *Merge* config values with the default values
-        if config['sphinx_csharp_shorten_type_prefixes'] is not None:
-            ExternalRefsData.shorten_type_prefixes += config['sphinx_csharp_shorten_type_prefixes']
+        # Start from copies so that the defaults are never modified
+        cls.shorten_type_prefixes = ExternalRefsData.shorten_type_prefixes + \
+            (config['sphinx_csharp_shorten_type_prefixes'] or [])
+        cls.ignore_xref_types = ExternalRefsData.ignore_xref_types + (config['sphinx_csharp_ignore_xref'] or [])
+        cls.external_type_rename = {**ExternalRefsData.external_type_rename,
+                                    **(config['sphinx_csharp_external_type_rename'] or {})}
+        cls.external_search_pages = {**ExternalRefsData.external_search_pages,
+                                     **(config['sphinx_csharp_ext_search_pages'] or {})}
 
-        if config['sphinx_csharp_ignore_xref'] is not None:
-            ExternalRefsData.ignore_xref_types += config['sphinx_csharp_ignore_xref']
-
-        if config['sphinx_csharp_external_type_rename'] is not None:
-            ExternalRefsData.external_type_rename.update(config['sphinx_csharp_external_type_rename'])
-
-        if config['sphinx_csharp_ext_search_pages'] is not None:
-            ExternalRefsData.external_search_pages.update(config['sphinx_csharp_ext_search_pages'])
-
-        if config['sphinx_csharp_ext_type_map'] is not None:
-            a = ExternalRefsData.external_type_map
-            b = cast(type(a), config['sphinx_csharp_ext_type_map'])
-
-            # Merge keys in both
-            for pkg in set(b).intersection(a):
-                # Add new namespaces
-                for ns in set(b[pkg]).difference(a[pkg]):
-                    a[pkg][ns] = b[pkg][ns].copy()
-
-                # Concat lists for existing namespaces
-                for ns in set(b[pkg]).intersection(a[pkg]):
-                    a[pkg][ns] += b[pkg][ns]
-
-            # Add new keys
-            for pkg in set(b).difference(a):
-                a[pkg] = b[pkg].copy()
-
-            # logger.info(f"merged external_type_map: {CSharpDomain.external_type_map}")
+        cls.external_type_map = {pkg: {ns: list(types) for ns, types in namespaces.items()}
+                                 for pkg, namespaces in ExternalRefsData.external_type_map.items()}
+        for pkg, namespaces in (config['sphinx_csharp_ext_type_map'] or {}).items():
+            for ns, types in namespaces.items():
+                cls.external_type_map.setdefault(pkg, {}).setdefault(ns, []).extend(types)
 
     @classmethod
     def check_ignored_ref(cls, name: str) -> bool:
         """ Checks if the target is a built-in type or other ignored strings """
-        return name in ExternalRefsData.ignore_xref_types
+        return name in cls.ignore_xref_types
 
     @classmethod
     def shorten_type(cls, typ: str) -> str:
         """ Shorten a type. E.g. drops 'System.' """
         # Find largest prefix that matches
         offset = 0
-        for prefix in ExternalRefsData.shorten_type_prefixes:
+        for prefix in cls.shorten_type_prefixes:
             if typ.startswith(prefix):
                 offset = max(offset, len(prefix))
 
@@ -102,13 +87,13 @@ class ExternalRefs:
                                cls.extlink_cache[input_name][1],
                                cls.extlink_cache[input_name][2])
 
-        # Start search in the ExternalRefsData.external_type_map
+        # Start search in the external type map
         fullname = name
         name_split = name.rsplit('.', 1)
         if len(name_split) == 2:
             # We also have the namespace in the name
             parent, name = name_split
-            matches = [(pkg, namespace) for pkg, namespaces in ExternalRefsData.external_type_map.items()
+            matches = [(pkg, namespace) for pkg, namespaces in cls.external_type_map.items()
                        for namespace, members in namespaces.items()
                        if name in members
                        and namespace.endswith(parent)]
@@ -120,7 +105,7 @@ class ExternalRefs:
         else:
             # search all namespaces
             parent = None
-            matches = [(pkg, namespace) for pkg, namespaces in ExternalRefsData.external_type_map.items()
+            matches = [(pkg, namespace) for pkg, namespaces in cls.external_type_map.items()
                        for namespace, members in namespaces.items()
                        if name in members]
 
@@ -134,8 +119,8 @@ class ExternalRefs:
         pkg, parent = matches[0]
 
         link_name = name
-        if name in ExternalRefsData.external_type_rename:
-            link_name = ExternalRefsData.external_type_rename[name]
+        if name in cls.external_type_rename:
+            link_name = cls.external_type_rename[name]
 
         if parent:
             # Skip for empty strings
@@ -145,7 +130,7 @@ class ExternalRefs:
             fullname = f'{pkg} ~> {name}'
 
         try:
-            apilink = ExternalRefsData.external_search_pages[pkg][0] % link_name
+            apilink = cls.external_search_pages[pkg][0] % link_name
         except KeyError:
             logger.warning(
                 f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
@@ -168,7 +153,7 @@ class ExternalRefs:
             # Use search link or homepage instead
             logger.warning(f"invalid API link, using fallback, "
                            f"status_code={apilink_status_code}, apilink={apilink}")
-            url = ExternalRefsData.external_search_pages[pkg][1] % link_name
+            url = cls.external_search_pages[pkg][1] % link_name
 
         name = cls.shorten_type(name)
         node = create_node(fullname, name, url)

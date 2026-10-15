@@ -727,7 +727,7 @@ class CSharpDomain(Domain):
         'event': ObjType(_('event'), 'event', 'member'),
         # 'member': ObjType(_('member'), 'member', 'var'),
 
-        'enumerator': ObjType(_('enumerator'), 'enumerator'),
+        'enumerator': ObjType(_('enumerator'), 'enumerator', 'value'),
         'attribute': ObjType(_('attribute'), 'attr'),
         'indexer': ObjType(_('indexer'), 'idxr'),
     }
@@ -800,105 +800,66 @@ class CSharpDomain(Domain):
             if doc == docname:
                 del self.data['objects'][typ, name]
 
-    def resolve_xref(self, _, fromdocname, builder,  # noqa: PLR0911, PLR0912
-                     typ, target, node, contnode):
-        targets = []
-        parents = []
-        # Search in this namespace, note parent may not be where the target resides
-        if node.get('cs:parent') is not None:
-            parts = node['cs:parent'].split('.')
-            while parts:
-                targets.append('.'.join(parts)+'.'+target)
-                parents.append('.'.join(parts))
-                parts = parts[:-1]
+    def find_objects(self, target, parent, objtypes):
+        """ Find the objects of the given types that a target refers to from within a parent namespace """
+        matches = [key for key in self.data['objects']
+                   if key[0] in objtypes and (key[1] == target or key[1].endswith('.' + target))]
+        if len(matches) <= 1:
+            return matches
 
-        # By adding this last we ensure the list targets is sorted by decreasing string length
-        targets.append(target)
-        parents.append('')
+        # The parent and each of its enclosing namespaces, innermost first
+        scopes = []
+        if parent:
+            parts = parent.split('.')
+            scopes = ['.'.join(parts[:i]) for i in range(len(parts), 0, -1)]
 
+        # Prefer the target qualified by the closest scope, then an object anywhere inside that scope
+        for scope in scopes + ['']:
+            exact = [key for key in matches if key[1] == (scope + '.' + target if scope else target)]
+            if exact:
+                return exact
+        for scope in scopes:
+            inside = [key for key in matches if key[1].startswith(scope + '.')]
+            if inside:
+                return inside
+        return matches
+
+    def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
         if target is None:
-            # Fallback to contnode text if the target is None, the case for xrefs created by breathe inside docreftext
+            # Breathe creates references without a target
             target = contnode.astext()
 
-        # Get all objects that end with the initial target
-        objtypes = self.objtypes_for_role(typ)
-        objects = {key: val for (key, val) in self.data['objects'].items()
-                   # Filter by objtype and check that we end with the target
-                   if key[0] in objtypes and key[1].endswith(target) and
-                   # that the character before the target is a namespace separator or nothing
-                   (len(key[1]) == len(target) or key[1][:-len(target)][-1] == '.')}
+        objtypes = list(self.object_types) if typ == 'ref' else self.objtypes_for_role(typ) or []
+        matches = self.find_objects(target, node.get('cs:parent'), objtypes)
+        if len(matches) > 1:
+            logger.warning(f'ambiguous reference to {target}, matches: {[name for _, name in matches]}',
+                           location=node)
+        if matches:
+            return self.make_refnode(builder, fromdocname, *matches[0], contnode)
 
-        # 1. Found only one item that ends with the target, use this one
-        if len(objects) == 1:
-            objtype, tgt = next(iter(objects.keys()))
-            return self.make_refnode(builder, fromdocname, objects, objtype, tgt, contnode)
-
-        # 2. Search recognized built-in/external override types first, e.g. float, bool, void
-        #    (currently also all other external types)
-        for tgt in targets:
-            if ExternalRefs.check_ignored_ref(tgt):
-                return None
-
-        # 3. Found no local objects that match
-        if len(objects) == 0:
-            # 3b Look externally
-            ref = ExternalRefs.get_external_ref(target, typ)
-            if ref is not None:
-                return ref
-            logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
-                           f"searched in object types: {objtypes}", location=node)
-            if CSDebug.xref and not CSDebug.has_printed_xref_objects:
-                CSDebug.has_printed_xref_objects = True
-                logger.warning(f"all xref objects: {self.data['objects']}", location=node)
+        if ExternalRefs.check_ignored_ref(target):
             return None
-
-        # 4. Search inside this namespace and its direct parents
-        for tgt in targets:
-            for objtype in objtypes:
-                if (objtype, tgt) in objects:
-                    return self.make_refnode(builder, fromdocname, objects, objtype, tgt, contnode)
-
-        # 5. Search in other namespaces by closest match starting at the parent namespace
-        if len(objects) > 1:
-            logger.warning(f"Ambiguous reference to {target}, potential matches: {objects}", location=node)
-
-            # Get closest to the parent namespace
-            for parent in parents:
-                matches = [i for i in objects if i[0][1].startswith(parent)]
-                if len(matches) >= 1:
-                    match_objtype, match_tgt = matches[0]
-
-                    if CSDebug.xref:
-                        logger.info(f"Success finding xref for {target}, closest match: {match_objtype}, {match_tgt}, "
-                                    f"matches: {len(matches)}", location=node)
-
-                    return self.make_refnode(builder, fromdocname, objects, match_objtype, match_tgt, contnode)
-
-        # 6. Look externally
         ref = ExternalRefs.get_external_ref(target, typ)
-        if ref is not None:
-            return ref
+        if ref is None and CSDebug.xref:
+            logger.info(f'no C# object found for {target}, searched object types {objtypes}', location=node)
+        return ref
 
-        logger.warning(f"Failed to find xref for: {targets}, searched in object types: {objtypes}, parents: {parents}",
-                       location=node)
-        if CSDebug.xref and not CSDebug.has_printed_xref_objects:
-            CSDebug.has_printed_xref_objects = False
-            logger.warning(f"all xref objects: {objects}", location=node)
+    def resolve_any_xref(self, env, fromdocname, builder, target, node, contnode):
+        matches = self.find_objects(target, node.get('cs:parent'), list(self.object_types))
+        return [('cs:' + self.role_for_objtype(objtype),
+                 self.make_refnode(builder, fromdocname, objtype, name, contnode))
+                for objtype, name in matches]
 
-        return None
-
-    def make_refnode(self, builder, fromdocname, objects, objtype, tgt, contnode):
-        title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {tgt}'
-        return make_refnode(builder, fromdocname, objects[objtype, tgt], objtype + '-' + tgt, contnode, title)
+    def make_refnode(self, builder, fromdocname, objtype, name, contnode):
+        title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {name}'
+        return make_refnode(builder, fromdocname, self.data['objects'][objtype, name],
+                            objtype + '-' + name, contnode, title)
 
     def get_objects(self):
         for (typ, name), docname in self.data['objects'].items():
             yield name, name, typ, docname, typ + '-' + name, 1
 
     def merge_domaindata(self, docnames, otherdata):
-        # TODO: implement to allow parallel builds
-        raise NotImplementedError
-
-    def resolve_any_xref(self, env, fromdocname, builder,
-                         target, node, contnode):
-        raise NotImplementedError
+        for key, docname in otherdata['objects'].items():
+            if docname in docnames:
+                self.data['objects'][key] = docname

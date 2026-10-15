@@ -1,10 +1,12 @@
+from importlib.metadata import version
+
 from sphinx.application import Sphinx
 
 from .csharp import CSharpDomain
 from .debug import CSDebug
 
 
-def setup(app: Sphinx) -> None:
+def setup(app: Sphinx) -> dict:
     """ Setup called by sphinx when the module is added to the extensions list in conf.py """
 
     # Register domain
@@ -21,3 +23,10 @@ def setup(app: Sphinx) -> None:
     app.add_config_value('sphinx_csharp_ext_search_pages', None, 'env')
 
     CSDebug.add_config_values(app)
+
+    return {
+        'version': version('sphinx-csharp'),
+        'env_version': 1,
+        'parallel_read_safe': True,
+        'parallel_write_safe': True,
+    }
