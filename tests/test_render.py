@@ -1,6 +1,7 @@
 import pytest
 from conftest import references, signatures, warnings
 
+from sphinx_csharp.extrefs import ExternalRefs
 from sphinx_csharp.extrefs_data import ExternalRefsData
 
 SOURCE = '''
@@ -87,8 +88,8 @@ def test_parallel_build(build):
     assert warnings(app) == []
 
 
-@pytest.mark.xfail(reason='Config values are merged into class-level defaults on every build')
 def test_config_is_not_merged_twice(build):
     build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
     build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
-    assert ExternalRefsData.ignore_xref_types.count('Foo') == 1
+    assert ExternalRefs.ignore_xref_types.count('Foo') == 1
+    assert 'Foo' not in ExternalRefsData.ignore_xref_types
