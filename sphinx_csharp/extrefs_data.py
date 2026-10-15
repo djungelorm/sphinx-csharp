@@ -65,7 +65,7 @@ class ExternalRefsData:
         'Dictionary': 'Dictionary-2',
         'IList': 'IList-1',
         'IDictionary': 'IDictionary-2',
-        'ISet': 'ISet-2',
+        'ISet': 'ISet-1',
         'IEnumerable': 'IEnumerable-1',
         'Func': 'Func-1',
     }
