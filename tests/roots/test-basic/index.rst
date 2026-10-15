@@ -161,6 +161,8 @@
 
    Another attribute.
 
+.. _references:
+
 References
 ----------
 
@@ -193,6 +195,10 @@ Attribute ref :attr:`MyAttribute1`
 Attribute ref :attr:`MyAttribute2`
 
 Indexer ref :idxr:`MyClass.this[]`
+
+Any object ref :obj:`MyClass.MyMethod`
+
+Section ref :ref:`references`
 
 
 More Tests

@@ -127,8 +127,8 @@ def test_unqualified_namespaces(build, namespaces, text):
     assert signatures(app)['function-Foo'] == text
 
 
-def test_ref_and_value_roles(build):
-    app = build(SOURCE + '\nMore: :cs:ref:`MyNamespace.MyClass`, :cs:value:`MyNamespace.MyEnum.Bar`.\n')
+def test_obj_and_value_roles(build):
+    app = build(SOURCE + '\nMore: :cs:obj:`MyNamespace.MyClass`, :cs:value:`MyNamespace.MyEnum.Bar`.\n')
     assert warnings(app) == []
     refs = references(app)
     assert refs['MyNamespace.MyClass'] == 'class-MyNamespace.MyClass'
@@ -141,6 +141,12 @@ def test_any_role(build):
                 'See :any:`foo` and :any:`MyNamespace.Widget`.\n')
     assert warnings(app) == []
     assert references(app)['MyNamespace.Widget'] == 'class-MyNamespace.Widget'
+
+
+def test_std_ref_role_with_default_domain(build):
+    app = build('.. default-domain:: cs\n\nTitle\n=====\n\n.. _foo:\n\nSection\n-------\n\nSee :ref:`foo`.\n')
+    assert warnings(app) == []
+    assert references(app)['Section'] == 'foo'
 
 
 def test_unresolved_reference_without_nitpicky(build):
