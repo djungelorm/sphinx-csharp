@@ -1,3 +1,7 @@
+from sphinx.application import Sphinx
+from sphinx.config import Config
+
+
 class CSDebug:
     """ Contains all debug variables for sphinx_csharp """
 
@@ -17,7 +21,7 @@ class CSDebug:
     has_printed_test_links = False
 
     @classmethod
-    def add_config_values(cls, app):
+    def add_config_values(cls, app: Sphinx) -> None:
         """ Register the config values and set default values """
         app.add_config_value('sphinx_csharp_debug', False, '')
         app.add_config_value('sphinx_csharp_debug_parse', False, '')
@@ -31,7 +35,7 @@ class CSDebug:
         app.add_config_value('sphinx_csharp_debug_ext_links', False, '')
 
     @classmethod
-    def set_config_values(cls, config):
+    def set_config_values(cls, config: Config) -> None:
         """ Initialize debug options from the config """
         cls.all = config['sphinx_csharp_debug']
         cls.parse = cls.all or config['sphinx_csharp_debug_parse']
