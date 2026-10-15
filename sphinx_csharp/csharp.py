@@ -487,64 +487,41 @@ class CSharpNamespacePlain(CSharpObject):
         return sig
 
 
-class CSharpClass(CSharpObject):
+class CSharpType(CSharpObject):
+    """ Description of a C# type declaration, such as a class """
+
+    keyword = ''
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
+
+        if modifiers:
+            self.append_modifiers(signode, modifiers)
+
+        prefix = self.keyword + ' '
+        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += addnodes.desc_name(typ, typ)
+
+        if generics:
+            self.append_generics(signode, generics, nolink=True)
+        if inherits:
+            self.append_inherits(signode, inherits)
+        return self.get_fullname(typ)
+
+
+class CSharpClass(CSharpType):
     """ Description of a C# class """
-
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
-
-        if modifiers:
-            self.append_modifiers(signode, modifiers)
-
-        prefix = 'class' + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
-        signode += addnodes.desc_name(typ, typ)
-
-        if generics:
-            self.append_generics(signode, generics, nolink=True)
-        if inherits:
-            self.append_inherits(signode, inherits)
-        return self.get_fullname(typ)
+    keyword = 'class'
 
 
-class CSharpStruct(CSharpObject):
+class CSharpStruct(CSharpType):
     """ Description of a C# struct """
-
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
-
-        if modifiers:
-            self.append_modifiers(signode, modifiers)
-
-        prefix = 'struct' + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
-        signode += addnodes.desc_name(typ, typ)
-
-        if generics:
-            self.append_generics(signode, generics, nolink=True)
-        if inherits:
-            self.append_inherits(signode, inherits)
-        return self.get_fullname(typ)
+    keyword = 'struct'
 
 
-class CSharpInterface(CSharpObject):
+class CSharpInterface(CSharpType):
     """ Description of a C# interface """
-
-    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
-
-        if modifiers:
-            self.append_modifiers(signode, modifiers)
-
-        prefix = 'interface' + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
-        signode += addnodes.desc_name(typ, typ)
-
-        if generics:
-            self.append_generics(signode, generics, nolink=True)
-        if inherits:
-            self.append_inherits(signode, inherits)
-        return self.get_fullname(typ)
+    keyword = 'interface'
 
 
 class CSharpInherits(CSharpObject):
