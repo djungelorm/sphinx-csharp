@@ -58,12 +58,19 @@ def test_signature(app, node_id, text):
     assert signatures(app)[node_id] == text
 
 
-def test_builtin_types_are_not_linked(app):
-    assert references(app, 'function-MyNamespace.MyClass.Foo') == {'MyClass': 'class-MyNamespace.MyClass'}
+MICROSOFT_DOCS = 'https://learn.microsoft.com/en-us/dotnet/api/'
+
+
+def test_builtin_types_link_to_microsoft_docs(app):
+    assert references(app, 'function-MyNamespace.MyClass.Foo') == {
+        'int': MICROSOFT_DOCS + 'System.Int32',
+        'MyClass': 'class-MyNamespace.MyClass',
+        'string': MICROSOFT_DOCS + 'System.String'}
 
 
 def test_nullable_type_links_to_type(app):
-    assert references(app, 'function-MyNamespace.MyClass.Nullable') == {'MyClass': 'class-MyNamespace.MyClass'}
+    assert references(app, 'function-MyNamespace.MyClass.Nullable') == {
+        'int': MICROSOFT_DOCS + 'System.Int32', 'MyClass': 'class-MyNamespace.MyClass'}
 
 
 def test_reference_from_other_namespace(app):
@@ -73,8 +80,24 @@ def test_reference_from_other_namespace(app):
 
 def test_external_reference(app):
     assert references(app, 'function-MyNamespace.MyClass.Items') == {
-        'List': 'https://docs.microsoft.com/en-us/dotnet/api/System.Collections.Generic.List-1',
+        'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1',
         'MyClass': 'class-MyNamespace.MyClass'}
+
+
+@pytest.mark.parametrize('sig, links', [
+    ('void Foo (System.Text.StringBuilder a)', {'StringBuilder': 'System.Text.StringBuilder'}),
+    ('void Foo (System.Func<int, string, bool> a)',
+     {'Func': 'System.Func-3', 'int': 'System.Int32', 'string': 'System.String', 'bool': 'System.Boolean'}),
+    ('void Foo (System.Collections.Generic.Dictionary<string, decimal> a)',
+     {'Dictionary': 'System.Collections.Generic.Dictionary-2', 'string': 'System.String',
+      'decimal': 'System.Decimal'}),
+    ('void Foo (System.Collections.Generic.IList a)', {'IList': 'System.Collections.Generic.IList-1'}),
+    ('void Foo ()', {}),
+])
+def test_system_types_link_to_microsoft_docs(build, sig, links):
+    app = build(f'.. cs:function:: {sig}\n')
+    assert warnings(app) == []
+    assert references(app, 'function-Foo') == {text: MICROSOFT_DOCS + url for text, url in links.items()}
 
 
 @pytest.mark.parametrize('directive, sig', [
@@ -88,6 +111,19 @@ def test_invalid_signature_is_shown_as_written(build, directive, sig):
     assert 'signature invalid' in warnings(app)[0]
     doctree = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
     assert next(doctree.findall(addnodes.desc_signature)).astext() == sig
+
+
+@pytest.mark.parametrize('namespaces, text', [
+    (None, 'MyCompany.Tools.Widget Foo ()'),
+    (['MyCompany'], 'Widget Foo ()'),
+    (['MyCompany.Tools'], 'Widget Foo ()'),
+    (['MyCompany.Other'], 'MyCompany.Tools.Widget Foo ()'),
+    (['MyComp'], 'MyCompany.Tools.Widget Foo ()'),
+])
+def test_unqualified_namespaces(build, namespaces, text):
+    app = build('.. cs:class:: MyCompany.Tools.Widget\n\n.. cs:function:: MyCompany.Tools.Widget Foo ()\n',
+                sphinx_csharp_unqualified_namespaces=namespaces)
+    assert signatures(app)['function-Foo'] == text
 
 
 def test_ref_and_value_roles(build):
