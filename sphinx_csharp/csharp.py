@@ -149,7 +149,7 @@ def split_sig(params: str) -> list[str]:
             level -= 1
         if char != ',' or level > 0:
             current += char
-        elif char == ',' and level == 0:
+        else:
             result.append(current.strip())
             current = ''
     if current.strip() != '':
