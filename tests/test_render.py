@@ -1,6 +1,10 @@
+from io import StringIO
+
 import pytest
 from conftest import references, signatures, warnings
+from docutils import nodes
 from sphinx import addnodes
+from sphinx.errors import ExtensionError
 
 from sphinx_csharp.extrefs import ExternalRefs
 from sphinx_csharp.extrefs_data import ExternalRefsData
@@ -256,3 +260,101 @@ def test_no_index_entry(build):
                 '.. cs:class:: Derived\n\n   .. cs:inherits:: Shown\n')
     assert warnings(app) == []
     assert index_entries(app) == [('Shown (C# class)', 'class-Shown'), ('Derived (C# class)', 'class-Derived')]
+
+
+@pytest.mark.parametrize('sig, text', [
+    ('string this[int i] { get; set; }', 'string this[int i] { get; set; }'),
+    ('string this[int i, MyClass j] { get; }', 'string this[int i, MyClass j] { get; }'),
+    ('int this[int i] { set; }', 'int this[int i] { set; }'),
+])
+def test_indexer_signature(build, sig, text):
+    app = build(f'.. cs:class:: MyClass\n\n   .. cs:indexer:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)['indexer-MyClass.this[]'] == text
+
+
+@pytest.mark.parametrize('sig, text, links', [
+    ('public System.EventHandler Changed', 'event public EventHandler Changed',
+     {'EventHandler': 'System.EventHandler'}),
+    ('System.Action Done = null', 'event Action Done = null', {'Action': 'System.Action'}),
+])
+def test_event_signature(build, sig, text, links):
+    app = build(f'.. cs:event:: {sig}\n')
+    assert warnings(app) == []
+    node_id = next(iter(signatures(app)))
+    assert signatures(app)[node_id] == text
+    assert references(app, node_id) == {name: MICROSOFT_DOCS + url for name, url in links.items()}
+
+
+def test_generic_parameter_type_is_not_linked(build):
+    app = build('.. cs:function:: void Foo<T> (T a)\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Foo'] == 'void Foo<T> (T a)'
+    assert references(app, 'function-Foo') == {}
+
+
+def test_namespace_none_clears_namespace(build):
+    app = build('.. cs:namespace:: MyNamespace\n\n.. cs:namespace:: None\n\n.. cs:class:: Bar\n')
+    assert 'class-Bar' in signatures(app)
+
+
+def test_duplicate_description(build):
+    app = build('.. toctree::\n\n   page\n\n.. cs:class:: Foo\n', pages={'page': 'Page\n====\n\n.. cs:class:: Foo\n'})
+    assert len(warnings(app)) == 1
+    assert 'duplicate description of class Foo' in warnings(app)[0]
+
+
+def test_rebuild_keeps_objects_from_other_pages(build, tmp_path):
+    pages = {'page1': 'Page 1\n======\n\n.. cs:class:: Page1Class\n',
+             'page2': 'Page 2\n======\n\n.. cs:class:: Page2Class\n'}
+    app = build('.. toctree::\n\n   page1\n   page2\n\n:cs:type:`Page1Class`\n', pages=pages)
+    (tmp_path / 'page2.rst').write_text('Page 2\n======\n\n.. cs:class:: OtherClass\n')
+    app.build()
+    assert warnings(app) == []
+    assert set(app.env.get_domain('cs').objects) == {('class', 'Page1Class'), ('class', 'OtherClass')}
+    assert references(app)['Page1Class'] == 'page1.html#class-Page1Class'
+
+
+def test_reference_without_target(build):
+    app = build('.. cs:class:: Foo\n')
+    node = addnodes.pending_xref('', refdomain='cs', reftype='type')
+    ref = app.env.get_domain('cs').resolve_xref(app.env, 'index', app.builder, 'type', None, node,
+                                                nodes.literal('Foo', 'Foo'))
+    assert ref['refid'] == 'class-Foo'
+
+
+DEBUG_SOURCE = '''
+.. cs:class:: MyClass
+
+   .. cs:function:: void Foo (int a)
+
+   .. cs:var:: int count
+
+   .. cs:property:: string Name { get; }
+
+   .. cs:property:: int Plain
+
+   .. cs:indexer:: string this[int i] { get; }
+
+.. cs:attribute:: MyAttr (string a)
+
+See :cs:type:`Missing`.
+'''
+
+
+def test_debug_logging(build):
+    app = build(DEBUG_SOURCE, nitpicky=False, sphinx_csharp_debug=True)
+    assert warnings(app) == []
+    status = app.status.getvalue()
+    for text in ['parsed func:', 'parsed var:', 'parsed prop:', 'falling back to variable: int Plain',
+                 'parsed idxr:', 'parsed type:', 'parsed attr:', 'no C# object found for Missing']:
+        assert text in status
+
+
+def test_invalid_config(make_app, tmp_path):
+    (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
+    (tmp_path / 'index.rst').write_text('')
+    warning = StringIO()
+    with pytest.raises(ExtensionError):
+        make_app('html', srcdir=tmp_path, warning=warning, confoverrides={'sphinx_csharp_ext_type_map': {'pkg': ['A']}})
+    assert 'Error in CSharpDomain.apply_config()' in warning.getvalue()

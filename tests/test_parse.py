@@ -16,9 +16,14 @@ def param(typ, name, default=None, modifiers=()):
     return ParamTuple(name=name, typ=typ, default=default, modifiers=list(modifiers))
 
 
-def test_split_sig():
-    assert split_sig('String a, int b = 1, List<int> c = [1, 2, 3], Dictionary<string, int> d') == [
-        'String a', 'int b = 1', 'List<int> c = [1, 2, 3]', 'Dictionary<string, int> d']
+@pytest.mark.parametrize('params, expected', [
+    ('String a, int b = 1, List<int> c = [1, 2, 3], Dictionary<string, int> d',
+     ['String a', 'int b = 1', 'List<int> c = [1, 2, 3]', 'Dictionary<string, int> d']),
+    ('a,', ['a']),
+    ('a>, b', ['a>', 'b']),
+])
+def test_split_sig(params, expected):
+    assert split_sig(params) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [

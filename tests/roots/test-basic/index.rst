@@ -132,6 +132,8 @@
 
    .. indexer:: string this[int i, MyClass j] { get; set; }
 
+   .. event:: public System.EventHandler Changed
+
    .. function:: T AGenericMethod<T> (int x)
 
    .. property:: System.Tuple<int,string> ATupleProperty { get; set; }

@@ -149,7 +149,7 @@ def split_sig(params: str) -> list[str]:
             level -= 1
         if char != ',' or level > 0:
             current += char
-        elif char == ',' and level == 0:
+        else:
             result.append(current.strip())
             current = ''
     if current.strip() != '':
@@ -443,8 +443,8 @@ class CSharpObject(ObjectDescription[str]):
         pnodes = addnodes.desc_addname()
         pnodes += nodes.Text('[')
 
-        for param in params:
-            if pnodes.children:
+        for i, param in enumerate(params):
+            if i:
                 pnodes += nodes.Text(', ')
 
             self.append_type(pnodes, param.typ)
