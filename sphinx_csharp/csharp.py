@@ -30,7 +30,7 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
 PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
 MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)\s+)?')
-# Exactly the same but with param modifiers
+# MODIFIERS_RE with parameter modifiers
 PARAM_MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*')
 
 
@@ -62,10 +62,6 @@ IDXR_SIG_RE = re.compile(
     r')\s+)*)([^\s]+)\s*this\s*\[\s*((?:[^\s]+)\s+(?:[^\s]+)' +
     r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' +
     r'{\s*(get;)?\s*(set;)?\s*}$')
-#
-# PARAM_SIG_RE = re.compile(
-#     r'^((?:(?:' + PARAM_MODIFIERS_RE +
-#     r')\s+)*)(.+)\s+([^\s]+)\s*(=\s*(.+))?$')
 
 INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*))?')
 CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern + r'$')
@@ -193,7 +189,6 @@ def parse_method_signature(sig: str, location: Location) -> MethodSig:
     return_type = groups['fulltype'].strip() if groups['fulltype'] else None
     # Doxygen writes generic parameters as a C++ template prefix
     generic_params = split_generics(groups['genericparams'] or groups['templates'])
-    # TODO: create ref target with namespace+function name when parsing
     params = parse_params(groups['params'], location)
 
     result = MethodSig(modifiers, return_type, groups['fname'], generic_params, params)
@@ -273,7 +268,7 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
 
     groups = match.groupdict()
     modifiers = groups['modifiers'].split() if groups['modifiers'] else []
-    # In case where input is from doxygen, it is in C++ style
+    # The templates group is the Doxygen form of the generics
     generics = split_generics(groups['generics'] or groups['templates'])
     inherits = split_sig(groups['inherits']) if groups['inherits'] else []
 
@@ -553,7 +548,7 @@ class CSharpInterface(CSharpObject):
 
 
 class CSharpInherits(CSharpObject):
-    """ Description of an inherited C# struct """
+    """ Description of a type that a C# type inherits from """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         signode += nodes.Text(' : ')
@@ -569,9 +564,9 @@ class CSharpMethod(CSharpObject):
             sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
 
-        # note: constructors don't have a return type
+        # Constructors have no return type
         if return_type is not None:
-            # Dont link if its a generic type
+            # Generic type parameters are not linked
             if generic_params and return_type in generic_params:
                 signode += addnodes.desc_type(return_type, return_type)
             else:
@@ -636,7 +631,6 @@ class CSharpEvent(CSharpObject):
     """ Description of a C# event """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        # Remove namespace for now, I think events are not yet supported by breathe?
         modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
 
         prefix = 'event' + ' '
@@ -720,9 +714,8 @@ class CSharpDomain(Domain):
     name = 'cs'
     label = 'C#'
 
-    # role to object type map
+    # Object types and the roles that reference them
     object_types = {
-        # 'role': ObjType
         'namespace': ObjType(_('namespace'), 'namespace'),
 
         # Types
@@ -732,12 +725,10 @@ class CSharpDomain(Domain):
         'enum': ObjType(_('enum'), 'enum', 'type'),
 
         'function': ObjType(_('function'), 'function', 'func', 'meth', 'member'),
-        # 'method': ObjType(_('method'), 'meth'),
 
         'var': ObjType(_('var'), 'var', 'member'),
         'property': ObjType(_('property'), 'prop', 'member'),
         'event': ObjType(_('event'), 'event', 'member'),
-        # 'member': ObjType(_('member'), 'member', 'var'),
 
         'enumerator': ObjType(_('enumerator'), 'enumerator', 'value'),
         'attribute': ObjType(_('attribute'), 'attr'),
@@ -752,12 +743,10 @@ class CSharpDomain(Domain):
         'inherits': CSharpInherits,
 
         'function': CSharpMethod,
-        # 'method': CSharpMethod,
 
         'var': CSharpVariable,
         'property': CSharpProperty,
         'event': CSharpEvent,
-        # 'member': CSharpVariable,
 
         'enum': CSharpEnum,
         'enumerator': CSharpEnumValue,
@@ -766,7 +755,6 @@ class CSharpDomain(Domain):
     }
     # See https://www.sphinx-doc.org/en/master/usage/restructuredtext/roles.html
     roles = {
-        # 'key, rst to write a reference': 'type of reference'
         'namespace': CSharpXRefRole(),
 
         'class': CSharpXRefRole(),
@@ -794,7 +782,6 @@ class CSharpDomain(Domain):
         'objects': {},  # (objtype, fullname) -> docname
     }
 
-    # noinspection PyUnusedLocal
     @staticmethod
     def apply_config(_app: "Sphinx", config: Config) -> None:
         """ Read in the config variables, called once the config is initialized (this is a callback) """
@@ -803,7 +790,7 @@ class CSharpDomain(Domain):
             CSDebug.set_config_values(config)
             ExternalRefs.apply_config(config)
         except Exception as e:
-            # Manually print the error here as sphinx does not do it for ExtensionErrors
+            # Sphinx omits the cause when it reports an ExtensionError, so we log it here
             logger.error(f"Error in CSharpDomain.apply_config(): {e}, \nCheck that your config variables are correct.")
             raise
 
