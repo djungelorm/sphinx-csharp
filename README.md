@@ -1,12 +1,9 @@
 # sphinx-csharp
 
-A Sphinx domain for documenting C# APIs, with support for generating the documentation from Doxygen output through [Breathe](https://github.com/breathe-doc/breathe).
-
-The [vr-modeling documentation](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) is an example of the end result:
+A Sphinx domain for documenting C# APIs. You can write pages by hand with the `cs` directives, or generate them from C# sources with Doxygen and [Breathe](https://github.com/breathe-doc/breathe):
 
 1. Doxygen generates XML from the C# sources.
 1. Breathe and sphinx-csharp convert the XML to Sphinx documentation.
-1. Hand-written pages use the `cs` domain directly.
 
 ## Usage
 
@@ -94,8 +91,6 @@ sphinx_csharp_debug_xref = False
 sphinx_csharp_debug_ext_links = False
 ```
 
-See also [this example](https://github.com/rogerbarton/vr-modeling/blob/69885cd454935e3c5b54ef5a6b9a94da73575b20/conf.py).
-
 ## Development
 
 The project uses [Hatch](https://hatch.pypa.io). The Breathe test also needs [Doxygen](https://www.doxygen.nl) on the PATH.
@@ -115,6 +110,13 @@ The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `t
 - Incorrect xml reconstruction in breathe, see `def visit_*` in breathe `render/sphinxrenderer.py`
     - e.g. `visit_variable` will create the signature that is given to `csharp.py`
 
+## Examples
+
+- The [kRPC C# client documentation](https://krpc.github.io/krpc/latest/csharp.html) is the main example of the `cs` domain in use.
+- The [vr-modeling documentation](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) by Roger Barton is generated from C# sources through Doxygen and Breathe. Its [`conf.py`](https://github.com/rogerbarton/vr-modeling/blob/69885cd454935e3c5b54ef5a6b9a94da73575b20/conf.py) shows the options in use.
+
 ## Credits
+
+sphinx-csharp was originally written by [djungelorm](https://github.com/djungelorm).
 
 Breathe integration and much of the current parser were contributed by [Roger Barton](https://github.com/rogerbarton) in [#8](https://github.com/djungelorm/sphinx-csharp/pull/8).
