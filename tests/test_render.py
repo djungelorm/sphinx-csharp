@@ -93,6 +93,10 @@ def test_external_reference(app):
       'decimal': 'System.Decimal'}),
     ('void Foo (System.Collections.Generic.IList a)', {'IList': 'System.Collections.Generic.IList-1'}),
     ('void Foo (System.Collections.Generic.ISet a)', {'ISet': 'System.Collections.Generic.ISet-1'}),
+    ('void Foo (Type a)', {'Type': 'System.Type'}),
+    ('void Foo (Exception a)', {'Exception': 'System.Exception'}),
+    ('void Foo (HashSet<int> a)', {'HashSet': 'System.Collections.Generic.HashSet-1', 'int': 'System.Int32'}),
+    ('void Foo (Task<string> a)', {'Task': 'System.Threading.Tasks.Task-1', 'string': 'System.String'}),
     ('void Foo ()', {}),
 ])
 def test_system_types_link_to_microsoft_docs(build, sig, links):

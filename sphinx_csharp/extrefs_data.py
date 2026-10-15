@@ -38,12 +38,23 @@ class ExternalRefsData:
     # The namespace is the one used in the link, which may differ from the real namespace.
     external_type_map = {
         'msdn': {
-            'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action'],
+            'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action',
+                       'Type', 'Attribute', 'Enum', 'Delegate', 'Array', 'Nullable', 'Lazy',
+                       'Guid', 'DateTime', 'TimeSpan', 'Uri', 'EventArgs', 'EventHandler',
+                       'IEquatable', 'IFormattable',
+                       'Exception', 'ArgumentException', 'ArgumentNullException', 'ArgumentOutOfRangeException',
+                       'InvalidOperationException', 'NotSupportedException', 'NotImplementedException',
+                       'ObjectDisposedException'],
             'System.Collections': ['IEnumerator'],
-            'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable'],
-            'System.IO': ['FileFormatException'],
+            'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable',
+                                           'HashSet', 'Queue', 'Stack', 'LinkedList', 'KeyValuePair',
+                                           'ICollection', 'IReadOnlyCollection', 'IReadOnlyList',
+                                           'IReadOnlyDictionary'],
+            'System.IO': ['FileFormatException', 'IOException'],
             'System.Linq.Expressions': ['Expression', 'LambdaExpression'],
+            'System.Text': ['StringBuilder'],
             'System.Threading': ['Thread'],
+            'System.Threading.Tasks': ['Task'],
             'System.Runtime.InteropServices': ['GCHandle', 'Marshal'],
         },
         'unity': {
@@ -69,6 +80,17 @@ class ExternalRefsData:
         'ISet': 'ISet-1',
         'IEnumerable': 'IEnumerable-1',
         'Func': 'Func-1',
+        'HashSet': 'HashSet-1',
+        'Queue': 'Queue-1',
+        'Stack': 'Stack-1',
+        'LinkedList': 'LinkedList-1',
+        'KeyValuePair': 'KeyValuePair-2',
+        'ICollection': 'ICollection-1',
+        'IReadOnlyCollection': 'IReadOnlyCollection-1',
+        'IReadOnlyList': 'IReadOnlyList-1',
+        'IReadOnlyDictionary': 'IReadOnlyDictionary-2',
+        'Lazy': 'Lazy-1',
+        'IEquatable': 'IEquatable-1',
     }
 
     # Documentation URLs for each package, as (API page, fallback search page).
