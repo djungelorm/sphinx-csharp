@@ -443,8 +443,8 @@ class CSharpObject(ObjectDescription[str]):
         pnodes = addnodes.desc_addname()
         pnodes += nodes.Text('[')
 
-        for param in params:
-            if pnodes.children:
+        for i, param in enumerate(params):
+            if i:
                 pnodes += nodes.Text(', ')
 
             self.append_type(pnodes, param.typ)

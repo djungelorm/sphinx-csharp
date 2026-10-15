@@ -256,3 +256,14 @@ def test_no_index_entry(build):
                 '.. cs:class:: Derived\n\n   .. cs:inherits:: Shown\n')
     assert warnings(app) == []
     assert index_entries(app) == [('Shown (C# class)', 'class-Shown'), ('Derived (C# class)', 'class-Derived')]
+
+
+@pytest.mark.parametrize('sig, text', [
+    ('string this[int i] { get; set; }', 'string this[int i] { get; set; }'),
+    ('string this[int i, MyClass j] { get; }', 'string this[int i, MyClass j] { get; }'),
+    ('int this[int i] { set; }', 'int this[int i] { set; }'),
+])
+def test_indexer_signature(build, sig, text):
+    app = build(f'.. cs:class:: MyClass\n\n   .. cs:indexer:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)['indexer-MyClass.this[]'] == text
