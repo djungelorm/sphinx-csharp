@@ -92,6 +92,7 @@ def test_external_reference(app):
      {'Dictionary': 'System.Collections.Generic.Dictionary-2', 'string': 'System.String',
       'decimal': 'System.Decimal'}),
     ('void Foo (System.Collections.Generic.IList a)', {'IList': 'System.Collections.Generic.IList-1'}),
+    ('void Foo (System.Collections.Generic.ISet a)', {'ISet': 'System.Collections.Generic.ISet-1'}),
     ('void Foo ()', {}),
 ])
 def test_system_types_link_to_microsoft_docs(build, sig, links):
