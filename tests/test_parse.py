@@ -50,17 +50,14 @@ def test_parse_method_doxygen_template():
     ('int? P { get; set; }', ([], 'int?', 'P', True, True, None)),
     ('public int[,] P { get; }', (['public'], 'int[,]', 'P', True, False, None)),
     ('List<int> P { get; set; } = new List<int>()', ([], 'List<int>', 'P', True, True, 'new List<int>()')),
+    ('Dictionary<string, int> P { get; }', ([], 'Dictionary<string, int>', 'P', True, False, None)),
+    ('public virtual int P { set; }', (['public', 'virtual'], 'int', 'P', False, True, None)),
+    ('public required string P { get; set; }', (['public', 'required'], 'string', 'P', True, True, None)),
     ('int P', ([], 'int', 'P', False, False, None)),
     ('int P = 1', ([], 'int', 'P', False, False, '1')),
 ])
 def test_parse_property(sig, expected):
     assert parse_property_signature(sig, None) == expected
-
-
-@pytest.mark.xfail(reason='Only the last modifier is kept')
-def test_parse_property_multiple_modifiers():
-    assert parse_property_signature('public virtual int P { set; }', None) == (
-        ['public', 'virtual'], 'int', 'P', False, True, None)
 
 
 @pytest.mark.parametrize('sig, expected', [

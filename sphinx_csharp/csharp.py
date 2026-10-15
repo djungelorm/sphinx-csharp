@@ -22,7 +22,7 @@ from .extrefs import ExternalRefs
 MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
                                 'abstract', 'async', 'const', 'event', 'delegate',
                                 'extern', 'new', 'override', 'partial',
-                                'readonly', 'sealed', 'static', 'unsafe',
+                                'readonly', 'required', 'sealed', 'static', 'unsafe',
                                 'virtual', 'volatile', 'ref'])
 
 PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
@@ -52,7 +52,8 @@ VAR_PARAM_SIG_RE = re.compile(
     r'^' + PARAM_MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
 
 PROP_SIG_RE = re.compile(
-    r'^([^\s]+\s+)*([^\s]+)\s+([^\s]+)\s*{\s*(get;)?\s*(set;)?\s*}\s*=?\s*(.+)?\s*$')
+    r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{(=]+)\s*'
+    r'{\s*(?P<getter>get;)?\s*(?P<setter>set;)?\s*}\s*(?:=\s*(?P<value>.+?))?\s*$')
 
 IDXR_SIG_RE = re.compile(
     r'^((?:(?:' + MODIFIERS_RE_SIMPLE +
@@ -192,14 +193,13 @@ def parse_property_signature(sig: str, location):
         modifiers, fulltype, _, _, name, default_val = parse_variable_signature(sig, location)
         return modifiers, fulltype, name, False, False, default_val
 
-    groups = match.groups()
-    if groups[0] is not None:
-        modifiers = [x.strip() for x in groups[:-5]]
-        groups = groups[-5:]
-    else:
-        modifiers = []
-        groups = groups[1:]
-    typ, name, getter, setter, default_val = groups
+    groups = match.groupdict()
+    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    typ = groups['fulltype'].strip()
+    name = groups['name']
+    getter = groups['getter']
+    setter = groups['setter']
+    default_val = groups['value']
 
     if CSDebug.parse_prop:
         logger.info(f"parsed prop: {modifiers, typ, name, getter is not None, setter is not None}")
