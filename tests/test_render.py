@@ -93,6 +93,10 @@ def test_external_reference(app):
       'decimal': 'System.Decimal'}),
     ('void Foo (System.Collections.Generic.IList a)', {'IList': 'System.Collections.Generic.IList-1'}),
     ('void Foo (System.Collections.Generic.ISet a)', {'ISet': 'System.Collections.Generic.ISet-1'}),
+    ('void Foo (Type a)', {'Type': 'System.Type'}),
+    ('void Foo (Exception a)', {'Exception': 'System.Exception'}),
+    ('void Foo (HashSet<int> a)', {'HashSet': 'System.Collections.Generic.HashSet-1', 'int': 'System.Int32'}),
+    ('void Foo (Task<string> a)', {'Task': 'System.Threading.Tasks.Task-1', 'string': 'System.String'}),
     ('void Foo ()', {}),
 ])
 def test_system_types_link_to_microsoft_docs(build, sig, links):
@@ -188,6 +192,33 @@ def test_ambiguous_reference(build):
     app = build(AMBIGUOUS)
     assert len(warnings(app)) == 1
     assert "ambiguous reference to Foo, matches: ['A.Inner.Foo', 'B.Inner.Foo']" in warnings(app)[0]
+
+
+EXTERNAL_NAME = '''
+.. cs:namespace:: Lib.Expressions
+
+.. cs:class:: Expression
+
+.. cs:function:: void FromLib (Expression e)
+
+.. cs:namespace:: App
+
+.. cs:function:: void FromApp (Expression<System.Func<int>> e)
+'''
+
+
+def test_reference_prefers_enclosing_namespace_over_external_type(build):
+    app = build(EXTERNAL_NAME)
+    assert references(app, 'function-Lib.Expressions.FromLib') == {'Expression': 'class-Lib.Expressions.Expression'}
+
+
+def test_reference_prefers_external_type_over_other_namespace(build):
+    app = build(EXTERNAL_NAME)
+    assert warnings(app) == []
+    assert references(app, 'function-App.FromApp') == {
+        'Expression': MICROSOFT_DOCS + 'System.Linq.Expressions.Expression-1',
+        'Func': MICROSOFT_DOCS + 'System.Func-1',
+        'int': MICROSOFT_DOCS + 'System.Int32'}
 
 
 def test_parallel_build(build):

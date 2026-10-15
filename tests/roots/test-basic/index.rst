@@ -227,3 +227,11 @@ More Tests
    .. function:: private List < MyInterface<int, float> > GenericsGaloreFunc <T, U> (ref List <T> a = default,  List < MyInterface<int, float> > b = default)
 
    .. function:: private T ReturnGeneric < T, U > (int a = 0)
+
+.. namespace:: OtherNamespace.Expressions
+
+.. class:: Expression
+
+.. namespace:: OtherNamespace.Subspace
+
+.. function:: void CompileExpression (Expression<Func<int>> e)

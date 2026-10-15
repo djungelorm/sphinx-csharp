@@ -782,12 +782,14 @@ class CSharpDomain(Domain):
         objects: dict[tuple[str, str], str] = self.data['objects']
         return objects
 
-    def find_objects(self, target: str, parent: str | None, objtypes: Iterable[str]) -> list[tuple[str, str]]:
-        """ Find the objects of the given types that a target refers to from within a parent namespace """
+    def find_objects(self, target: str, parent: str | None, objtypes: Iterable[str],
+                     loose: bool = True) -> list[tuple[str, str]]:
+        """
+        Find the objects of the given types that a target refers to from within a parent namespace.
+        Without loose, only the target qualified by the parent or an enclosing namespace matches.
+        """
         matches = [key for key in self.objects
                    if key[0] in objtypes and (key[1] == target or key[1].endswith('.' + target))]
-        if len(matches) <= 1:
-            return matches
 
         # The parent and each of its enclosing namespaces, innermost first
         scopes = []
@@ -800,6 +802,10 @@ class CSharpDomain(Domain):
             exact = [key for key in matches if key[1] == (scope + '.' + target if scope else target)]
             if exact:
                 return exact
+        if not loose:
+            return []
+        if len(matches) <= 1:
+            return matches
         for scope in scopes:
             inside = [key for key in matches if key[1].startswith(scope + '.')]
             if inside:
@@ -813,20 +819,25 @@ class CSharpDomain(Domain):
             target = contnode.astext()
 
         objtypes = list(self.object_types) if typ == 'obj' else self.objtypes_for_role(typ) or []
-        matches = self.find_objects(target, node.get('cs:parent'), objtypes)
+        parent = node.get('cs:parent')
+
+        # A known external type takes precedence over a local object in an unrelated namespace
+        matches = self.find_objects(target, parent, objtypes, loose=False)
+        if not matches and not ExternalRefs.check_ignored_ref(target):
+            ref = ExternalRefs.get_external_ref(target, typ, contnode, node.get('cs:arity', 0))
+            if ref is not None:
+                return ref
+            matches = self.find_objects(target, parent, objtypes)
+
         if len(matches) > 1:
             logger.warning(f'ambiguous reference to {target}, matches: {[name for _, name in matches]}',
                            location=node)
         if matches:
             objtype, name = matches[0]
             return self.make_refnode(builder, fromdocname, objtype, name, contnode)
-
-        if ExternalRefs.check_ignored_ref(target):
-            return None
-        ref = ExternalRefs.get_external_ref(target, typ, contnode, node.get('cs:arity', 0))
-        if ref is None and CSDebug.xref:
+        if CSDebug.xref:
             logger.info(f'no C# object found for {target}, searched object types {objtypes}', location=node)
-        return ref
+        return None
 
     def resolve_any_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, target: str,
                          node: addnodes.pending_xref,

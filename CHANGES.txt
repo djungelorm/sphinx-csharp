@@ -7,7 +7,7 @@ v1.0.0
  * Add the obj role for referencing any object type
  * Parse generic methods, nullable types, pointers and multi-dimensional arrays
  * Link built-in and System types to the Microsoft docs, configurable with sphinx_csharp_* options
- * Resolve references by the closest enclosing namespace
+ * Resolve references by the closest enclosing namespace, then known external types, then any namespace
  * Add C# objects to the general index
  * Show invalid signatures as written instead of crashing
  * Support parallel builds
