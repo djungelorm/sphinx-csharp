@@ -377,6 +377,7 @@ class CSharpObject(ObjectDescription):
                 tnode['cs:parent'] = None
             else:
                 tnode['cs:parent'] = self.get_parent()
+            tnode['cs:arity'] = len(generic_types)
 
             tnode += addnodes.desc_type(typ_short, typ_short)
             node += tnode
@@ -836,7 +837,7 @@ class CSharpDomain(Domain):
 
         if ExternalRefs.check_ignored_ref(target):
             return None
-        ref = ExternalRefs.get_external_ref(target, typ)
+        ref = ExternalRefs.get_external_ref(target, typ, contnode, node.get('cs:arity', 0))
         if ref is None and CSDebug.xref:
             logger.info(f'no C# object found for {target}, searched object types {objtypes}', location=node)
         return ref

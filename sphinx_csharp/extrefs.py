@@ -64,28 +64,27 @@ class ExternalRefs:
         return typ[offset:]
 
     @classmethod
-    def get_external_ref(cls, name: str, objtype: str) -> nodes:  # noqa: PLR0912, PLR0915
+    def get_external_ref(cls, name: str, objtype: str, contnode: nodes.Node,  # noqa: PLR0912, PLR0915
+                         arity: int = 0) -> nodes.reference | None:
         """
-        Looks in the predefined external targets and adds the link if it is found
-        returns: None if unsuccessful
+        Link a type to external documentation, such as the Microsoft docs for System types.
+        arity is the number of generic arguments. Returns None if the type is not recognized.
         """
-        input_name = name
+        cache_key = (name, arity)
 
-        def create_node(fullname: str, name: str, url: str) -> nodes:
-            """ Small local helper function """
-            node = nodes.reference(fullname, name)
-            node['refuri'] = url
-            node['reftitle'] = ('C# ' if cls.multi_lang else '') + f'{objtype}: {fullname}'
-
+        def create_node(fullname: str, url: str) -> nodes.reference:
+            node = nodes.reference('', '', internal=False, refuri=url,
+                                   reftitle=('C# ' if cls.multi_lang else '') + f'{objtype}: {fullname}')
+            node += contnode
             return node
 
         # Use existing link if we have already determined it, for performance
-        if name in cls.extlink_cache:
+        if cache_key in cls.extlink_cache:
             if CSDebug.ext_links:
                 logger.info(f"found in extlink_cache for {name}")
-            return create_node(cls.extlink_cache[input_name][0],
-                               cls.extlink_cache[input_name][1],
-                               cls.extlink_cache[input_name][2])
+            return create_node(*cls.extlink_cache[cache_key])
+
+        name = ExternalRefsData.builtin_types.get(name, name)
 
         # Start search in the external type map
         fullname = name
@@ -109,6 +108,9 @@ class ExternalRefs:
                        for namespace, members in namespaces.items()
                        if name in members]
 
+        if not matches and fullname.startswith('System.'):
+            # Any other System type is in the Microsoft docs
+            matches = [('msdn', parent)]
         if not matches:
             return None
 
@@ -118,9 +120,11 @@ class ExternalRefs:
 
         pkg, parent = matches[0]
 
-        link_name = name
-        if name in cls.external_type_rename:
-            link_name = cls.external_type_rename[name]
+        if pkg == 'msdn' and arity:
+            # The Microsoft docs give generic types an arity suffix, such as List-1
+            link_name = f'{name}-{arity}'
+        else:
+            link_name = cls.external_type_rename.get(name, name)
 
         if parent:
             # Skip for empty strings
@@ -155,12 +159,7 @@ class ExternalRefs:
                            f"status_code={apilink_status_code}, apilink={apilink}")
             url = cls.external_search_pages[pkg][1] % link_name
 
-        name = cls.shorten_type(name)
-        node = create_node(fullname, name, url)
-
-        # Store result in cache dict
-        cls.extlink_cache[input_name] = fullname, name, url
-
+        cls.extlink_cache[cache_key] = fullname, url
         if CSDebug.ext_links:
-            logger.info(f"found external link: {input_name, fullname, name, url}")
-        return node
+            logger.info(f"found external link: {cache_key, fullname, url}")
+        return create_node(fullname, url)

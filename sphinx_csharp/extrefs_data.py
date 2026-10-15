@@ -12,19 +12,28 @@ class ExternalRefsData:
         '*',
         '&',
         'void',
-
-        # Built-in types
-        'string',
-        'bool',
-        'int',
-        'long',
-        'uint',
-        'ulong',
-        'float',
-        'double',
-        'byte',
-        'object',
     ]
+
+    """ C# built-in type keywords and the .NET types they alias, which are linked to the Microsoft docs """
+    builtin_types = {
+        'bool': 'System.Boolean',
+        'byte': 'System.Byte',
+        'sbyte': 'System.SByte',
+        'char': 'System.Char',
+        'decimal': 'System.Decimal',
+        'double': 'System.Double',
+        'float': 'System.Single',
+        'int': 'System.Int32',
+        'uint': 'System.UInt32',
+        'nint': 'System.IntPtr',
+        'nuint': 'System.UIntPtr',
+        'long': 'System.Int64',
+        'ulong': 'System.UInt64',
+        'short': 'System.Int16',
+        'ushort': 'System.UInt16',
+        'object': 'System.Object',
+        'string': 'System.String',
+    }
 
     """
     Contains recognised types and their namespaces as well as the package name.
@@ -82,8 +91,8 @@ class ExternalRefsData:
     Use %s for where to substitute item, every link *must* contain this
     """
     external_search_pages = {
-        'msdn': ('https://docs.microsoft.com/en-us/dotnet/api/%s',
-                 'https://docs.microsoft.com/en-us/search/?category=All&scope=.NET&terms=%s'),
+        'msdn': ('https://learn.microsoft.com/en-us/dotnet/api/%s',
+                 'https://learn.microsoft.com/en-us/search/?scope=.NET&terms=%s'),
         'unity': ('https://docs.unity3d.com/ScriptReference/%s.html',
                   'https://docs.unity3d.com/ScriptReference/30_search.html?q=%s'),
         'unityman': ('https://docs.unity3d.com/Manual/%s.html',
