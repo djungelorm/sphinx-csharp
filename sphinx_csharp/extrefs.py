@@ -79,8 +79,7 @@ class ExternalRefs:
         return typ[offset:]
 
     @classmethod
-    def get_external_ref(cls, name: str, objtype: str) -> nodes:
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    def get_external_ref(cls, name: str, objtype: str) -> nodes:  # noqa: PLR0912, PLR0915
         """
         Looks in the predefined external targets and adds the link if it is found
         returns: None if unsuccessful

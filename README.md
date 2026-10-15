@@ -1,34 +1,31 @@
 # sphinx-csharp
 
-C# Domain for Sphinx with Breathe integration. Used to create ReadTheDocs style C# documentation.
+A Sphinx domain for documenting C# APIs, with support for generating the documentation from Doxygen output through [Breathe](https://github.com/breathe-doc/breathe).
 
-See [vr-modeling example](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) end-product.
+The [vr-modeling documentation](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) is an example of the end result:
 
-**Idea:**
-1. Generate Doxygen xml
-1. Convert this to Sphinx using breathe + sphinx-csharp
-1. Apply ReadTheDocs theme
-1. Write rst using the `cs` domain
+1. Doxygen generates XML from the C# sources.
+1. Breathe and sphinx-csharp convert the XML to Sphinx documentation.
+1. Hand-written pages use the `cs` domain directly.
 
 ## Usage
 
 Install using pip:
 
 ```
-pip install git+https://github.com/rogerbarton/sphinx-csharp.git
+pip install sphinx-csharp
 ```
 
-To enable the extension, add the following to your conf.py:
+Enable the extension in your `conf.py`:
 
 ```py
 extensions = ['sphinx_csharp']
 ```
 
-See https://github.com/djungelorm/sphinx-csharp/pull/8 for usage/changes from upstream and also [this rst example](https://raw.githubusercontent.com/rogerbarton/sphinx-csharp/master/test/index.rst).
+See [`test/basic/index.rst`](https://github.com/djungelorm/sphinx-csharp/blob/master/test/basic/index.rst) for examples of the `cs` directives and roles.
 
 ### `conf.py` Options
-Various options can be set in the sphinx `conf.py`. See [`__init__.py:setup()`](https://github.com/rogerbarton/sphinx-csharp/blob/master/sphinx_csharp/__init__.py) for available options. Defaults for external references are indicated or in [`extrefs_data.py`](https://github.com/rogerbarton/sphinx-csharp/blob/master/sphinx_csharp/extrefs_data.py). 
-See also [`csharp.py:apply_config(cls, config: Config)`](https://github.com/rogerbarton/sphinx-csharp/blob/master/sphinx_csharp/csharp.py) for exact defaults. 
+The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 
 Here are the default values for all available options:
 
@@ -95,12 +92,24 @@ sphinx_csharp_debug_ext_links = False
 
 See also [this example](https://github.com/rogerbarton/vr-modeling/blob/69885cd454935e3c5b54ef5a6b9a94da73575b20/conf.py).
 
-### Examples and Tests
+## Development
 
-The test projects are in `test`. Run them with `make test`, which needs Doxygen and Breathe installed. This is quite incomplete at the moment. The [vr-modeling example](https://vr-modeling.readthedocs.io/Assets/Scripts/Libigl/index.html) will likely be most useful as a reference.
+The project uses [Hatch](https://hatch.pypa.io). The Breathe test also needs [Doxygen](https://www.doxygen.nl) on the PATH.
 
+```
+hatch run lint:check            # ruff
+hatch run test:all              # both test projects on every supported Python
+hatch run +py=3.14 test:basic   # one test project on one Python
+hatch build                     # sdist and wheel in dist/
+```
 
-## Common Bug Sources
+The test projects are Sphinx builds in nitpicky mode with warnings treated as errors. `test/basic` uses hand-written directives, and `test/breathe` renders the C# sources in `test/breathe/cs` through Doxygen and Breathe.
+
+### Common Bug Sources
 - Newer C# syntax that is not supported yet, see regexes at beginning of `csharp.py` for parsing
 - Incorrect xml reconstruction in breathe, see `def visit_*` in breathe `render/sphinxrenderer.py`
-    - e.g. `visit_variable` will create the signature that is given to `csharp.py` 
+    - e.g. `visit_variable` will create the signature that is given to `csharp.py`
+
+## Credits
+
+Breathe integration and much of the current parser were contributed by [Roger Barton](https://github.com/rogerbarton) in [#8](https://github.com/djungelorm/sphinx-csharp/pull/8).

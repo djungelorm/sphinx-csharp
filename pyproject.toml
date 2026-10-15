@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sphinx-csharp"
+version = "0.1.12"
+description = "C# domain for Sphinx"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "djungelorm", email = "djungelorm@users.noreply.github.com" }]
+requires-python = ">=3.11"
+dependencies = ["Sphinx>=9.0", "requests"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Documentation :: Sphinx",
+]
+
+[project.urls]
+Homepage = "https://github.com/djungelorm/sphinx-csharp"
+
+[tool.hatch.build.targets.sdist]
+include = ["sphinx_csharp", "test", "CHANGES.txt"]
+
+[tool.hatch.envs.lint]
+dependencies = ["ruff"]
+
+[tool.hatch.envs.lint.scripts]
+check = "ruff check sphinx_csharp"
+
+[tool.hatch.envs.test]
+dependencies = ["breathe"]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.11", "3.12", "3.13", "3.14", "3.15"]
+
+[tool.hatch.envs.test.scripts]
+basic = "python -m sphinx -E -n -W test/basic test-output/basic"
+breathe = [
+    "cd test/breathe && doxygen",
+    "python -m sphinx -E -n -W test/breathe test-output/breathe",
+]
+all = ["basic", "breathe"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "PL"]
+ignore = ["PLR2004"]
+
+[tool.ruff.lint.pylint]
+max-args = 10
