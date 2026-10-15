@@ -1,10 +1,12 @@
-from .debug import CSDebug
-from .extrefs_data import ExternalRefsData
-import requests
 from typing import cast
+
+import requests
+from docutils import nodes
 from sphinx.config import Config
 from sphinx.util import logging
-from docutils import nodes
+
+from .debug import CSDebug
+from .extrefs_data import ExternalRefsData
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +71,7 @@ class ExternalRefs:
         offset = 0
         for prefix in ExternalRefsData.shorten_type_prefixes:
             if typ.startswith(prefix):
-                if len(prefix) > offset:
-                    offset = len(prefix)
+                offset = max(offset, len(prefix))
 
         # remove trailing dot
         if typ[offset] == '.':
@@ -79,6 +80,7 @@ class ExternalRefs:
 
     @classmethod
     def get_external_ref(cls, name: str, objtype: str) -> nodes:
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         """
         Looks in the predefined external targets and adds the link if it is found
         returns: None if unsuccessful
@@ -107,9 +109,9 @@ class ExternalRefs:
         if len(name_split) == 2:
             # We also have the namespace in the name
             parent, name = name_split
-            matches = [(pkg, namespace) for pkg in ExternalRefsData.external_type_map
-                       for namespace in ExternalRefsData.external_type_map[pkg]
-                       if name in ExternalRefsData.external_type_map[pkg][namespace]
+            matches = [(pkg, namespace) for pkg, namespaces in ExternalRefsData.external_type_map.items()
+                       for namespace, members in namespaces.items()
+                       if name in members
                        and namespace.endswith(parent)]
             if len(matches) > 1:
                 # Enforce exact match if there are several
@@ -119,9 +121,9 @@ class ExternalRefs:
         else:
             # search all namespaces
             parent = None
-            matches = [(pkg, namespace) for pkg in ExternalRefsData.external_type_map
-                       for namespace in ExternalRefsData.external_type_map[pkg]
-                       if name in ExternalRefsData.external_type_map[pkg][namespace]]
+            matches = [(pkg, namespace) for pkg, namespaces in ExternalRefsData.external_type_map.items()
+                       for namespace, members in namespaces.items()
+                       if name in members]
 
         if not matches:
             return None

@@ -186,7 +186,7 @@ def parse_property_signature(sig: str, location):
     if not match:
         if CSDebug.parse_prop:
             logger.info(f'Property signature not valid, falling back to variable: {sig}', location=location)
-        modifiers, fulltype, typ, generics, name, value = parse_variable_signature(sig, location)
+        modifiers, fulltype, _, _, name, _ = parse_variable_signature(sig, location)
         return modifiers, fulltype, name, False, False
 
     groups = match.groups()
@@ -224,7 +224,7 @@ def parse_indexer_signature(sig: str, location):
 def parse_param_signature(sig: str, location):
     """ Parse a parameter signature of the form: modifier type name (= default)?
         Interprets as a variable with different modifiers """
-    modifiers, fulltype, typ, generics, name, default_value = parse_variable_signature(sig, location, True)
+    modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, location, True)
     if not fulltype:
         logger.warning(f'Parameter signature invalid: {sig}', location=location)
         return ParamTuple(sig, None, None, None)
@@ -294,7 +294,7 @@ class CSharpObject(ObjectDescription):
     """ Description of generic C# objects """
 
     def __init__(self, *args, **kwargs):
-        super(CSharpObject, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.parentname_set = None
         self.parentname_saved = None
 
@@ -303,7 +303,7 @@ class CSharpObject(ObjectDescription):
         if targetname not in self.state.document.ids:
             signode['names'].append(targetname)
             signode['ids'].append(targetname)
-            signode['first'] = (not self.names)
+            signode['first'] = not self.names
             self.state.document.note_explicit_target(signode)
 
             objects = self.env.domaindata['cs']['objects']
@@ -555,7 +555,8 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        modifiers, return_type, name, generic_params, params = parse_method_signature(sig, (self.env.docname, self.lineno))
+        modifiers, return_type, name, generic_params, params = parse_method_signature(
+            sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
 
         # note: constructors don't have a return type
@@ -600,7 +601,8 @@ class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature):
-        modifiers, typ, name, getter, setter, default_val = parse_property_signature(sig, (self.env.docname, self.lineno))
+        modifiers, typ, name, getter, setter, default_val = parse_property_signature(
+            sig, (self.env.docname, self.lineno))
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
@@ -698,7 +700,7 @@ class CSharpAttribute(CSharpObject):
 class CSharpXRefRole(XRefRole):
     def process_link(self, env, refnode, has_explicit_title, title, target):
         refnode['cs:parent'] = env.ref_context.get('cs:parent')
-        return super(CSharpXRefRole, self).process_link(
+        return super().process_link(
             env, refnode, has_explicit_title, title, target)
 
 
@@ -710,72 +712,72 @@ class CSharpDomain(Domain):
     # role to object type map
     object_types = {
         # 'role': ObjType
-        'namespace' : ObjType(_('namespace'), 'namespace'),
+        'namespace': ObjType(_('namespace'), 'namespace'),
 
         # Types
-        'class'     : ObjType(_('class'), 'class', 'type'),
-        'struct'    : ObjType(_('struct'), 'struct', 'type'),
-        'interface' : ObjType(_('interface'), 'interface', 'type'),
-        'enum'      : ObjType(_('enum'), 'enum', 'type'),
+        'class': ObjType(_('class'), 'class', 'type'),
+        'struct': ObjType(_('struct'), 'struct', 'type'),
+        'interface': ObjType(_('interface'), 'interface', 'type'),
+        'enum': ObjType(_('enum'), 'enum', 'type'),
 
-        'function'  : ObjType(_('function'), 'function', 'func', 'meth', 'member'),
-        # 'method'    : ObjType(_('method'), 'meth'),
+        'function': ObjType(_('function'), 'function', 'func', 'meth', 'member'),
+        # 'method': ObjType(_('method'), 'meth'),
 
-        'var'       : ObjType(_('var'), 'var', 'member'),
-        'property'  : ObjType(_('property'), 'prop', 'member'),
-        'event'     : ObjType(_('event'), 'event', 'member'),
-        # 'member'    : ObjType(_('member'), 'member', 'var'),
+        'var': ObjType(_('var'), 'var', 'member'),
+        'property': ObjType(_('property'), 'prop', 'member'),
+        'event': ObjType(_('event'), 'event', 'member'),
+        # 'member': ObjType(_('member'), 'member', 'var'),
 
         'enumerator': ObjType(_('enumerator'), 'enumerator'),
-        'attribute' : ObjType(_('attribute'), 'attr'),
-        'indexer'   : ObjType(_('indexer'), 'idxr'),
+        'attribute': ObjType(_('attribute'), 'attr'),
+        'indexer': ObjType(_('indexer'), 'idxr'),
     }
     directives = {
-        'namespace' : CSharpCurrentNamespace,
+        'namespace': CSharpCurrentNamespace,
 
-        'class'     : CSharpClass,
-        'struct'    : CSharpStruct,
-        'interface' : CSharpInterface,
-        'inherits'  : CSharpInherits,
+        'class': CSharpClass,
+        'struct': CSharpStruct,
+        'interface': CSharpInterface,
+        'inherits': CSharpInherits,
 
-        'function'  : CSharpMethod,
-        # 'method'    : CSharpMethod,
+        'function': CSharpMethod,
+        # 'method': CSharpMethod,
 
-        'var'       : CSharpVariable,
-        'property'  : CSharpProperty,
-        'event'     : CSharpEvent,
-        # 'member'    : CSharpVariable,
+        'var': CSharpVariable,
+        'property': CSharpProperty,
+        'event': CSharpEvent,
+        # 'member': CSharpVariable,
 
-        'enum'      : CSharpEnum,
+        'enum': CSharpEnum,
         'enumerator': CSharpEnumValue,
-        'attribute' : CSharpAttribute,
-        'indexer'   : CSharpIndexer,
+        'attribute': CSharpAttribute,
+        'indexer': CSharpIndexer,
     }
     # See https://www.sphinx-doc.org/en/master/usage/restructuredtext/roles.html
     roles = {
         # 'key, rst to write a reference': 'type of reference'
-        'namespace' : CSharpXRefRole(),
+        'namespace': CSharpXRefRole(),
 
-        'class'     : CSharpXRefRole(),
-        'struct'    : CSharpXRefRole(),
-        'interface' : CSharpXRefRole(),
+        'class': CSharpXRefRole(),
+        'struct': CSharpXRefRole(),
+        'interface': CSharpXRefRole(),
 
-        'func'      : CSharpXRefRole(),
-        'meth'      : CSharpXRefRole(),
+        'func': CSharpXRefRole(),
+        'meth': CSharpXRefRole(),
 
-        'var'       : CSharpXRefRole(),
-        'prop'      : CSharpXRefRole(),
-        'event'     : CSharpXRefRole(),
-        'member'    : CSharpXRefRole(),
+        'var': CSharpXRefRole(),
+        'prop': CSharpXRefRole(),
+        'event': CSharpXRefRole(),
+        'member': CSharpXRefRole(),
 
-        'enum'      : CSharpXRefRole(),
+        'enum': CSharpXRefRole(),
         'enumerator': CSharpXRefRole(),
-        'value'     : CSharpXRefRole(),
-        'attr'      : CSharpXRefRole(),
-        'idxr'      : CSharpXRefRole(),
+        'value': CSharpXRefRole(),
+        'attr': CSharpXRefRole(),
+        'idxr': CSharpXRefRole(),
 
-        'type'      : CSharpXRefRole(),
-        'ref'       : CSharpXRefRole(),
+        'type': CSharpXRefRole(),
+        'ref': CSharpXRefRole(),
     }
     initial_data = {
         'objects': {},  # fullname -> docname, objtype
@@ -783,7 +785,7 @@ class CSharpDomain(Domain):
 
     # noinspection PyUnusedLocal
     @staticmethod
-    def apply_config(app: "Sphinx", config: Config) -> None:
+    def apply_config(_app: "Sphinx", config: Config) -> None:
         """ Read in the config variables, called once the config is initialized (this is a callback) """
 
         try:
@@ -801,6 +803,7 @@ class CSharpDomain(Domain):
 
     def resolve_xref(self, _, fromdocname, builder,
                      typ, target, node, contnode):
+        # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
         targets = []
         parents = []
         # Search in this namespace, note parent may not be where the target resides
@@ -830,10 +833,7 @@ class CSharpDomain(Domain):
         # 1. Found only one item that ends with the target, use this one
         if len(objects) == 1:
             objtype, tgt = next(iter(objects.keys()))
-            return make_refnode(builder, fromdocname,
-                                objects[objtype, tgt],
-                                objtype + '-' + tgt,
-                                contnode, (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {tgt}')
+            return self.make_refnode(builder, fromdocname, objects, objtype, tgt, contnode)
 
         # 2. Search recognized built-in/external override types first, e.g. float, bool, void
         #    (currently also all other external types)
@@ -849,8 +849,6 @@ class CSharpDomain(Domain):
                 return ref
             logger.warning(f"Failed to find xref for: {target}, no objects found that end like this, "
                            f"searched in object types: {objtypes}", location=node)
-                           # f", filter1: {[i for i in self.data['objects'] if i[1].endswith(target)]}"
-                           # f", filter2: {[i for i in self.data['objects'] if i[0] in objtypes]}")
             if CSDebug.xref and not CSDebug.has_printed_xref_objects:
                 CSDebug.has_printed_xref_objects = True
                 logger.warning(f"all xref objects: {self.data['objects']}", location=node)
@@ -860,10 +858,7 @@ class CSharpDomain(Domain):
         for tgt in targets:
             for objtype in objtypes:
                 if (objtype, tgt) in objects:
-                    return make_refnode(builder, fromdocname,
-                                        objects[objtype, tgt],
-                                        objtype + '-' + tgt,
-                                        contnode, (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {tgt}')
+                    return self.make_refnode(builder, fromdocname, objects, objtype, tgt, contnode)
 
         # 5. Search in other namespaces by closest match starting at the parent namespace
         if len(objects) > 1:
@@ -879,10 +874,7 @@ class CSharpDomain(Domain):
                         logger.info(f"Success finding xref for {target}, closest match: {match_objtype}, {match_tgt}, "
                                     f"matches: {len(matches)}", location=node)
 
-                    return make_refnode(builder, fromdocname,
-                                        objects[match_objtype, match_tgt],
-                                        match_objtype + '-' + match_tgt,
-                                        contnode, (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{match_objtype}: {match_tgt}')
+                    return self.make_refnode(builder, fromdocname, objects, match_objtype, match_tgt, contnode)
 
         # 6. Look externally
         ref = ExternalRefs.get_external_ref(target, typ)
@@ -896,6 +888,10 @@ class CSharpDomain(Domain):
             logger.warning(f"all xref objects: {objects}", location=node)
 
         return None
+
+    def make_refnode(self, builder, fromdocname, objects, objtype, tgt, contnode):
+        title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {tgt}'
+        return make_refnode(builder, fromdocname, objects[objtype, tgt], objtype + '-' + tgt, contnode, title)
 
     def get_objects(self):
         for (typ, name), docname in self.data['objects'].items():

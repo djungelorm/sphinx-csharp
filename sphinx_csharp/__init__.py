@@ -1,6 +1,7 @@
+from sphinx.application import Sphinx
+
 from .csharp import CSharpDomain
 from .debug import CSDebug
-from sphinx.application import Sphinx
 
 
 def setup(app: Sphinx) -> None:
