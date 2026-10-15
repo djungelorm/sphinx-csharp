@@ -198,3 +198,24 @@ def test_config_is_not_merged_twice(build):
     build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
     assert ExternalRefs.ignore_xref_types.count('Foo') == 1
     assert 'Foo' not in ExternalRefsData.ignore_xref_types
+
+
+def index_entries(app):
+    """ The general index entries on the index page, as (text, target id) pairs """
+    doctree = app.env.get_doctree('index')
+    return [(text, target) for node in doctree.findall(addnodes.index) for _, text, target, _, _ in node['entries']]
+
+
+def test_index_entries(app):
+    entries = index_entries(app)
+    assert ('MyNamespace.MyClass (C# class)', 'class-MyNamespace.MyClass') in entries
+    assert ('MyNamespace.MyClass.Foo (C# function)', 'function-MyNamespace.MyClass.Foo') in entries
+    assert ('MyNamespace.MyEnum.Bar (C# enumerator)', 'enumerator-MyNamespace.MyEnum.Bar') in entries
+    assert len(entries) == 10
+
+
+def test_no_index_entry(build):
+    app = build('.. cs:class:: Shown\n\n.. cs:class:: Hidden\n   :no-index-entry:\n\n'
+                '.. cs:class:: Derived\n\n   .. cs:inherits:: Shown\n')
+    assert warnings(app) == []
+    assert index_entries(app) == [('Shown (C# class)', 'class-Shown'), ('Derived (C# class)', 'class-Derived')]

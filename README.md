@@ -24,6 +24,13 @@ extensions = ['sphinx_csharp']
 
 See [`tests/roots/test-basic/index.rst`](https://github.com/djungelorm/sphinx-csharp/blob/master/tests/roots/test-basic/index.rst) for examples of the `cs` directives and roles.
 
+Each object gets an entry in the general index, such as `MyNamespace.MyClass (C# class)`. To leave an object out, add the `:no-index-entry:` option:
+
+```rst
+.. cs:function:: void Helper ()
+   :no-index-entry:
+```
+
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 
