@@ -42,6 +42,7 @@ class ExternalRefsData:
             'System.Collections': ['IEnumerator'],
             'System.Collections.Generic': ['List', 'Dictionary', 'IList', 'IDictionary', 'ISet', 'IEnumerable'],
             'System.IO': ['FileFormatException'],
+            'System.Linq.Expressions': ['Expression', 'LambdaExpression'],
             'System.Threading': ['Thread'],
             'System.Runtime.InteropServices': ['GCHandle', 'Marshal'],
         },
