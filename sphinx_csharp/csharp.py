@@ -101,12 +101,17 @@ def split_sig(params):
     return result
 
 
+def invalid_signature(kind, sig, location):
+    """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
+    logger.warning(f'{kind} signature invalid: {sig}', location=location)
+    return ValueError(f'{kind} signature invalid: {sig}')
+
+
 def parse_method_signature(sig: str, location):
     """ Parse a method signature of the form: modifier* type name (params) """
     match = METH_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning(f'Method signature invalid: {sig}', location=location)
-        return sig, None, None, None, None, None
+        raise invalid_signature('Method', sig, location)
 
     groups = match.groupdict()
     modifiers = groups['modifiers']
@@ -149,8 +154,7 @@ def parse_variable_signature(sig: str, location, is_param=False):
     """
     match = (VAR_PARAM_SIG_RE if is_param else VAR_SIG_RE).match(sig.strip())
     if not match:
-        logger.warning(('Parameter' if is_param else 'Variable') + f' signature invalid: {sig}', location=location)
-        return sig, None, None, None, None, None
+        raise invalid_signature('Parameter' if is_param else 'Variable', sig, location)
 
     groups = match.groupdict()
     modifiers = groups['modifiers']
@@ -185,8 +189,8 @@ def parse_property_signature(sig: str, location):
     if not match:
         if CSDebug.parse_prop:
             logger.info(f'Property signature not valid, falling back to variable: {sig}', location=location)
-        modifiers, fulltype, _, _, name, _ = parse_variable_signature(sig, location)
-        return modifiers, fulltype, name, False, False
+        modifiers, fulltype, _, _, name, default_val = parse_variable_signature(sig, location)
+        return modifiers, fulltype, name, False, False, default_val
 
     groups = match.groups()
     if groups[0] is not None:
@@ -207,9 +211,7 @@ def parse_indexer_signature(sig: str, location):
         modifier* type this[params] { (get;)? (set;)? } """
     match = IDXR_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning(f'Indexer signature invalid: {sig}', location=location)
-        # TODO: return a better default value?
-        return sig, None, None, False, False
+        raise invalid_signature('Indexer', sig, location)
 
     modifiers, return_type, params, getter, setter = match.groups()
     params = split_sig(params)
@@ -224,19 +226,14 @@ def parse_param_signature(sig: str, location):
     """ Parse a parameter signature of the form: modifier type name (= default)?
         Interprets as a variable with different modifiers """
     modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, location, True)
-    if not fulltype:
-        logger.warning(f'Parameter signature invalid: {sig}', location=location)
-        return ParamTuple(sig, None, None, None)
-
     return ParamTuple(name=name, typ=fulltype, default=default_value, modifiers=modifiers)
 
 
 def parse_type_signature(sig: str, location):
     """ Parse a type declaration or usage signature """
-    match = CLASS_SIG_RE.match(sig.strip())
+    match = CLASS_SIG_RE.match(sig.strip()) if sig else None
     if not match:
-        logger.warning(f'Type signature invalid: {sig}', location=location)
-        return sig, None, None, None, None, None
+        raise invalid_signature('Type', sig, location)
 
     groups = match.groupdict()
 
@@ -275,8 +272,7 @@ def parse_attr_signature(sig: str, location):
     """ Parse an attribute signature """
     match = ATTR_SIG_RE.match(sig.strip())
     if not match:
-        logger.warning(f'Attribute signature invalid: {sig}', location=location)
-        return sig, None
+        raise invalid_signature('Attribute', sig, location)
     name, _, params = match.groups()
     if params is not None and params.strip() != '':
         params = split_sig(params)
