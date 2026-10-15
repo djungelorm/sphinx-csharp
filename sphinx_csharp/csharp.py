@@ -237,7 +237,7 @@ def parse_type_signature(sig: str, location):
     match = CLASS_SIG_RE.match(sig.strip())
     if not match:
         logger.warning(f'Type signature invalid: {sig}', location=location)
-        return sig, None, None, None, None
+        return sig, None, None, None, None, None
 
     groups = match.groupdict()
 
@@ -362,23 +362,28 @@ class CSharpObject(ObjectDescription):
 
     def append_type(self, node, input_typ, ignored_types=None):
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, inherited_types, array, ptr = parse_type_signature(input_typ, (self.env.docname, self.lineno))
-        tnode = addnodes.pending_xref(
-            '', refdomain='cs', reftype='type',
-            reftarget=typ, modname=None, classname=None)
-
-        # Note: this may not be the correct parent namespace
-        if not self.has_parent():
-            tnode['cs:parent'] = None
-        else:
-            tnode['cs:parent'] = self.get_parent()
+        typ, modifiers, generic_types, _, array, ptr = parse_type_signature(
+            input_typ, (self.env.docname, self.lineno))
 
         if modifiers:
             self.append_modifiers(node, modifiers)
 
         typ_short = ExternalRefs.shorten_type(typ)
-        tnode += addnodes.desc_type(typ_short, typ_short)
-        node += tnode
+        if ExternalRefs.check_ignored_ref(typ):
+            node += addnodes.desc_type(typ_short, typ_short)
+        else:
+            tnode = addnodes.pending_xref(
+                '', refdomain='cs', reftype='type',
+                reftarget=typ, modname=None, classname=None)
+
+            # Note: this may not be the correct parent namespace
+            if not self.has_parent():
+                tnode['cs:parent'] = None
+            else:
+                tnode['cs:parent'] = self.get_parent()
+
+            tnode += addnodes.desc_type(typ_short, typ_short)
+            node += tnode
 
         if generic_types:
             self.append_generics(node, generic_types, ignored_types=ignored_types)
