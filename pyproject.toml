@@ -39,6 +39,12 @@ dependencies = ["ruff"]
 [tool.hatch.envs.lint.scripts]
 check = "ruff check sphinx_csharp tests"
 
+[tool.hatch.envs.types]
+dependencies = ["mypy", "types-docutils", "types-requests"]
+
+[tool.hatch.envs.types.scripts]
+check = "mypy sphinx_csharp"
+
 [tool.hatch.envs.test]
 dependencies = ["breathe", "pytest", "pytest-cov"]
 
@@ -52,6 +58,10 @@ all = "pytest --cov=sphinx_csharp --cov-report=term-missing {args}"
 testpaths = ["tests"]
 xfail_strict = true
 addopts = "-rs"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
 
 [tool.ruff]
 line-length = 120
