@@ -1,4 +1,8 @@
 build
+_build/
 dist
 test-output
 *.egg-info
+_doxygen/
+__pycache__/
+/venv/

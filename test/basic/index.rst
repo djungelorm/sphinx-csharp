@@ -1,4 +1,4 @@
-.. default-domain:: csharp
+.. default-domain:: cs
 
 .. namespace:: MyNamespace
 
@@ -6,59 +6,68 @@
 
    .. inherits:: System.Collections.Generic.IList<string>
    .. inherits:: System.IDisposable
+   .. inherits:: System.IO.FileFormatException
 
    This is a class with methods and properties.
 
    Here are some references to it's methods and properties:
 
-       * :meth:`MyClass.MyMethod`
-       * :meth:`MyMethod`
+       * :func:`MyClass.MyMethod`
+       * :func:`MyMethod`
        * :prop:`MyClass.MyProperty`
        * :prop:`MyProperty`
 
-   .. method:: MyClass (string a, int b = 1, float c = 2.3)
+   .. function:: MyClass (string a, int b = 1, float c = 2.3)
 
       A constructor for the class.
 
-   .. method:: void MyMethod (string arg)
+   .. function:: void MyMethod (string arg)
 
       A method with a single argument.
 
       And a reference back to the containing class :type:`MyClass`
 
-   .. method:: void MyMethodDefaultArg (string arg = "foo")
+   .. function:: void MyMethodDefaultArg (string arg = "foo")
 
       A method with a default argument value.
 
-   .. method:: void MyMethodDefaultArgs (int x, bool y = true, List<string> arg = [ "foo", "bar", "baz" ], bool z = false)
+   .. function:: void MyMethodDefaultArgs (int x, bool y = true, List<string> arg = [ "foo", "bar", "baz" ], bool z = false)
 
       A method with default argument values.
 
-   .. method:: void MyMethodNoArgs ()
+   .. function:: void MyMethodNoArgs ()
 
       A method with no arguments.
 
-   .. method:: void MyMethodTemplatedArg (System.Collections.Generic.IDictionary<string,int> arg)
+   .. function:: void MyMethodTemplatedArg (System.Collections.Generic.IDictionary<string,int> arg)
 
       A method with a templated argument.
 
-   .. method:: MyClass MyMethodClass (MyClass arg)
+   .. function:: void MyMethodTwoDArrayArg (int[][] arg)
+
+      A method with two-dimensional array argument.
+
+   .. function:: int[][] MyMethod2DArrayReturn ()
+
+      A method returning a two-dimensional array
+
+   .. function:: MyClass MyMethodClass (MyClass arg)
 
       A method with a class as the parameter and return types.
 
-   .. method:: MyEnum MyMethodEnum (MyEnum arg)
+   .. function:: MyEnum MyMethodEnum (MyEnum arg)
 
       A method with an enum as the parameter and return types.
 
-   .. method:: static int MyStaticMethod (int arg)
+   .. function:: static int MyStaticMethod (int arg)
 
       A static method.
 
-   .. method:: int MyMethodHasParamModifiers(ref int arg0, params int[] arg1)
+   .. function:: int MyMethodHasParamModifiers(ref int arg0, params int[] arg1)
 
       A method with a parameter modifier.
 
-   .. method:: public static MyMethodHasMultiModifiers()
+   .. function:: public static MyMethodHasMultiModifiers()
 
       A method with multiple method modifiers.
 
@@ -110,7 +119,7 @@
 
    .. indexer:: string this[int i, MyClass j] { get; set; }
 
-   .. method:: T AGenericMethod<T> (int x)
+   .. function:: T AGenericMethod<T> (int x)
 
    .. property:: System.Tuple<int,string> ATupleProperty { get; set; }
 
@@ -118,18 +127,18 @@
 
    This is an enum.
 
-   .. value:: Foo
+   .. enumerator:: Foo
 
       An enumerator value.
 
-   .. value:: Bar
-   .. value:: Baz
+   .. enumerator:: Bar
+   .. enumerator:: Baz
 
 .. class:: MyGenericClass<T>
 
-   .. method:: void AMethod()
+   .. function:: void AMethod()
 
-   .. method:: T AGenericMethod<T> (int x)
+   .. function:: T AGenericMethod<T> (int x)
 
 .. attribute:: MyAttribute1
 
@@ -139,24 +148,65 @@
 
    Another attribute.
 
-Class ref :type:`MyClass`
+References
+----------
 
-Method ref: :meth:`MyClass.MyMethod`
+Type ref :type:`MyClass`
+
+Class ref :class:`MyClass`
+
+Class ref :class:`MyClass2`
+
+Struct ref :struct:`MyStruct`
+
+Interface ref :interface:`MyInterface`
+
+Method ref: :func:`MyClass.MyMethod`
 
 Property ref: :prop:`MyClass.MyProperty`
 
 Enum ref :type:`MyEnum`
 
-Enum value ref :enum:`MyEnum.Foo`
+Enum value ref :enumerator:`MyEnum.Foo`
 
 Generic class ref :type:`MyGenericClass`
 
-Generic method ref :meth:`MyClass.AGenericMethod`
+Generic method ref :func:`MyClass.AGenericMethod`
 
-Generic method in generic class ref :meth:`MyGenericClass.AGenericMethod`
+Generic method in generic class ref :func:`MyGenericClass.AGenericMethod`
 
 Attribute ref :attr:`MyAttribute1`
 
 Attribute ref :attr:`MyAttribute2`
 
 Indexer ref :idxr:`MyClass.this[]`
+
+
+More Tests
+----------
+
+.. namespace:: OtherNamespace
+
+.. struct:: public MyStruct < T, U > : IList
+.. interface:: public MyInterface < T, U > : IList
+
+.. namespace:: OtherNamespace.Subspace
+
+
+.. class:: public unsafe MyClass2 < T , U > : Dictionary, MyInterface
+
+   .. function:: public MyStruct MyFunc ( ref int a = 3, float b, ref GameObject c, ref List < GameObject > d = default)
+
+   .. var:: private int a = 0
+
+   .. var:: private MyEnum a = MyEnum.Bar
+
+   .. var:: private static const List < MyInterface > GenericVar
+
+   .. var:: private static const List < MyInterface > TwoGenericBrackets = new List < MyInterface > ()
+
+   .. function:: private List < MyInterface<int, float> > GenericsGaloreFunc <T, U> (ref List <T> a = default,  List < MyInterface<int, float> > b = default)
+
+   .. function:: private T ReturnGeneric < T, U > (int a = 0)
+
+.. function:: (MyStruct, MyClass2) tupleFunc((MyStruct, MyClass2) a)
