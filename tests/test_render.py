@@ -1,5 +1,6 @@
 import pytest
 from conftest import references, signatures, warnings
+from sphinx import addnodes
 
 from sphinx_csharp.extrefs import ExternalRefs
 from sphinx_csharp.extrefs_data import ExternalRefsData
@@ -74,6 +75,19 @@ def test_external_reference(app):
     assert references(app, 'function-MyNamespace.MyClass.Items') == {
         'List': 'https://docs.microsoft.com/en-us/dotnet/api/System.Collections.Generic.List-1',
         'MyClass': 'class-MyNamespace.MyClass'}
+
+
+@pytest.mark.parametrize('directive, sig', [
+    ('function', 'void Foo (int)'),
+    ('property', 'int'),
+    ('class', '<T>'),
+])
+def test_invalid_signature_is_shown_as_written(build, directive, sig):
+    app = build(f'.. cs:{directive}:: {sig}\n')
+    assert len(warnings(app)) == 1
+    assert 'signature invalid' in warnings(app)[0]
+    doctree = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
+    assert next(doctree.findall(addnodes.desc_signature)).astext() == sig
 
 
 def test_ref_and_value_roles(build):

@@ -39,14 +39,8 @@ def test_parse_method(sig, expected):
     assert parse_method_signature(sig, None) == expected
 
 
-@pytest.mark.xfail(reason='Doxygen template<...> prefix is dropped for methods')
 def test_parse_method_doxygen_template():
     assert parse_method_signature('template<T> void Foo(T a)', None) == ([], 'void', 'Foo', ['T'], [param('T', 'a')])
-
-
-@pytest.mark.xfail(reason='Returns 6 values on failure, but callers unpack 5')
-def test_parse_method_invalid():
-    assert len(parse_method_signature('(int, string) Foo()', None)) == 5
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -55,20 +49,14 @@ def test_parse_method_invalid():
     ('int? P { get; set; }', ([], 'int?', 'P', True, True, None)),
     ('public int[,] P { get; }', (['public'], 'int[,]', 'P', True, False, None)),
     ('List<int> P { get; set; } = new List<int>()', ([], 'List<int>', 'P', True, True, 'new List<int>()')),
+    ('Dictionary<string, int> P { get; }', ([], 'Dictionary<string, int>', 'P', True, False, None)),
+    ('public virtual int P { set; }', (['public', 'virtual'], 'int', 'P', False, True, None)),
+    ('public required string P { get; set; }', (['public', 'required'], 'string', 'P', True, True, None)),
+    ('int P', ([], 'int', 'P', False, False, None)),
+    ('int P = 1', ([], 'int', 'P', False, False, '1')),
 ])
 def test_parse_property(sig, expected):
     assert parse_property_signature(sig, None) == expected
-
-
-@pytest.mark.xfail(reason='Only the last modifier is kept')
-def test_parse_property_multiple_modifiers():
-    assert parse_property_signature('public virtual int P { set; }', None) == (
-        ['public', 'virtual'], 'int', 'P', False, True, None)
-
-
-@pytest.mark.xfail(reason='The fallback to a variable returns 5 values, but callers unpack 6')
-def test_parse_property_without_accessors():
-    assert parse_property_signature('int P', None) == ([], 'int', 'P', False, False, None)
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -97,11 +85,6 @@ def test_parse_type(sig, expected):
     assert parse_type_signature(sig, None) == expected
 
 
-@pytest.mark.xfail(raises=AttributeError, reason='#10')
-def test_parse_type_none():
-    assert len(parse_type_signature(None, None)) == 6
-
-
 @pytest.mark.parametrize('sig, expected', [
     ('string this[int i] { get; set; }', ([], 'string', [param('int', 'i')], True, True)),
     ('virtual string this[int i, MyClass j] { get; }',
@@ -117,3 +100,18 @@ def test_parse_indexer(sig, expected):
 ])
 def test_parse_attribute(sig, expected):
     assert parse_attr_signature(sig, None) == expected
+
+
+@pytest.mark.parametrize('parse, sig', [
+    (parse_method_signature, '(int, string) Foo()'),
+    (parse_method_signature, 'void Foo(int)'),
+    (parse_property_signature, 'int'),
+    (parse_variable_signature, 'int'),
+    (parse_indexer_signature, 'string this[] { get; }'),
+    (parse_type_signature, '<T>'),
+    (parse_type_signature, None),
+    (parse_attr_signature, 'A B C'),
+])
+def test_parse_invalid(parse, sig):
+    with pytest.raises(ValueError, match='signature invalid'):
+        parse(sig, None)
