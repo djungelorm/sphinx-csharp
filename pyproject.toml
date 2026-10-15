@@ -59,6 +59,12 @@ testpaths = ["tests"]
 xfail_strict = true
 addopts = "-rs"
 
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
