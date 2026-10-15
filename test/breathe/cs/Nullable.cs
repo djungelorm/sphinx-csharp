@@ -5,7 +5,7 @@ namespace OtherNamespace
         /// <summary>
         /// Constructor of the class.
         /// </summary>
-        public ExampleClass()
+        public NullableClass()
         {
         }
 

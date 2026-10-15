@@ -51,6 +51,14 @@
 
       A method returning a two-dimensional array
 
+   .. function:: int[,] MyMethodMultiDimArray (int[,,] arg)
+
+      A method with multi-dimensional array parameter and return types.
+
+   .. function:: int? MyMethodNullable (MyClass? arg)
+
+      A method with nullable parameter and return types.
+
    .. function:: MyClass MyMethodClass (MyClass arg)
 
       A method with a class as the parameter and return types.
@@ -110,6 +118,10 @@
    .. property:: byte ByteProperty { get; set; }
 
    .. property:: byte[] ByteArrayProperty { get; set; }
+
+   .. property:: bool? NullableProperty { get; set; }
+
+   .. property:: MyEnum? NullableEnumProperty { get; set; }
 
    .. indexer:: string this[int i] { get; set; }
 
@@ -208,5 +220,3 @@ More Tests
    .. function:: private List < MyInterface<int, float> > GenericsGaloreFunc <T, U> (ref List <T> a = default,  List < MyInterface<int, float> > b = default)
 
    .. function:: private T ReturnGeneric < T, U > (int a = 0)
-
-.. function:: (MyStruct, MyClass2) tupleFunc((MyStruct, MyClass2) a)

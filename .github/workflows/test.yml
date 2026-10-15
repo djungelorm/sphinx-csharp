@@ -1,0 +1,41 @@
+name: Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: pip install -e . pycodestyle pylint
+      - run: make lint
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.11'
+            sphinx: '7.*'
+          - python: '3.12'
+            sphinx: '8.*'
+          - python: '3.13'
+            sphinx: '9.*'
+          - python: '3.14'
+            sphinx: '9.*'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: sudo apt-get install -y doxygen
+      - run: pip install -e . breathe "sphinx==${{ matrix.sphinx }}"
+      - run: make test-basic
+      - run: make test-breathe
