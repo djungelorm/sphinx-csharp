@@ -27,7 +27,7 @@ See [`tests/roots/test-basic/index.rst`](https://github.com/djungelorm/sphinx-cs
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 
-Here are the default values for all available options:
+Here are all the options. The lists and dictionaries hold example values, which are added to the defaults:
 
 ```py
 # Are other languages used in the sphinx project, if yes add language (domain) prefix to reference labels
@@ -38,12 +38,11 @@ sphinx_csharp_test_links = False
 
 # Show types in these namespaces, and in namespaces nested inside them, without their namespace
 sphinx_csharp_unqualified_namespaces = [
-    'System',
+    'UnityEngine',
 ]
 
-# Do not create cross references for these standard/build-in types
+# Never link these types
 sphinx_csharp_ignore_xref = [
-    'string',
     'Vector2',
     ...
 ]
@@ -96,6 +95,7 @@ The project uses [Hatch](https://hatch.pypa.io). The Breathe test also needs [Do
 
 ```
 hatch run lint:check                   # ruff
+hatch run types:check                  # mypy
 hatch run test:all                     # tests and coverage on every supported Python
 hatch run +py=3.14 test:all -k parse   # selected tests on one Python
 hatch build                            # sdist and wheel in dist/

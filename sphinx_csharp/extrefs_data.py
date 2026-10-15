@@ -1,19 +1,19 @@
 class ExternalRefsData:
-    """ This class just holds data used for external linking. Keeps data separate from functionality """
+    """ Default data for external links, which ExternalRefs.apply_config merges with the config values """
 
-    """ Types in these namespaces, or namespaces nested inside them, are shown without their namespace """
+    # Types in these namespaces, or namespaces nested inside them, are shown without their namespace
     unqualified_namespaces = [
         'System',
     ]
 
-    """ Types and strings to ignore when looking for a reference """
+    # Types and strings that are never linked
     ignore_xref_types = [
         '*',
         '&',
         'void',
     ]
 
-    """ C# built-in type keywords and the .NET types they alias, which are linked to the Microsoft docs """
+    # C# built-in type keywords and the .NET types they alias, which link to the Microsoft docs
     builtin_types = {
         'bool': 'System.Boolean',
         'byte': 'System.Byte',
@@ -34,19 +34,8 @@ class ExternalRefsData:
         'string': 'System.String',
     }
 
-    """
-    Contains recognised types and their namespaces as well as the package name.
-    The package name references the key in external_search_pages
-
-    Format the content like this:
-    Where Namespace1 is the namespace for the link (which may not match the real namespace)::
-
-        'package': {
-            'Namespace1': ['member1', ...],
-            ...
-        },
-        ...
-    """
+    # Known external types, by package and then namespace. The package is a key in external_search_pages.
+    # The namespace is the one used in the link, which may differ from the real namespace.
     external_type_map = {
         'msdn': {
             'System': ['Tuple', 'IDisposable', 'ICloneable', 'IComparable', 'Func', 'Action'],
@@ -69,10 +58,8 @@ class ExternalRefsData:
         },
     }
 
-    """
-    Put special cases in here that should be renamed when used in links, use it for generics
-    The name is swapped *after* searching EXTERNAL_TYPE_MAP, just before constructing the url link
-    """
+    # Names to use in links in place of type names, such as for generic types.
+    # The rename applies after the lookup in external_type_map.
     external_type_rename = {
         'List': 'List-1',
         'Dictionary': 'Dictionary-2',
@@ -83,12 +70,8 @@ class ExternalRefsData:
         'Func': 'Func-1',
     }
 
-    """
-    Where do we search for api documentation
-    Syntax:
-    'package': ('api link', 'fallback search link')
-    Use %s for where to substitute item, every link *must* contain this
-    """
+    # Documentation URLs for each package, as (API page, fallback search page).
+    # Each URL contains %s, which is replaced with the type name.
     external_search_pages = {
         'msdn': ('https://learn.microsoft.com/en-us/dotnet/api/%s',
                  'https://learn.microsoft.com/en-us/search/?scope=.NET&terms=%s'),
