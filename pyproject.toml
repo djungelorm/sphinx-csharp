@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sphinx-csharp"
-version = "0.1.12"
+version = "1.0.0rc1"
 description = "C# domain for Sphinx"
 readme = "README.md"
 license = "MIT"
