@@ -39,7 +39,6 @@ def test_parse_method(sig, expected):
     assert parse_method_signature(sig, None) == expected
 
 
-@pytest.mark.xfail(reason='Doxygen template<...> prefix is dropped for methods')
 def test_parse_method_doxygen_template():
     assert parse_method_signature('template<T> void Foo(T a)', None) == ([], 'void', 'Foo', ['T'], [param('T', 'a')])
 

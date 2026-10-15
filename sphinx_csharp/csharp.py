@@ -118,7 +118,8 @@ def parse_method_signature(sig: str, location):
     modifiers = groups['modifiers']
     return_type = groups['fulltype']
     name = groups['fname']
-    generic_params = groups['genericparams']
+    # Doxygen writes generic parameters as a C++ template prefix
+    generic_params = groups['genericparams'] or groups['templates']
     params = groups['params']
 
     if not modifiers:
