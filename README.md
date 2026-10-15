@@ -22,7 +22,7 @@ Enable the extension in your `conf.py`:
 extensions = ['sphinx_csharp']
 ```
 
-See [`test/basic/index.rst`](https://github.com/djungelorm/sphinx-csharp/blob/master/test/basic/index.rst) for examples of the `cs` directives and roles.
+See [`tests/roots/test-basic/index.rst`](https://github.com/djungelorm/sphinx-csharp/blob/master/tests/roots/test-basic/index.rst) for examples of the `cs` directives and roles.
 
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/master/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
@@ -97,13 +97,13 @@ See also [this example](https://github.com/rogerbarton/vr-modeling/blob/69885cd4
 The project uses [Hatch](https://hatch.pypa.io). The Breathe test also needs [Doxygen](https://www.doxygen.nl) on the PATH.
 
 ```
-hatch run lint:check            # ruff
-hatch run test:all              # both test projects on every supported Python
-hatch run +py=3.14 test:basic   # one test project on one Python
-hatch build                     # sdist and wheel in dist/
+hatch run lint:check                   # ruff
+hatch run test:all                     # tests and coverage on every supported Python
+hatch run +py=3.14 test:all -k parse   # selected tests on one Python
+hatch build                            # sdist and wheel in dist/
 ```
 
-The test projects are Sphinx builds in nitpicky mode with warnings treated as errors. `test/basic` uses hand-written directives, and `test/breathe` renders the C# sources in `test/breathe/cs` through Doxygen and Breathe.
+The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `tests/test_render.py` checks rendered signatures and cross-references. `tests/test_projects.py` builds the projects in `tests/roots` in nitpicky mode and fails on any warning. `test-breathe` renders C# sources through Doxygen and Breathe, and is skipped if Doxygen is not installed.
 
 ### Common Bug Sources
 - Newer C# syntax that is not supported yet, see regexes at beginning of `csharp.py` for parsing
