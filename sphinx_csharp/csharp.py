@@ -315,17 +315,17 @@ class CSharpObject(ObjectDescription[str]):
                                location=(self.env.docname, self.lineno))
             objects[key] = self.env.docname
 
-        indextext = self.get_index_text(name)
-        if indextext:
-            self.indexnode['entries'].append(
-                ('single', indextext, targetname, ''))
+        if 'no-index-entry' not in self.options:
+            indextext = self.get_index_text(name)
+            if indextext:
+                self.indexnode['entries'].append(('single', indextext, targetname, '', None))
 
     def get_index_text(self, name: str) -> str:
-        if self.objtype == 'directive':
-            return _('%s (directive)') % name
-        if self.objtype == 'role':
-            return _('%s (role)') % name
-        return ''
+        """ The general index entry for an object, such as "MyNamespace.MyClass (C# class)" """
+        objtype = CSharpDomain.object_types.get(self.objtype)
+        if objtype is None:
+            return ''
+        return _('%s (C# %s)') % (name, objtype.lname)
 
     def before_content(self) -> None:
         lastname = self.names and self.names[-1]

@@ -36,8 +36,9 @@
       A method with default argument values.
 
    .. function:: void MyMethodNoArgs ()
+      :no-index-entry:
 
-      A method with no arguments.
+      A method with no arguments, left out of the general index.
 
    .. function:: void MyMethodTemplatedArg (System.Collections.Generic.IDictionary<string,int> arg)
 
