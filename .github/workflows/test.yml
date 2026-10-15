@@ -21,21 +21,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - python: '3.11'
-            sphinx: '7.*'
-          - python: '3.12'
-            sphinx: '8.*'
-          - python: '3.13'
-            sphinx: '9.*'
-          - python: '3.14'
-            sphinx: '9.*'
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
       - run: sudo apt-get install -y doxygen
-      - run: pip install -e . breathe "sphinx==${{ matrix.sphinx }}"
+      - run: pip install -e . breathe
       - run: make test-basic
       - run: make test-breathe
