@@ -39,9 +39,10 @@ def signatures(app):
             for node_id in node['ids']}
 
 
-def references(app, node_id):
-    """ Map each linked name in a signature to its internal id or external URL """
+def references(app, node_id=None):
+    """ Map each linked name to its target, in one signature or in the whole index page """
     doctree = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
-    sig = next(node for node in doctree.findall(addnodes.desc_signature) if node_id in node['ids'])
+    if node_id is not None:
+        doctree = next(node for node in doctree.findall(addnodes.desc_signature) if node_id in node['ids'])
     return {ref.astext(): ref.get('refid') or ref.get('refuri')
-            for ref in sig.findall(nodes.reference)}
+            for ref in doctree.findall(nodes.reference) if 'internal' in ref or 'refuri' in ref}

@@ -76,10 +76,61 @@ def test_external_reference(app):
         'MyClass': 'class-MyNamespace.MyClass'}
 
 
-@pytest.mark.xfail(reason=':any: references produce a warning for each C# role')
-def test_any_role(build):
-    app = build('Title\n=====\n\n.. _foo:\n\nSection\n-------\n\nSee :any:`foo`.\n')
+def test_ref_and_value_roles(build):
+    app = build(SOURCE + '\nMore: :cs:ref:`MyNamespace.MyClass`, :cs:value:`MyNamespace.MyEnum.Bar`.\n')
     assert warnings(app) == []
+    refs = references(app)
+    assert refs['MyNamespace.MyClass'] == 'class-MyNamespace.MyClass'
+    assert refs['MyNamespace.MyEnum.Bar'] == 'enumerator-MyNamespace.MyEnum.Bar'
+
+
+def test_any_role(build):
+    app = build('Title\n=====\n\n.. _foo:\n\nSection\n-------\n\n'
+                '.. cs:class:: MyNamespace.Widget\n\n'
+                'See :any:`foo` and :any:`MyNamespace.Widget`.\n')
+    assert warnings(app) == []
+    assert references(app)['MyNamespace.Widget'] == 'class-MyNamespace.Widget'
+
+
+def test_unresolved_reference_without_nitpicky(build):
+    app = build('See :cs:type:`Missing`.\n', nitpicky=False)
+    assert warnings(app) == []
+
+
+def test_unresolved_reference_with_nitpicky(build):
+    app = build('See :cs:type:`Missing`.\n')
+    assert len(warnings(app)) == 1
+    assert 'cs:type reference target not found: Missing' in warnings(app)[0]
+
+
+AMBIGUOUS = '''
+.. cs:namespace:: A.Inner
+
+.. cs:class:: Foo
+
+.. cs:namespace:: B.Inner
+
+.. cs:class:: Foo
+
+.. cs:namespace:: B
+
+.. cs:function:: Foo FromB ()
+
+.. cs:namespace:: C
+
+.. cs:function:: Foo FromC ()
+'''
+
+
+def test_reference_prefers_enclosing_namespace(build):
+    app = build(AMBIGUOUS)
+    assert references(app, 'function-B.FromB') == {'Foo': 'class-B.Inner.Foo'}
+
+
+def test_ambiguous_reference(build):
+    app = build(AMBIGUOUS)
+    assert len(warnings(app)) == 1
+    assert "ambiguous reference to Foo, matches: ['A.Inner.Foo', 'B.Inner.Foo']" in warnings(app)[0]
 
 
 def test_parallel_build(build):
@@ -88,6 +139,7 @@ def test_parallel_build(build):
     rst = toctree + '\n' + ''.join(f':cs:type:`Page{i}Class` ' for i in range(6)) + '\n'
     app = build(rst, pages=pages, parallel=2)
     assert warnings(app) == []
+    assert references(app)['Page3Class'] == 'page3.html#class-Page3Class'
 
 
 def test_config_is_not_merged_twice(build):

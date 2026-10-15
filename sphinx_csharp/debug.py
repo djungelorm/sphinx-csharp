@@ -15,7 +15,6 @@ class CSDebug:
 
     # State related
     has_printed_test_links = False
-    has_printed_xref_objects = False
 
     @classmethod
     def add_config_values(cls, app):
