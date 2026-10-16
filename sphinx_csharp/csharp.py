@@ -25,13 +25,14 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
                                 'abstract', 'async', 'const', 'event', 'delegate',
                                 'extern', 'new', 'override', 'partial',
                                 'readonly', 'required', 'sealed', 'static', 'unsafe',
-                                'virtual', 'volatile', 'ref', 'implicit', 'explicit'])
+                                'virtual', 'volatile', 'ref', 'implicit', 'explicit', 'file'])
 
-PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
+PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params', 'scoped', 'readonly'])
 
 MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)\s+)?')
-# MODIFIERS_RE with parameter modifiers
-PARAM_MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*')
+# MODIFIERS_RE with parameter modifiers, after any attributes such as [NotNull]
+PARAM_MODIFIERS_RE = re.compile(r'\s*(?P<attributes>(?:\[[^\]]*\]\s*)*)'
+                                r'(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*')
 
 
 # A tuple type, with tuples nested one level deep
@@ -350,7 +351,8 @@ def parse_variable_signature(sig: str, location: Location, is_param: bool = Fals
         raise invalid_signature('Parameter' if is_param else 'Variable', sig, location)
 
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    modifiers = re.findall(r'\[[^\]]*\]', groups.get('attributes') or '')
+    modifiers += groups['modifiers'].split() if groups['modifiers'] else []
     # The templates group is the Doxygen form of the generics
     generics = split_generics(groups['generics'] or groups['templates'])
 

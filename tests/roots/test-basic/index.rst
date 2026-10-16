@@ -76,6 +76,8 @@
 
    .. function:: int MyMethodHasParamModifiers(ref int arg0, params int[] arg1)
 
+   .. function:: bool MyMethodHasParamAttributes([NotNullWhen(true)] out string? arg0, scoped ref readonly int arg1)
+
       A method with a parameter modifier.
 
    .. function:: public static MyMethodHasMultiModifiers()

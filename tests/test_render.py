@@ -454,6 +454,13 @@ def test_type_suffixes(build):
         'MyClass': 'class-MyClass', 'int': MICROSOFT_DOCS + 'System.Int32', 'string': MICROSOFT_DOCS + 'System.String'}
 
 
+def test_parameter_attributes_and_modifiers(build):
+    app = build('.. cs:function:: bool Try ([NotNullWhen(true)] out string? s, scoped ref readonly int i)\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Try'] == \
+        'bool Try ([NotNullWhen(true)] out string? s, scoped ref readonly int i)'
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
