@@ -29,6 +29,8 @@
 
    .. function:: void MyMethodDefaultArg (string arg = "foo")
 
+   .. function:: void MyMethodDefaultArgWithComma (string arg = "foo, bar", char sep = ',')
+
       A method with a default argument value.
 
    .. function:: void MyMethodDefaultArgs (int x, bool y = true, List<string> arg = [ "foo", "bar", "baz" ], bool z = false)
