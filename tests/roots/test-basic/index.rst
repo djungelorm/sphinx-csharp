@@ -150,6 +150,10 @@
 
    .. property:: System.Tuple<int,string> ATupleProperty { get; set; }
 
+   .. property:: (int count, MyClass item) AValueTupleProperty { get; }
+
+   .. function:: (int, string)[] ATupleMethod ((MyClass a, (int b, int c) d) arg, System.Collections.Generic.List<(int, MyEnum)> items)
+
 .. enum:: MyEnum
 
    This is an enum.

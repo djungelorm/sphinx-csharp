@@ -321,6 +321,31 @@ def test_event_signature(build, sig, text, links):
     assert references(app, node_id) == {name: MICROSOFT_DOCS + url for name, url in links.items()}
 
 
+@pytest.mark.parametrize('sig, text, links', [
+    ('(int, MyClass) Pair ()', '(int, MyClass) Pair ()',
+     {'int': MICROSOFT_DOCS + 'System.Int32', 'MyClass': 'class-MyClass'}),
+    ('(int count, (string a, MyClass b) inner)[] Nested ()', '(int count, (string a, MyClass b) inner)[] Nested ()',
+     {'int': MICROSOFT_DOCS + 'System.Int32', 'string': MICROSOFT_DOCS + 'System.String', 'MyClass': 'class-MyClass'}),
+    ('void Take (System.Collections.Generic.List<(int, MyClass)>? items)', 'void Take (List<(int, MyClass)>? items)',
+     {'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1', 'int': MICROSOFT_DOCS + 'System.Int32',
+      'MyClass': 'class-MyClass'}),
+    ('(T, MyClass) Generic<T> ((T a, int b) t)', '(T, MyClass) Generic<T> ((T a, int b) t)',
+     {'MyClass': 'class-MyClass', 'int': MICROSOFT_DOCS + 'System.Int32'}),
+])
+def test_tuple_signature(build, sig, text, links):
+    app = build(f'.. cs:class:: MyClass\n\n.. cs:function:: {sig}\n')
+    assert warnings(app) == []
+    node_id = next(key for key in signatures(app) if key.startswith('function-'))
+    assert signatures(app)[node_id] == text
+    assert references(app, node_id) == links
+
+
+def test_invalid_tuple_element(build):
+    app = build('.. cs:function:: (int, , string) Foo ()\n')
+    assert len(warnings(app)) == 1
+    assert 'Type signature invalid: (int, , string)' in warnings(app)[0]
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
