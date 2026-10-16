@@ -491,6 +491,96 @@ def parse_attr_signature(sig: str, location: Location) -> AttrSig:
     return result
 
 
+class TypeRenderer:
+    """ Renders types with links, such as List<MyClass>, in signatures and doc fields """
+
+    def __init__(self, env: BuildEnvironment, location: Location) -> None:
+        self.env = env
+        self.location = location
+
+    def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
+        """ ignored_types is a list of types to ignore in the generics of this type """
+        typ, modifiers, generic_types, _, suffix, _, _, nested = parse_type_signature(
+            input_typ, self.location)
+
+        if modifiers:
+            CSharpObject.append_modifiers(node, modifiers)
+
+        if typ.startswith('('):
+            self.append_tuple(node, typ, ignored_types)
+        else:
+            self.append_type_name(node, typ, ExternalRefs.shorten_type(typ), len(generic_types))
+        if generic_types:
+            self.append_generics(node, generic_types, ignored_types=ignored_types)
+
+        # Each nested type links to its path without the generic arguments, such as List.Enumerator
+        outer, outer_arity = typ, len(generic_types)
+        for segment in nested:
+            name, _, generics, _, _, _, _, _ = parse_type_signature(segment, self.location)
+            typ += '.' + name
+            node += nodes.Text('.')
+            tnode = self.append_type_name(node, typ, name, len(generics))
+            if tnode is not None:
+                tnode['cs:outer'] = outer
+                tnode['cs:outer_arity'] = outer_arity
+            if generics:
+                self.append_generics(node, generics, ignored_types=ignored_types)
+
+        if suffix:
+            node += nodes.Text(suffix)
+
+    def append_type_name(self, node: nodes.Element, typ: str, text: str, arity: int) -> addnodes.pending_xref | None:
+        """ Adds a reference to a type, with arity generic arguments, unless the type is never linked """
+        # The generic parameters of an enclosing type are not linked
+        if ExternalRefs.check_ignored_ref(typ) or typ in self.env.ref_context.get('cs:generic_names', []):
+            node += addnodes.desc_type(text, text)
+            return None
+
+        tnode = addnodes.pending_xref(
+            '', refdomain='cs', reftype='type',
+            reftarget=typ, modname=None, classname=None)
+
+        # Note: this may not be the correct parent namespace
+        tnode['cs:parent'] = self.env.ref_context.get('cs:parent')
+        tnode['cs:arity'] = arity
+
+        tnode += addnodes.desc_type(text, text)
+        node += tnode
+        return tnode
+
+    def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
+        """ Adds a tuple type, such as (int count, string name), linking the type of each element """
+        node += nodes.Text('(')
+        for i, element in enumerate(split_sig(tuple_typ[1:-1])):
+            if i:
+                node += nodes.Text(', ')
+            match = TUPLE_ELEMENT_RE.match(element)
+            if not match:
+                raise invalid_signature('Type', tuple_typ, self.location)
+            if ignored_types and match['type'] in ignored_types:
+                node += addnodes.desc_type(match['type'], match['type'])
+            else:
+                self.append_type(node, match['type'], ignored_types)
+            if match['name']:
+                node += nodes.Text('\xa0' + match['name'])
+        node += nodes.Text(')')
+
+    def append_generics(self, node: nodes.Element, generics: list[str], nolink: bool = False,
+                        ignored_types: list[str] | None = None) -> None:
+        """ nolink will disable xref's, use for newly declared generics in a class declaration,
+         ignore_types is similar, but a list of types to disable xrefs for """
+        node += nodes.Text('<')
+        for i, typ in enumerate(generics):
+            if nolink or ignored_types and typ in ignored_types:
+                node += addnodes.desc_type(typ, typ)
+            else:
+                self.append_type(node, typ, ignored_types=ignored_types)
+            if i != len(generics) - 1:
+                node += nodes.Text(', ')
+        node += nodes.Text('>')
+
+
+
 class CSharpObject(ObjectDescription[str]):
     """ Description of generic C# objects """
 
@@ -569,89 +659,18 @@ class CSharpObject(ObjectDescription[str]):
             signode += addnodes.desc_annotation(modifier, modifier)
             signode += nodes.Text('\xa0')
 
+    def type_renderer(self) -> TypeRenderer:
+        return TypeRenderer(self.env, (self.env.docname, self.lineno))
+
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, _, suffix, _, _, nested = parse_type_signature(
-            input_typ, (self.env.docname, self.lineno))
-
-        if modifiers:
-            self.append_modifiers(node, modifiers)
-
-        if typ.startswith('('):
-            self.append_tuple(node, typ, ignored_types)
-        else:
-            self.append_type_name(node, typ, ExternalRefs.shorten_type(typ), len(generic_types))
-        if generic_types:
-            self.append_generics(node, generic_types, ignored_types=ignored_types)
-
-        # Each nested type links to its path without the generic arguments, such as List.Enumerator
-        outer, outer_arity = typ, len(generic_types)
-        for segment in nested:
-            name, _, generics, _, _, _, _, _ = parse_type_signature(segment, (self.env.docname, self.lineno))
-            typ += '.' + name
-            node += nodes.Text('.')
-            tnode = self.append_type_name(node, typ, name, len(generics))
-            if tnode is not None:
-                tnode['cs:outer'] = outer
-                tnode['cs:outer_arity'] = outer_arity
-            if generics:
-                self.append_generics(node, generics, ignored_types=ignored_types)
-
-        if suffix:
-            node += nodes.Text(suffix)
-
-    def append_type_name(self, node: nodes.Element, typ: str, text: str, arity: int) -> addnodes.pending_xref | None:
-        """ Adds a reference to a type, with arity generic arguments, unless the type is never linked """
-        # The generic parameters of an enclosing type are not linked
-        if ExternalRefs.check_ignored_ref(typ) or typ in self.env.ref_context.get('cs:generic_names', []):
-            node += addnodes.desc_type(text, text)
-            return None
-
-        tnode = addnodes.pending_xref(
-            '', refdomain='cs', reftype='type',
-            reftarget=typ, modname=None, classname=None)
-
-        # Note: this may not be the correct parent namespace
-        if not self.has_parent():
-            tnode['cs:parent'] = None
-        else:
-            tnode['cs:parent'] = self.get_parent()
-        tnode['cs:arity'] = arity
-
-        tnode += addnodes.desc_type(text, text)
-        node += tnode
-        return tnode
-
-    def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
-        """ Adds a tuple type, such as (int count, string name), linking the type of each element """
-        node += nodes.Text('(')
-        for i, element in enumerate(split_sig(tuple_typ[1:-1])):
-            if i:
-                node += nodes.Text(', ')
-            match = TUPLE_ELEMENT_RE.match(element)
-            if not match:
-                raise invalid_signature('Type', tuple_typ, (self.env.docname, self.lineno))
-            if ignored_types and match['type'] in ignored_types:
-                node += addnodes.desc_type(match['type'], match['type'])
-            else:
-                self.append_type(node, match['type'], ignored_types)
-            if match['name']:
-                node += nodes.Text('\xa0' + match['name'])
-        node += nodes.Text(')')
+        self.type_renderer().append_type(node, input_typ, ignored_types)
 
     def append_generics(self, node: nodes.Element, generics: list[str], nolink: bool = False,
                         ignored_types: list[str] | None = None) -> None:
         """ nolink will disable xref's, use for newly declared generics in a class declaration,
          ignore_types is similar, but a list of types to disable xrefs for """
-        node += nodes.Text('<')
-        for i, typ in enumerate(generics):
-            if nolink or ignored_types and typ in ignored_types:
-                node += addnodes.desc_type(typ, typ)
-            else:
-                self.append_type(node, typ, ignored_types=ignored_types)
-            if i != len(generics) - 1:
-                node += nodes.Text(', ')
-        node += nodes.Text('>')
+        self.type_renderer().append_generics(node, generics, nolink, ignored_types)
 
     def append_constraints(self, node: nodes.Element, constraints: list[Constraint], generic_params: list[str]) -> None:
         """ Adds generic constraints, without links to the generic parameters """
