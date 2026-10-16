@@ -185,6 +185,12 @@
 
    .. function:: T AGenericMethod<T> (int x)
 
+   .. class:: Nested
+
+   .. function:: MyGenericClass<int>.Nested GetNested ()
+
+   .. function:: System.Collections.Generic.List<int>.Enumerator GetEnumerator ()
+
    .. function:: U AConstrainedMethod<U> (U x) where U : System.IComparable<U>
 
 .. attribute:: MyAttribute1
