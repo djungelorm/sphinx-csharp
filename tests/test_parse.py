@@ -150,7 +150,7 @@ def test_parse_variable(sig, expected):
     ('template<T> Bar', ('Bar', [], ['T'], [], '', None)),
 ])
 def test_parse_type(sig, expected):
-    assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[])
+    assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[], params=None)
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -162,7 +162,18 @@ def test_parse_type(sig, expected):
       [Constraint('T', ['new()']), Constraint('U', ['struct'])])),
 ])
 def test_parse_type_constraints(sig, expected):
-    assert parse_type_signature(sig, None) == expected
+    assert parse_type_signature(sig, None) == TypeSig(*expected, params=None)
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('Point(int X, int Y)', [param('int', 'X'), param('int', 'Y')]),
+    ('Empty()', []),
+    ('Named<T>(T Name) : Base(Name), IFoo where T : notnull', [param('T', 'Name')]),
+    ('Service(ILogger<Service> logger, int timeout = 30)',
+     [param('ILogger<Service>', 'logger'), param('int', 'timeout', '30')]),
+])
+def test_parse_primary_constructor(sig, expected):
+    assert parse_type_signature(sig, None).params == expected
 
 
 @pytest.mark.parametrize('sig, expected', [
