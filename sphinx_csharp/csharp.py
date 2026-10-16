@@ -53,15 +53,18 @@ VAR_SIG_RE = re.compile(
 VAR_PARAM_SIG_RE = re.compile(
     r'^' + PARAM_MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{=]+)\s*(?:=\s*(?P<value>.+))?$')
 
+ACCESSOR_RE = re.compile(r'(?:(?:public|private|protected|internal|readonly)\s+)*(?:get|set|init|add|remove)\s*;')
+ACCESSORS_RE = re.compile(r'{\s*(?P<accessors>(?:' + ACCESSOR_RE.pattern + r'\s*)*)}')
+
+# An expression body is a getter, and a trailing semicolon is dropped
 PROP_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{(=]+)\s*'
-    r'{\s*(?P<getter>get;)?\s*(?P<setter>set;)?\s*}\s*(?:=\s*(?P<value>.+?))?\s*$')
+    r'(?:' + ACCESSORS_RE.pattern + r'\s*(?:=\s*(?P<value>.+?))?|(?P<expr>=>.+?))\s*;?\s*$')
 
 IDXR_SIG_RE = re.compile(
-    r'^((?:(?:' + MODIFIERS_RE_SIMPLE +
-    r')\s+)*)([^\s]+)\s*this\s*\[\s*((?:[^\s]+)\s+(?:[^\s]+)' +
-    r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' +
-    r'{\s*(get;)?\s*(set;)?\s*}$')
+    r'^(?P<modifiers>(?:(?:' + MODIFIERS_RE_SIMPLE +
+    r')\s+)*)(?P<type>[^\s]+)\s*this\s*\[\s*(?P<params>(?:[^\s]+)\s+(?:[^\s]+)' +
+    r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' + ACCESSORS_RE.pattern + r'$')
 
 INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*))?')
 CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern + r'$')
@@ -100,8 +103,7 @@ class PropertySig(NamedTuple):
     modifiers: list[str]
     typ: str
     name: str
-    getter: bool
-    setter: bool
+    accessors: list[str]
     default: str | None
 
 
@@ -109,8 +111,7 @@ class IndexerSig(NamedTuple):
     modifiers: list[str]
     return_type: str
     params: list[ParamTuple]
-    getter: bool
-    setter: bool
+    accessors: list[str]
 
 
 class TypeSig(NamedTuple):
@@ -219,20 +220,25 @@ def parse_variable_signature(sig: str, location: Location, is_param: bool = Fals
     return result
 
 
+def parse_accessors(accessors: str) -> list[str]:
+    """ Split the body of an accessor list, such as "get; private set;", into accessors """
+    return [' '.join(accessor.split()) for accessor in accessors.split(';') if accessor.strip()]
+
+
 def parse_property_signature(sig: str, location: Location) -> PropertySig:
-    """ Parse a property signature of the form:
-        modifier* type name { (get;)? (set;)? } """
+    """ Parse a property or event signature of the form:
+        modifier* type name { accessor* } (= value)? or modifier* type name => expression """
     match = PROP_SIG_RE.match(sig.strip())
     if not match:
         if CSDebug.parse_prop:
             logger.info(f'Property signature not valid, falling back to variable: {sig}', location=location)
         var = parse_variable_signature(sig, location)
-        return PropertySig(var.modifiers, var.fulltype, var.name, False, False, var.default)
+        return PropertySig(var.modifiers, var.fulltype, var.name, [], var.default)
 
     groups = match.groupdict()
     modifiers = groups['modifiers'].split() if groups['modifiers'] else []
-    result = PropertySig(modifiers, groups['fulltype'].strip(), groups['name'],
-                         groups['getter'] is not None, groups['setter'] is not None, groups['value'])
+    accessors = ['get'] if groups['expr'] else parse_accessors(groups['accessors'])
+    result = PropertySig(modifiers, groups['fulltype'].strip(), groups['name'], accessors, groups['value'])
     if CSDebug.parse_prop:
         logger.info(f"parsed prop: {tuple(result)}")
     return result
@@ -240,14 +246,14 @@ def parse_property_signature(sig: str, location: Location) -> PropertySig:
 
 def parse_indexer_signature(sig: str, location: Location) -> IndexerSig:
     """ Parse a indexer signature of the form:
-        modifier* type this[params] { (get;)? (set;)? } """
+        modifier* type this[params] { accessor* } """
     match = IDXR_SIG_RE.match(sig.strip())
     if not match:
         raise invalid_signature('Indexer', sig, location)
 
-    modifiers, return_type, params, getter, setter = match.groups()
-    result = IndexerSig(modifiers.split(), return_type, parse_params(params, location),
-                        getter is not None, setter is not None)
+    groups = match.groupdict()
+    result = IndexerSig(groups['modifiers'].split(), groups['type'], parse_params(groups['params'], location),
+                        parse_accessors(groups['accessors']))
     if CSDebug.parse_idxr:
         logger.info(f"parsed idxr: {tuple(result)}")
     return result
@@ -440,6 +446,15 @@ class CSharpObject(ObjectDescription[str]):
             pnodes += pnode
         node += pnodes
 
+    @staticmethod
+    def append_accessors(node: nodes.Element, accessors: list[str]) -> None:
+        if not accessors:
+            return
+        text = ' '.join(accessor + ';' for accessor in accessors)
+        node += nodes.Text(' { ')
+        node += addnodes.desc_annotation(text, text)
+        node += nodes.Text(' }')
+
     def append_indexer_parameters(self, node: nodes.Element, params: list[ParamTuple]) -> None:
         pnodes = addnodes.desc_addname()
         pnodes += nodes.Text('[')
@@ -584,22 +599,14 @@ class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        modifiers, typ, name, getter, setter, default_val = parse_property_signature(
+        modifiers, typ, name, accessors, default_val = parse_property_signature(
             sig, (self.env.docname, self.lineno))
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
         signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
-        signode += nodes.Text(' { ')
-        extra = []
-        if getter:
-            extra.append('get;')
-        if setter:
-            extra.append('set;')
-        extra_str = ' '.join(extra)
-        signode += addnodes.desc_annotation(extra_str, extra_str)
-        signode += nodes.Text(' }')
+        self.append_accessors(signode, accessors)
         if default_val is not None:
             signode += nodes.Text(' = ' + default_val)
         return self.get_fullname(name)
@@ -609,7 +616,8 @@ class CSharpEvent(CSharpObject):
     """ Description of a C# event """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
+        modifiers, fulltype, name, accessors, default_value = parse_property_signature(
+            sig, (self.env.docname, self.lineno))
 
         prefix = 'event' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
@@ -618,6 +626,7 @@ class CSharpEvent(CSharpObject):
         self.append_type(signode, fulltype)
         signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
+        self.append_accessors(signode, accessors)
 
         if default_value:
             signode += nodes.Text(' = ')
@@ -630,21 +639,13 @@ class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        modifiers, typ, params, getter, setter = parse_indexer_signature(sig, (self.env.docname, self.lineno))
+        modifiers, typ, params, accessors = parse_indexer_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
         signode += nodes.Text('\xa0')
         signode += addnodes.desc_name('this[]', 'this')
         self.append_indexer_parameters(signode, params)
-        signode += nodes.Text(' { ')
-        extra = []
-        if getter:
-            extra.append('get;')
-        if setter:
-            extra.append('set;')
-        extra_str = ' '.join(extra)
-        signode += addnodes.desc_annotation(extra_str, extra_str)
-        signode += nodes.Text(' }')
+        self.append_accessors(signode, accessors)
         return self.get_fullname('this[]')
 
 

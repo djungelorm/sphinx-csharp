@@ -267,6 +267,7 @@ def test_no_index_entry(build, option):
     ('string this[int i] { get; set; }', 'string this[int i] { get; set; }'),
     ('string this[int i, MyClass j] { get; }', 'string this[int i, MyClass j] { get; }'),
     ('int this[int i] { set; }', 'int this[int i] { set; }'),
+    ('int this[int i] { get; private init; }', 'int this[int i] { get; private init; }'),
 ])
 def test_indexer_signature(build, sig, text):
     app = build(f'.. cs:class:: MyClass\n\n   .. cs:indexer:: {sig}\n')
@@ -274,7 +275,22 @@ def test_indexer_signature(build, sig, text):
     assert signatures(app)['indexer-MyClass.this[]'] == text
 
 
+@pytest.mark.parametrize('sig, text', [
+    ('int P { get; init; }', 'int P { get; init; }'),
+    ('int P {get;private  set;}', 'int P { get; private set; }'),
+    ('int P => 1', 'int P { get; }'),
+    ('int P { get; set; } = 5;', 'int P { get; set; } = 5'),
+    ('int P', 'int P'),
+])
+def test_property_signature(build, sig, text):
+    app = build(f'.. cs:property:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)['property-P'] == text
+
+
 @pytest.mark.parametrize('sig, text, links', [
+    ('System.EventHandler Changed { add; remove; }', 'event EventHandler Changed { add; remove; }',
+     {'EventHandler': 'System.EventHandler'}),
     ('public System.EventHandler Changed', 'event public EventHandler Changed',
      {'EventHandler': 'System.EventHandler'}),
     ('System.Action Done = null', 'event Action Done = null', {'Action': 'System.Action'}),
