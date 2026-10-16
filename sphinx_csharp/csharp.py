@@ -34,12 +34,18 @@ MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE
 PARAM_MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*')
 
 
+# A tuple type, with tuples nested one level deep
+TUPLE_RE = re.compile(r'\((?:[^()]|\([^()]*\))*\)')
+TUPLE_ELEMENT_RE = re.compile(r'^(?P<type>.+?)(?:\s+(?P<name>[A-Za-z_@]\w*))?$')
+
+TYPE_NAME_RE = r'(?P<type>' + TUPLE_RE.pattern + r'|[^\s<\[{*&?(]+)'
+
 TYPE_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                     r'(?P<fulltype>(?P<type>[^\s<\[{*&?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
+                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+\s*>)?\s*'
                      r'(?P<array>(\[,*\])*)?\s*(?P<ptr>[*&?])?)\??')
 
 TYPE_OPTIONAL_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                              r'(?:(?P<fulltype>(?P<type>[^\s<\[{*&?]+)\s*(?P<generics><\s*.+\s*>)?\s*'
+                              r'(?:(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+\s*>)?\s*'
                               r'(?P<array>(\[,*\])*)?\s*(?P<ptr>[*&?])?)\s+)?\??')
 
 METH_SIG_RE = re.compile(
@@ -144,9 +150,9 @@ def split_sig(params: str) -> list[str]:
     current = ''
     level = 0
     for char in params:
-        if char in ('<', '{', '['):
+        if char in ('<', '{', '[', '('):
             level += 1
-        elif char in ('>', '}', ']'):
+        elif char in ('>', '}', ']', ')'):
             level -= 1
         if char != ',' or level > 0:
             current += char
@@ -381,7 +387,9 @@ class CSharpObject(ObjectDescription[str]):
             self.append_modifiers(node, modifiers)
 
         typ_short = ExternalRefs.shorten_type(typ)
-        if ExternalRefs.check_ignored_ref(typ):
+        if typ.startswith('('):
+            self.append_tuple(node, typ, ignored_types)
+        elif ExternalRefs.check_ignored_ref(typ):
             node += addnodes.desc_type(typ_short, typ_short)
         else:
             tnode = addnodes.pending_xref(
@@ -404,6 +412,23 @@ class CSharpObject(ObjectDescription[str]):
             node += nodes.Text(array)
         if ptr:
             node += nodes.Text(ptr)
+
+    def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
+        """ Adds a tuple type, such as (int count, string name), linking the type of each element """
+        node += nodes.Text('(')
+        for i, element in enumerate(split_sig(tuple_typ[1:-1])):
+            if i:
+                node += nodes.Text(', ')
+            match = TUPLE_ELEMENT_RE.match(element)
+            if not match:
+                raise invalid_signature('Type', tuple_typ, (self.env.docname, self.lineno))
+            if ignored_types and match['type'] in ignored_types:
+                node += addnodes.desc_type(match['type'], match['type'])
+            else:
+                self.append_type(node, match['type'], ignored_types)
+            if match['name']:
+                node += nodes.Text('\xa0' + match['name'])
+        node += nodes.Text(')')
 
     def append_generics(self, node: nodes.Element, generics: list[str], nolink: bool = False,
                         ignored_types: list[str] | None = None) -> None:
@@ -572,7 +597,7 @@ class CSharpMethod(CSharpObject):
             if generic_params and return_type in generic_params:
                 signode += addnodes.desc_type(return_type, return_type)
             else:
-                self.append_type(signode, return_type)
+                self.append_type(signode, return_type, generic_params)
             signode += nodes.Text('\xa0')
 
         signode += addnodes.desc_name(name, name)

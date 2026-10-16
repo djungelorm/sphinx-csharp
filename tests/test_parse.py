@@ -21,6 +21,7 @@ def param(typ, name, default=None, modifiers=()):
      ['String a', 'int b = 1', 'List<int> c = [1, 2, 3]', 'Dictionary<string, int> d']),
     ('a,', ['a']),
     ('a>, b', ['a>', 'b']),
+    ('(int, string) a, Foo b = new Foo(1, 2)', ['(int, string) a', 'Foo b = new Foo(1, 2)']),
 ])
 def test_split_sig(params, expected):
     assert split_sig(params) == expected
@@ -38,6 +39,11 @@ def test_split_sig(params, expected):
     ('int[,] Foo(int[,,] a)', ([], 'int[,]', 'Foo', [], [param('int[,,]', 'a')])),
     ('byte[][] Foo(out byte[][] d)', ([], 'byte[][]', 'Foo', [], [param('byte[][]', 'd', modifiers=['out'])])),
     ('static void Ext(this string s)', (['static'], 'void', 'Ext', [], [param('string', 's', modifiers=['this'])])),
+    ('(int, string) Foo((int a, string b) t)',
+     ([], '(int, string)', 'Foo', [], [param('(int a, string b)', 't')])),
+    ('Task<(int, int)> Foo(List<(int, int)>? l)',
+     ([], 'Task<(int, int)>', 'Foo', [], [param('List<(int, int)>?', 'l')])),
+    ('(int x, (int y, int z) inner)[] Foo()', ([], '(int x, (int y, int z) inner)[]', 'Foo', [], [])),
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
 ])
 def test_parse_method(sig, expected):
@@ -50,6 +56,7 @@ def test_parse_method_doxygen_template():
 
 @pytest.mark.parametrize('sig, expected', [
     ('string P { get; set; }', ([], 'string', 'P', ['get', 'set'], None)),
+    ('(int a, int b) P { get; }', ([], '(int a, int b)', 'P', ['get'], None)),
     ('static string P { get; }', (['static'], 'string', 'P', ['get'], None)),
     ('int? P { get; set; }', ([], 'int?', 'P', ['get', 'set'], None)),
     ('public int[,] P { get; }', (['public'], 'int[,]', 'P', ['get'], None)),
@@ -80,6 +87,7 @@ def test_parse_property(sig, expected):
      (['static', 'const'], 'List<MyInterface>', 'List', ['MyInterface'], 'GenericVar', None)),
     ('MyEnum? e', ([], 'MyEnum?', 'MyEnum', [], 'e', None)),
     ('int[,] grid', ([], 'int[,]', 'int', [], 'grid', None)),
+    ('static readonly (int, int) T', (['static', 'readonly'], '(int, int)', '(int, int)', [], 'T', None)),
     ('template<T> T x', ([], 'T', 'T', ['T'], 'x', None)),
 ])
 def test_parse_variable(sig, expected):
@@ -93,6 +101,7 @@ def test_parse_variable(sig, expected):
     ('List<int>', ('List', [], ['int'], [], '', None)),
     ('int[,]', ('int', [], [], [], '[,]', None)),
     ('int?', ('int', [], [], [], '', '?')),
+    ('(int, string)?', ('(int, string)', [], [], [], '', '?')),
     ('Foo*', ('Foo', [], [], [], '', '*')),
     ('template<T> Bar', ('Bar', [], ['T'], [], '', None)),
 ])
@@ -131,7 +140,7 @@ def test_parse_attribute(sig, expected):
 
 
 @pytest.mark.parametrize('parse, sig', [
-    (parse_method_signature, '(int, string) Foo()'),
+    (parse_method_signature, '(int, string Foo()'),
     (parse_method_signature, 'void Foo(int)'),
     (parse_property_signature, 'int'),
     (parse_variable_signature, 'int'),
