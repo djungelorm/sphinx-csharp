@@ -40,13 +40,15 @@ TUPLE_ELEMENT_RE = re.compile(r'^(?P<type>.+?)(?:\s+(?P<name>[A-Za-z_@]\w*))?$')
 
 TYPE_NAME_RE = r'(?P<type>' + TUPLE_RE.pattern + r'|[^\s<\[{*&?(]+)'
 
+# Nullable, pointer and array suffixes in any order, such as int?[] or int**
+TYPE_SUFFIX_RE = r'(?P<suffix>(?:\s*(?:[*&?]|\[,*\]))*)'
+
 TYPE_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?\s*'
-                     r'(?P<array>(\[,*\])*)?\s*(?P<ptr>[*&?])?)\??')
+                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' + TYPE_SUFFIX_RE + r')')
 
 TYPE_OPTIONAL_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                              r'(?:(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?\s*'
-                              r'(?P<array>(\[,*\])*)?\s*(?P<ptr>[*&?])?)\s+)?\??')
+                              r'(?:(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' +
+                              TYPE_SUFFIX_RE + r')\s+)?')
 
 # Generic constraints, such as where T : class, new() where U : IFoo<T>
 CONSTRAINTS_RE = re.compile(r'(?:\s+where\s+(?P<constraints>.+))?')
@@ -174,8 +176,7 @@ class TypeSig(NamedTuple):
     modifiers: list[str]
     generics: list[str]
     inherits: list[str]
-    array: str | None
-    ptr: str | None
+    suffix: str
     constraints: list[Constraint]
     # The primary constructor parameters, or None if the type has no primary constructor
     params: list[ParamTuple] | None
@@ -424,8 +425,8 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
     constraints = parse_constraints(groups['constraints'], location)
     params = None if groups['params'] is None else parse_params(groups['params'], location)
 
-    result = TypeSig(groups['type'], modifiers, generics, inherits, groups['array'], groups['ptr'], constraints,
-                     params)
+    suffix = ''.join(groups['suffix'].split())
+    result = TypeSig(groups['type'], modifiers, generics, inherits, suffix, constraints, params)
     if CSDebug.parse_type:
         logger.info(f"parsed type: {tuple(result)}")
     return result
@@ -535,7 +536,7 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, _, array, ptr, _, _ = parse_type_signature(
+        typ, modifiers, generic_types, _, suffix, _, _ = parse_type_signature(
             input_typ, (self.env.docname, self.lineno))
 
         if modifiers:
@@ -563,10 +564,8 @@ class CSharpObject(ObjectDescription[str]):
 
         if generic_types:
             self.append_generics(node, generic_types, ignored_types=ignored_types)
-        if array:
-            node += nodes.Text(array)
-        if ptr:
-            node += nodes.Text(ptr)
+        if suffix:
+            node += nodes.Text(suffix)
 
     def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
         """ Adds a tuple type, such as (int count, string name), linking the type of each element """
@@ -683,7 +682,7 @@ class CSharpObject(ObjectDescription[str]):
 
     def handle_type_signature(self, sig: str, signode: addnodes.desc_signature, keyword: str) -> str:
         """ Handle a type declaration, such as a class, and return its full name """
-        typ, modifiers, generics, inherits, _, _, constraints, params = parse_type_signature(
+        typ, modifiers, generics, inherits, _, constraints, params = parse_type_signature(
             sig, (self.env.docname, self.lineno))
 
         if modifiers:
