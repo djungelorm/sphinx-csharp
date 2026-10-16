@@ -171,7 +171,7 @@ def test_parse_variable(sig, expected):
     ('template<T> Bar', ('Bar', [], ['T'], [], '')),
 ])
 def test_parse_type(sig, expected):
-    assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[], params=None)
+    assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[], params=None, nested=[])
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -183,7 +183,18 @@ def test_parse_type(sig, expected):
       [Constraint('T', ['new()']), Constraint('U', ['struct'])])),
 ])
 def test_parse_type_constraints(sig, expected):
-    assert parse_type_signature(sig, None) == TypeSig(*expected, params=None)
+    assert parse_type_signature(sig, None) == TypeSig(*expected, params=None, nested=[])
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('List<int>.Enumerator', ('List', ['int'], ['Enumerator'], '')),
+    ('Outer<T>.Middle.Inner<U, V>[]', ('Outer', ['T'], ['Middle', 'Inner<U, V>'], '[]')),
+    ('Dictionary< string, List<int> > . KeyCollection?',
+     ('Dictionary', ['string', 'List<int>'], ['KeyCollection'], '?')),
+])
+def test_parse_nested_type(sig, expected):
+    result = parse_type_signature(sig, None)
+    assert (result.typ, result.generics, result.nested, result.suffix) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [

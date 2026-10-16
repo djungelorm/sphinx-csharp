@@ -44,12 +44,16 @@ TYPE_NAME_RE = r'(?P<type>' + TUPLE_RE.pattern + r'|[^\s<\[{*&?(]+)'
 # Nullable, pointer and array suffixes in any order, such as int?[] or int**
 TYPE_SUFFIX_RE = r'(?P<suffix>(?:\s*(?:[*&?]|\[,*\]))*)'
 
+# The types nested in a generic type, such as .Enumerator in List<int>.Enumerator
+TYPE_NESTED_RE = r'(?P<nested>(?:\s*\.\s*[^\s<\[{*&?(.]+\s*(?:<\s*.+?\s*>)?)*)'
+
 TYPE_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' + TYPE_SUFFIX_RE + r')')
+                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' + TYPE_NESTED_RE +
+                     TYPE_SUFFIX_RE + r')')
 
 TYPE_OPTIONAL_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
                               r'(?:(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' +
-                              TYPE_SUFFIX_RE + r')\s+)?')
+                              TYPE_NESTED_RE + TYPE_SUFFIX_RE + r')\s+)?')
 
 # Generic constraints, such as where T : class, new() where U : IFoo<T>
 CONSTRAINTS_RE = re.compile(r'(?:\s+where\s+(?P<constraints>.+))?')
@@ -181,6 +185,7 @@ class TypeSig(NamedTuple):
     constraints: list[Constraint]
     # The primary constructor parameters, or None if the type has no primary constructor
     params: list[ParamTuple] | None
+    nested: list[str]
 
 
 class EnumSig(NamedTuple):
@@ -202,9 +207,9 @@ class AttrSig(NamedTuple):
 logger = logging.getLogger(__name__)
 
 
-def split_sig(params: str) -> list[str]:
+def split_sig(params: str, separator: str = ',') -> list[str]:
     """
-    Split a list of parameters/types by commas,
+    Split a list of parameters/types by commas, or another separator,
     whilst respecting brackets.
 
     For example:
@@ -231,7 +236,7 @@ def split_sig(params: str) -> list[str]:
             level += 1
         elif char in ('>', '}', ']', ')'):
             level -= 1
-        if char != ',' or level > 0 or quote:
+        if char != separator or level > 0 or quote:
             current += char
         else:
             result.append(current.strip())
@@ -440,7 +445,8 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
     params = None if groups['params'] is None else parse_params(groups['params'], location)
 
     suffix = ''.join(groups['suffix'].split())
-    result = TypeSig(groups['type'], modifiers, generics, inherits, suffix, constraints, params)
+    nested = split_sig(groups['nested'].strip()[1:], '.') if groups['nested'] else []
+    result = TypeSig(groups['type'], modifiers, generics, inherits, suffix, constraints, params, nested)
     if CSDebug.parse_type:
         logger.info(f"parsed type: {tuple(result)}")
     return result
@@ -550,36 +556,55 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, _, suffix, _, _ = parse_type_signature(
+        typ, modifiers, generic_types, _, suffix, _, _, nested = parse_type_signature(
             input_typ, (self.env.docname, self.lineno))
 
         if modifiers:
             self.append_modifiers(node, modifiers)
 
-        typ_short = ExternalRefs.shorten_type(typ)
         if typ.startswith('('):
             self.append_tuple(node, typ, ignored_types)
-        elif ExternalRefs.check_ignored_ref(typ):
-            node += addnodes.desc_type(typ_short, typ_short)
         else:
-            tnode = addnodes.pending_xref(
-                '', refdomain='cs', reftype='type',
-                reftarget=typ, modname=None, classname=None)
-
-            # Note: this may not be the correct parent namespace
-            if not self.has_parent():
-                tnode['cs:parent'] = None
-            else:
-                tnode['cs:parent'] = self.get_parent()
-            tnode['cs:arity'] = len(generic_types)
-
-            tnode += addnodes.desc_type(typ_short, typ_short)
-            node += tnode
-
+            self.append_type_name(node, typ, ExternalRefs.shorten_type(typ), len(generic_types))
         if generic_types:
             self.append_generics(node, generic_types, ignored_types=ignored_types)
+
+        # Each nested type links to its path without the generic arguments, such as List.Enumerator
+        outer, outer_arity = typ, len(generic_types)
+        for segment in nested:
+            name, _, generics, _, _, _, _, _ = parse_type_signature(segment, (self.env.docname, self.lineno))
+            typ += '.' + name
+            node += nodes.Text('.')
+            tnode = self.append_type_name(node, typ, name, len(generics))
+            if tnode is not None:
+                tnode['cs:outer'] = outer
+                tnode['cs:outer_arity'] = outer_arity
+            if generics:
+                self.append_generics(node, generics, ignored_types=ignored_types)
+
         if suffix:
             node += nodes.Text(suffix)
+
+    def append_type_name(self, node: nodes.Element, typ: str, text: str, arity: int) -> addnodes.pending_xref | None:
+        """ Adds a reference to a type, with arity generic arguments, unless the type is never linked """
+        if ExternalRefs.check_ignored_ref(typ):
+            node += addnodes.desc_type(text, text)
+            return None
+
+        tnode = addnodes.pending_xref(
+            '', refdomain='cs', reftype='type',
+            reftarget=typ, modname=None, classname=None)
+
+        # Note: this may not be the correct parent namespace
+        if not self.has_parent():
+            tnode['cs:parent'] = None
+        else:
+            tnode['cs:parent'] = self.get_parent()
+        tnode['cs:arity'] = arity
+
+        tnode += addnodes.desc_type(text, text)
+        node += tnode
+        return tnode
 
     def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
         """ Adds a tuple type, such as (int count, string name), linking the type of each element """
@@ -696,7 +721,7 @@ class CSharpObject(ObjectDescription[str]):
 
     def handle_type_signature(self, sig: str, signode: addnodes.desc_signature, keyword: str) -> str:
         """ Handle a type declaration, such as a class, and return its full name """
-        typ, modifiers, generics, inherits, _, constraints, params = parse_type_signature(
+        typ, modifiers, generics, inherits, _, constraints, params, _ = parse_type_signature(
             sig, (self.env.docname, self.lineno))
 
         if modifiers:
@@ -1119,7 +1144,11 @@ class CSharpDomain(Domain):
         # A known external type takes precedence over a local object in an unrelated namespace
         matches = self.find_objects(target, parent, objtypes, loose=False)
         if not matches and not ExternalRefs.check_ignored_ref(target):
-            ref = ExternalRefs.get_external_ref(target, typ, contnode, node.get('cs:arity', 0))
+            if 'cs:outer' in node:
+                ref = ExternalRefs.get_nested_external_ref(node['cs:outer'], node['cs:outer_arity'],
+                                                           target[len(node['cs:outer']) + 1:], typ, contnode)
+            else:
+                ref = ExternalRefs.get_external_ref(target, typ, contnode, node.get('cs:arity', 0))
             if ref is not None:
                 return ref
             matches = self.find_objects(target, parent, objtypes)

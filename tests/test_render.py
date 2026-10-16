@@ -467,6 +467,34 @@ def test_default_value_with_comma(build):
     assert signatures(app)['function-Join'] == 'void Join (string sep = ", ", char quote = \'"\')'
 
 
+def test_nested_type_in_generic_type(build):
+    app = build('.. cs:class:: Outer<T>\n\n   .. cs:class:: Inner\n\n   .. cs:class:: Pair<U>\n\n'
+                '.. cs:function:: Outer<int>.Inner Local ()\n\n'
+                '.. cs:function:: Outer<int>.Pair<string>[] LocalGeneric ()\n\n'
+                '.. cs:function:: System.Collections.Generic.List<int>.Enumerator Qualified ()\n\n'
+                '.. cs:function:: Dictionary<string, int>.KeyCollection Unqualified ()\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Local'] == 'Outer<int>.Inner Local ()'
+    assert references(app, 'function-Local') == {
+        'Outer': 'class-Outer', 'int': MICROSOFT_DOCS + 'System.Int32', 'Inner': 'class-Outer.Inner'}
+    assert signatures(app)['function-LocalGeneric'] == 'Outer<int>.Pair<string>[] LocalGeneric ()'
+    assert references(app, 'function-LocalGeneric')['Pair'] == 'class-Outer.Pair'
+    assert signatures(app)['function-Qualified'] == 'List<int>.Enumerator Qualified ()'
+    assert references(app, 'function-Qualified') == {
+        'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1', 'int': MICROSOFT_DOCS + 'System.Int32',
+        'Enumerator': MICROSOFT_DOCS + 'System.Collections.Generic.List-1.Enumerator'}
+    assert references(app, 'function-Unqualified')['KeyCollection'] == \
+        MICROSOFT_DOCS + 'System.Collections.Generic.Dictionary-2.KeyCollection'
+
+
+def test_nested_type_in_unknown_or_ignored_type(build):
+    app = build('.. cs:function:: Missing<int>.Inner Foo ()\n\n.. cs:function:: Skip<int>.Inner Bar ()\n',
+                sphinx_csharp_ignore_xref=['Skip', 'Skip.Inner'])
+    assert len(warnings(app)) == 2
+    assert 'Missing' in warnings(app)[0] and 'Missing.Inner' in warnings(app)[1]
+    assert signatures(app)['function-Bar'] == 'Skip<int>.Inner Bar ()'
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
