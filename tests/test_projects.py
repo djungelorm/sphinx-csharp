@@ -2,7 +2,7 @@ import shutil
 import subprocess
 
 import pytest
-from conftest import warnings
+from conftest import signatures, warnings
 
 
 @pytest.mark.sphinx('html', testroot='basic', confoverrides={'nitpicky': True})
@@ -18,6 +18,8 @@ def test_breathe(app):
     subprocess.run(['doxygen'], cwd=app.srcdir, check=True)
     app.build()
     assert warnings(app) == []
+    assert signatures(app)['indexer-OtherNamespace.Indexer.this[]'] == \
+        'string this[Dictionary<string, int> map, int offset = 0] { get; }'
 
 
 @pytest.mark.skipif(shutil.which('dotnet') is None, reason='dotnet is not installed')

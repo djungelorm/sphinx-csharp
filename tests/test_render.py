@@ -283,6 +283,16 @@ def test_explicit_interface_indexer(build):
     assert signatures(app)['indexer-MyClass.IList<int>.this[]'] == 'int IList<int>.this[int i] { get; }'
 
 
+def test_property_directive_with_indexer(build):
+    # Breathe passes indexers from Doxygen to the property directive
+    app = build('.. cs:class:: MyClass\n\n   .. cs:property:: string this[string s, int j=0] {get;}\n\n'
+                ':cs:idxr:`MyClass.this[]`\n')
+    assert warnings(app) == []
+    assert signatures(app)['indexer-MyClass.this[]'] == 'string this[string s, int j = 0] { get; }'
+    assert references(app)['MyClass.this[]'] == 'indexer-MyClass.this[]'
+    assert ('MyClass.this[] (C# indexer)', 'indexer-MyClass.this[]') in index_entries(app)
+
+
 @pytest.mark.parametrize('sig, text', [
     ('int P { get; init; }', 'int P { get; init; }'),
     ('int P {get;private  set;}', 'int P { get; private set; }'),
