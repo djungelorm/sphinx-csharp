@@ -460,14 +460,13 @@ class CSharpObject(ObjectDescription[str]):
         node += nodes.Text(' }')
 
     def append_indexer_parameters(self, node: nodes.Element, params: list[ParamTuple]) -> None:
-        pnodes = addnodes.desc_addname()
-        pnodes += nodes.Text('[')
+        # Note: Breathe removes desc_addname nodes from signatures, so the parameters go in the signature itself.
+        node += nodes.Text('[')
         for i, param in enumerate(params):
             if i:
-                pnodes += nodes.Text(', ')
-            self.append_parameter(pnodes, param, [])
-        pnodes += nodes.Text(']')
-        node += pnodes
+                node += nodes.Text(', ')
+            self.append_parameter(node, param, [])
+        node += nodes.Text(']')
 
     def handle_indexer_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         modifiers, typ, interface, params, accessors = parse_indexer_signature(sig, (self.env.docname, self.lineno))
@@ -609,6 +608,14 @@ class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        # Doxygen writes indexers as properties named this[...]
+        if IDXR_SIG_RE.match(sig.strip()):
+            desc = signode.parent
+            desc['classes'].remove(self.objtype)
+            self.objtype = desc['objtype'] = desc['desctype'] = 'indexer'
+            desc['classes'].append(self.objtype)
+            return self.handle_indexer_signature(sig, signode)
+
         modifiers, typ, name, accessors, default_val = parse_property_signature(
             sig, (self.env.docname, self.lineno))
 
