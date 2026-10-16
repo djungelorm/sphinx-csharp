@@ -191,6 +191,8 @@
 
    .. function:: System.Collections.Generic.List<int>.Enumerator GetEnumerator ()
 
+   .. function:: T GetFirst (System.Collections.Generic.IEnumerable<T> items)
+
    .. function:: U AConstrainedMethod<U> (U x) where U : System.IComparable<U>
 
 .. attribute:: MyAttribute1
