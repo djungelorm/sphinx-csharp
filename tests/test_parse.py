@@ -169,6 +169,8 @@ def test_parse_variable(sig, expected):
     ('string?[]?', ('string', [], [], [], '?[]?')),
     ('List<int> [] []', ('List', [], ['int'], [], '[][]')),
     ('template<T> Bar', ('Bar', [], ['T'], [], '')),
+    ('template<T> Box-1-g', ('Box', [], ['T'], [], '')),
+    ('Outer-2-g.Inner-1-g<U>', ('Outer.Inner', [], ['U'], [], '')),
 ])
 def test_parse_type(sig, expected):
     assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[], params=None, nested=[])

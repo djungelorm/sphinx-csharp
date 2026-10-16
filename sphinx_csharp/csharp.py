@@ -109,6 +109,9 @@ INSTANCE_OPERATOR_NAMES = {'++': 'IncrementAssignment', '--': 'DecrementAssignme
 CONVERSION_OPERATORS = ['op_Implicit', 'op_Explicit', 'op_CheckedImplicit', 'op_CheckedExplicit']
 
 INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*?))?')
+# Doxygen names a generic type with its arity, such as Box-1-g for Box<T>
+DOXYGEN_ARITY_RE = re.compile(r'-\d+-g(?=\.|$)')
+
 PRIMARY_CONSTRUCTOR_RE = re.compile(r'(?:\s*\((?P<params>.*?)\))?')
 CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + PRIMARY_CONSTRUCTOR_RE.pattern +
                           INHERITS_RE.pattern + CONSTRAINTS_RE.pattern + r'$')
@@ -446,7 +449,8 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
 
     suffix = ''.join(groups['suffix'].split())
     nested = split_sig(groups['nested'].strip()[1:], '.') if groups['nested'] else []
-    result = TypeSig(groups['type'], modifiers, generics, inherits, suffix, constraints, params, nested)
+    typ = DOXYGEN_ARITY_RE.sub('', groups['type'])
+    result = TypeSig(typ, modifiers, generics, inherits, suffix, constraints, params, nested)
     if CSDebug.parse_type:
         logger.info(f"parsed type: {tuple(result)}")
     return result

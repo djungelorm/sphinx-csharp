@@ -20,6 +20,8 @@ def test_breathe(app):
     assert warnings(app) == []
     assert signatures(app)['indexer-OtherNamespace.Indexer.this[]'] == \
         'string this[Dictionary<string, int> map, int offset = 0] { get; }'
+    assert signatures(app)['class-OtherNamespace.Box'] == 'class Box<T>'
+    assert 'function-OtherNamespace.Box.First' in signatures(app)
 
 
 @pytest.mark.skipif(shutil.which('dotnet') is None, reason='dotnet is not installed')
