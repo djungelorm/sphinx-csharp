@@ -118,7 +118,7 @@ RECORD_KIND_RE = re.compile(r'^' + MODIFIERS_RE.pattern + r'(?P<kind>class|struc
 ENUM_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + r'(?P<name>[^\s:]+)\s*(?::\s*(?P<base>\S+))?$')
 ENUMERATOR_SIG_RE = re.compile(r'^(?P<name>[^\s=]+)\s*(?:=\s*(?P<value>.+))?$')
 
-ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
+ATTR_SIG_RE = re.compile(r'^([^\s(]+)(\s*\((.*)\))?$')
 
 # Source location of a signature, as a (docname, line) pair
 Location = tuple[str, int] | None

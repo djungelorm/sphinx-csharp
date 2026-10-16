@@ -240,6 +240,8 @@ def test_parse_enumerator(sig, expected):
 @pytest.mark.parametrize('sig, expected', [
     ('MyAttr', ('MyAttr', [])),
     ('MyAttr (string a, int b)', ('MyAttr', [param('string', 'a'), param('int', 'b')])),
+    ('Obsolete(string message, bool error = false)',
+     ('Obsolete', [param('string', 'message'), param('bool', 'error', 'false')])),
 ])
 def test_parse_attribute(sig, expected):
     assert parse_attr_signature(sig, None) == expected
