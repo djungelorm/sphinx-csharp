@@ -49,16 +49,26 @@ def test_parse_method_doxygen_template():
 
 
 @pytest.mark.parametrize('sig, expected', [
-    ('string P { get; set; }', ([], 'string', 'P', True, True, None)),
-    ('static string P { get; }', (['static'], 'string', 'P', True, False, None)),
-    ('int? P { get; set; }', ([], 'int?', 'P', True, True, None)),
-    ('public int[,] P { get; }', (['public'], 'int[,]', 'P', True, False, None)),
-    ('List<int> P { get; set; } = new List<int>()', ([], 'List<int>', 'P', True, True, 'new List<int>()')),
-    ('Dictionary<string, int> P { get; }', ([], 'Dictionary<string, int>', 'P', True, False, None)),
-    ('public virtual int P { set; }', (['public', 'virtual'], 'int', 'P', False, True, None)),
-    ('public required string P { get; set; }', (['public', 'required'], 'string', 'P', True, True, None)),
-    ('int P', ([], 'int', 'P', False, False, None)),
-    ('int P = 1', ([], 'int', 'P', False, False, '1')),
+    ('string P { get; set; }', ([], 'string', 'P', ['get', 'set'], None)),
+    ('static string P { get; }', (['static'], 'string', 'P', ['get'], None)),
+    ('int? P { get; set; }', ([], 'int?', 'P', ['get', 'set'], None)),
+    ('public int[,] P { get; }', (['public'], 'int[,]', 'P', ['get'], None)),
+    ('List<int> P { get; set; } = new List<int>()', ([], 'List<int>', 'P', ['get', 'set'], 'new List<int>()')),
+    ('Dictionary<string, int> P { get; }', ([], 'Dictionary<string, int>', 'P', ['get'], None)),
+    ('public virtual int P { set; }', (['public', 'virtual'], 'int', 'P', ['set'], None)),
+    ('public required string P { get; set; }', (['public', 'required'], 'string', 'P', ['get', 'set'], None)),
+    ('int P {get;set;}', ([], 'int', 'P', ['get', 'set'], None)),
+    ('int P { get; init; }', ([], 'int', 'P', ['get', 'init'], None)),
+    ('int P { get; private set; }', ([], 'int', 'P', ['get', 'private set'], None)),
+    ('int P { protected  internal get; set; }', ([], 'int', 'P', ['protected internal get', 'set'], None)),
+    ('int P { readonly get; }', ([], 'int', 'P', ['readonly get'], None)),
+    ('int P { set; get; }', ([], 'int', 'P', ['set', 'get'], None)),
+    ('int P { get; set; } = 5;', ([], 'int', 'P', ['get', 'set'], '5')),
+    ('int P => 1', ([], 'int', 'P', ['get'], None)),
+    ('int P => x > 0;', ([], 'int', 'P', ['get'], None)),
+    ('EventHandler E { add; remove; }', ([], 'EventHandler', 'E', ['add', 'remove'], None)),
+    ('int P', ([], 'int', 'P', [], None)),
+    ('int P = 1', ([], 'int', 'P', [], '1')),
 ])
 def test_parse_property(sig, expected):
     assert parse_property_signature(sig, None) == expected
@@ -91,9 +101,10 @@ def test_parse_type(sig, expected):
 
 
 @pytest.mark.parametrize('sig, expected', [
-    ('string this[int i] { get; set; }', ([], 'string', [param('int', 'i')], True, True)),
+    ('string this[int i] { get; set; }', ([], 'string', [param('int', 'i')], ['get', 'set'])),
     ('virtual string this[int i, MyClass j] { get; }',
-     (['virtual'], 'string', [param('int', 'i'), param('MyClass', 'j')], True, False)),
+     (['virtual'], 'string', [param('int', 'i'), param('MyClass', 'j')], ['get'])),
+    ('string this[int i] { get; private init; }', ([], 'string', [param('int', 'i')], ['get', 'private init'])),
 ])
 def test_parse_indexer(sig, expected):
     assert parse_indexer_signature(sig, None) == expected
@@ -113,6 +124,8 @@ def test_parse_attribute(sig, expected):
     (parse_property_signature, 'int'),
     (parse_variable_signature, 'int'),
     (parse_indexer_signature, 'string this[] { get; }'),
+    (parse_indexer_signature, 'string this[int i] { fetch; }'),
+    (parse_property_signature, 'int P { get }'),
     (parse_type_signature, '<T>'),
     (parse_type_signature, None),
     (parse_attr_signature, 'A B C'),

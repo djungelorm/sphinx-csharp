@@ -124,6 +124,12 @@
 
    .. property:: MyEnum? NullableEnumProperty { get; set; }
 
+   .. property:: string InitProperty { get; init; }
+
+   .. property:: string PrivateSetProperty { get; private set; }
+
+   .. property:: int ExpressionProperty => 1
+
    .. indexer:: string this[int i] { get; set; }
 
    .. indexer:: string this[int i] { get; }
@@ -132,7 +138,11 @@
 
    .. indexer:: string this[int i, MyClass j] { get; set; }
 
+   .. indexer:: string this[int i, MyClass j, int k] { get; protected set; }
+
    .. event:: public System.EventHandler Changed
+
+   .. event:: public System.EventHandler Closed { add; remove; }
 
    .. function:: T AGenericMethod<T> (int x)
 
