@@ -1,6 +1,6 @@
 import pytest
 import requests
-from conftest import references, warnings
+from conftest import references, status, warnings
 
 from sphinx_csharp.debug import CSDebug
 from sphinx_csharp.extrefs import ExternalRefs
@@ -48,9 +48,9 @@ def test_package_without_search_page(build):
 
 def test_debug_logging(build):
     app = build('.. cs:function:: int Foo (int a)\n', sphinx_csharp_debug_ext_links=True)
-    status = app.status.getvalue()
-    assert 'found external link' in status
-    assert 'found in extlink_cache for int' in status
+    log = status(app)
+    assert 'found external link' in log
+    assert 'found in extlink_cache for int' in log
 
 
 class Response:
@@ -67,8 +67,8 @@ def test_link_testing(build, monkeypatch, status_code, url):
     monkeypatch.setattr(requests, 'get', lambda *args, **kwargs: Response(status_code))
     refs, app = links(build, 'int', sphinx_csharp_test_links=True)
     assert refs == {'int': url}
-    assert 'external link testing is enabled' in app.status.getvalue()
-    assert ('invalid API link' in app.warning.getvalue()) == (status_code == 404)
+    assert 'external link testing is enabled' in status(app)
+    assert any('invalid API link' in line for line in warnings(app)) == (status_code == 404)
 
 
 def test_link_testing_without_connection(build, monkeypatch):
@@ -78,6 +78,6 @@ def test_link_testing_without_connection(build, monkeypatch):
     monkeypatch.setattr(requests, 'get', get)
     refs, app = links(build, 'int', sphinx_csharp_test_links=True)
     assert warnings(app) == []
-    assert 'external link testing is enabled' not in app.status.getvalue()
+    assert 'external link testing is enabled' not in status(app)
     assert refs == {'int': MICROSOFT_DOCS + 'System.Int32'}
     assert not ExternalRefs.test_links

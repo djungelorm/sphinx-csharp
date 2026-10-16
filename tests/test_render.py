@@ -1,7 +1,7 @@
 from io import StringIO
 
 import pytest
-from conftest import references, signatures, warnings
+from conftest import references, resolved_doctree, signatures, status, warnings
 from docutils import nodes
 from sphinx import addnodes
 from sphinx.errors import ExtensionError
@@ -118,7 +118,7 @@ def test_invalid_signature_is_shown_as_written(build, directive, sig):
     app = build(f'.. cs:{directive}:: {sig}\n')
     assert len(warnings(app)) == 1
     assert 'signature invalid' in warnings(app)[0]
-    doctree = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
+    doctree = resolved_doctree(app)
     assert next(doctree.findall(addnodes.desc_signature)).astext() == sig
 
 
@@ -255,8 +255,9 @@ def test_index_entries(app):
     assert len(entries) == 10
 
 
-def test_no_index_entry(build):
-    app = build('.. cs:class:: Shown\n\n.. cs:class:: Hidden\n   :no-index-entry:\n\n'
+@pytest.mark.parametrize('option', ['no-index-entry', 'noindexentry'])
+def test_no_index_entry(build, option):
+    app = build(f'.. cs:class:: Shown\n\n.. cs:class:: Hidden\n   :{option}:\n\n'
                 '.. cs:class:: Derived\n\n   .. cs:inherits:: Shown\n')
     assert warnings(app) == []
     assert index_entries(app) == [('Shown (C# class)', 'class-Shown'), ('Derived (C# class)', 'class-Derived')]
@@ -345,10 +346,10 @@ See :cs:type:`Missing`.
 def test_debug_logging(build):
     app = build(DEBUG_SOURCE, nitpicky=False, sphinx_csharp_debug=True)
     assert warnings(app) == []
-    status = app.status.getvalue()
+    log = status(app)
     for text in ['parsed func:', 'parsed var:', 'parsed prop:', 'falling back to variable: int Plain',
                  'parsed idxr:', 'parsed type:', 'parsed attr:', 'no C# object found for Missing']:
-        assert text in status
+        assert text in log
 
 
 def test_invalid_config(make_app, tmp_path):

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from docutils import nodes
-from sphinx import addnodes
+from sphinx import addnodes, version_info
 
 pytest_plugins = ['sphinx.testing.fixtures']
 
@@ -27,13 +27,24 @@ def build(make_app, tmp_path):
     return _build
 
 
+def resolved_doctree(app):
+    # Sphinx 9 deprecates calls without tags, and earlier versions reject the argument
+    kwargs = {'tags': app.tags} if version_info >= (9,) else {}
+    return app.env.get_and_resolve_doctree('index', app.builder, **kwargs)
+
+
+# Note: SphinxTestApp.status and SphinxTestApp.warning were added in Sphinx 7.3.
+def status(app):
+    return app._status.getvalue()
+
+
 def warnings(app):
-    return [line for line in app.warning.getvalue().splitlines() if line.strip()]
+    return [line for line in app._warning.getvalue().splitlines() if line.strip()]
 
 
 def signatures(app):
     """ Map each object id on the index page to its rendered signature text """
-    doctree = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
+    doctree = resolved_doctree(app)
     return {node_id: node.astext().replace('\xa0', ' ')
             for node in doctree.findall(addnodes.desc_signature)
             for node_id in node['ids']}
@@ -41,7 +52,7 @@ def signatures(app):
 
 def references(app, node_id=None):
     """ Map each linked name to its target, in one signature or in the whole index page """
-    doctree = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
+    doctree = resolved_doctree(app)
     if node_id is not None:
         doctree = next(node for node in doctree.findall(addnodes.desc_signature) if node_id in node['ids'])
     return {ref.astext(): ref.get('refid') or ref.get('refuri')
