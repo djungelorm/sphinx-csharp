@@ -27,7 +27,21 @@
 
       And a reference back to the containing class :type:`MyClass`
 
+   .. function:: T MyMethodWithFields<T> (System.Collections.Generic.IList<T> items, int index)
+
+      A method with documented parameters.
+
+      :param items: The items.
+      :type items: System.Collections.Generic.IList<T>
+      :param int index: The index of the item.
+      :typeparam T: The item type.
+      :returns: The item at the index.
+      :rtype: T
+      :throws System.ArgumentOutOfRangeException: If the index is out of range.
+
    .. function:: void MyMethodDefaultArg (string arg = "foo")
+
+   .. function:: void MyMethodDefaultArgWithComma (string arg = "foo, bar", char sep = ',')
 
       A method with a default argument value.
 
@@ -58,6 +72,8 @@
 
    .. function:: int? MyMethodNullable (MyClass? arg)
 
+   .. function:: MyClass?[] MyMethodNullableElements (int** ptr, string?[]? arg)
+
       A method with nullable parameter and return types.
 
    .. function:: MyClass MyMethodClass (MyClass arg)
@@ -73,6 +89,8 @@
       A static method.
 
    .. function:: int MyMethodHasParamModifiers(ref int arg0, params int[] arg1)
+
+   .. function:: bool MyMethodHasParamAttributes([NotNullWhen(true)] out string? arg0, scoped ref readonly int arg1)
 
       A method with a parameter modifier.
 
@@ -124,6 +142,12 @@
 
    .. property:: MyEnum? NullableEnumProperty { get; set; }
 
+   .. property:: string InitProperty { get; init; }
+
+   .. property:: string PrivateSetProperty { get; private set; }
+
+   .. property:: int ExpressionProperty => 1
+
    .. indexer:: string this[int i] { get; set; }
 
    .. indexer:: string this[int i] { get; }
@@ -132,11 +156,21 @@
 
    .. indexer:: string this[int i, MyClass j] { get; set; }
 
+   .. indexer:: string this[int i, MyClass j, int k] { get; protected set; }
+
+   .. indexer:: string this[System.Collections.Generic.IDictionary<string, int> map, int offset = 0] { get; }
+
    .. event:: public System.EventHandler Changed
+
+   .. event:: public System.EventHandler Closed { add; remove; }
 
    .. function:: T AGenericMethod<T> (int x)
 
    .. property:: System.Tuple<int,string> ATupleProperty { get; set; }
+
+   .. property:: (int count, MyClass item) AValueTupleProperty { get; }
+
+   .. function:: (int, string)[] ATupleMethod ((MyClass a, (int b, int c) d) arg, System.Collections.Generic.List<(int, MyEnum)> items)
 
 .. enum:: MyEnum
 
@@ -149,17 +183,37 @@
    .. enumerator:: Bar
    .. enumerator:: Baz
 
-.. class:: MyGenericClass<T>
+.. enum:: public MyFlags : byte
+
+   .. enumerator:: None = 0
+
+   .. enumerator:: First = 1
+
+   .. enumerator:: All = First | 2
+
+.. class:: MyGenericClass<T> where T : MyClass, new()
 
    .. function:: void AMethod()
 
    .. function:: T AGenericMethod<T> (int x)
+
+   .. class:: Nested
+
+   .. function:: MyGenericClass<int>.Nested GetNested ()
+
+   .. function:: System.Collections.Generic.List<int>.Enumerator GetEnumerator ()
+
+   .. function:: T GetFirst (System.Collections.Generic.IEnumerable<T> items)
+
+   .. function:: U AConstrainedMethod<U> (U x) where U : System.IComparable<U>
 
 .. attribute:: MyAttribute1
 
    An attribute.
 
 .. attribute:: MyAttribute2 (string param1, int param2)
+
+.. attribute:: MyAttribute3(string param1, bool param2 = false)
 
    Another attribute.
 
@@ -205,6 +259,24 @@ Section ref :ref:`references`
 
 More Tests
 ----------
+
+.. record:: MyPoint(int X, int Y)
+
+.. record:: readonly struct MySize(int Width, int Height)
+
+.. class:: MyService(MyClass client, int timeout = 30) : MyClass(client)
+
+.. delegate:: public void MyHandler(object sender, MyClass item)
+
+.. delegate:: TResult MyFactory<in T, out TResult>(T arg)
+
+.. struct:: MyVector
+
+   .. function:: public static MyVector operator +(MyVector a, MyVector b)
+
+   .. function:: public static bool operator ==(MyVector a, MyVector b)
+
+   .. function:: public static explicit operator MyVector(double d)
 
 .. namespace:: OtherNamespace
 

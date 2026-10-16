@@ -1,3 +1,5 @@
+using MyNamespace;
+
 namespace OtherNamespace
 {
     public class NullableClass
@@ -27,6 +29,14 @@ namespace OtherNamespace
         public int? FooBar(MyClass? bValue)
         {
             return null;
+        }
+
+        /// <summary>
+        /// A method with nullable array elements.
+        /// </summary>
+        public string?[] NullableElements(int?[] values)
+        {
+            return [];
         }
     }
 }

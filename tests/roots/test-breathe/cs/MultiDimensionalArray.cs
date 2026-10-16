@@ -7,6 +7,7 @@ namespace MyNamespace
         /// </summary>
         public void JaggedArray(out byte[][] data)
         {
+            data = [];
         }
 
         /// <summary>
@@ -14,7 +15,7 @@ namespace MyNamespace
         /// </summary>
         public int[,] MultiDimensionalArrayMethod(int[,,] data)
         {
-            return null;
+            return new int[0, 0];
         }
     }
 }
