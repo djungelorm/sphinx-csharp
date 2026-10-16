@@ -51,6 +51,14 @@ def test_split_sig(params, expected):
     ('Task<(int, int)> Foo(List<(int, int)>? l)',
      ([], 'Task<(int, int)>', 'Foo', [], [param('List<(int, int)>?', 'l')])),
     ('(int x, (int y, int z) inner)[] Foo()', ([], '(int x, (int y, int z) inner)[]', 'Foo', [], [])),
+    ('bool Try([NotNullWhen(true)] out string? s, [CallerMemberName] string name="")',
+     ([], 'bool', 'Try', [], [param('string?', 's', modifiers=['[NotNullWhen(true)]', 'out']),
+                              param('string', 'name', '""', ['[CallerMemberName]'])])),
+    ('void Span(scoped ref int a, ref readonly int b, scoped Span< int > c)',
+     ([], 'void', 'Span', [], [param('int', 'a', modifiers=['scoped', 'ref']),
+                               param('int', 'b', modifiers=['ref', 'readonly']),
+                               param('Span< int >', 'c', modifiers=['scoped'])])),
+    ('file void Foo()', (['file'], 'void', 'Foo', [], [])),
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
 ])
 def test_parse_method(sig, expected):
@@ -144,6 +152,7 @@ def test_parse_variable(sig, expected):
 
 @pytest.mark.parametrize('sig, expected', [
     ('MyClass', ('MyClass', [], [], [], '')),
+    ('file sealed MyClass', ('MyClass', ['file', 'sealed'], [], [], '')),
     ('public sealed MyClass<T, U> : Base, IFoo', ('MyClass', ['public', 'sealed'], ['T', 'U'], ['Base', 'IFoo'], '')),
     ('List<int>', ('List', [], ['int'], [], '')),
     ('int[,]', ('int', [], [], [], '[,]')),
