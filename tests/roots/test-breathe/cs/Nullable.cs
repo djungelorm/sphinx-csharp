@@ -1,3 +1,5 @@
+using MyNamespace;
+
 namespace OtherNamespace
 {
     public class NullableClass
