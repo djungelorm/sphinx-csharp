@@ -224,6 +224,12 @@ Section ref :ref:`references`
 More Tests
 ----------
 
+.. record:: MyPoint(int X, int Y)
+
+.. record:: readonly struct MySize(int Width, int Height)
+
+.. class:: MyService(MyClass client, int timeout = 30) : MyClass(client)
+
 .. struct:: MyVector
 
    .. function:: public static MyVector operator +(MyVector a, MyVector b)

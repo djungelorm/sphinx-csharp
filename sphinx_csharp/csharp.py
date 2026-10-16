@@ -102,8 +102,15 @@ INSTANCE_OPERATOR_NAMES = {'++': 'IncrementAssignment', '--': 'DecrementAssignme
 CONVERSION_OPERATORS = ['op_Implicit', 'op_Explicit', 'op_CheckedImplicit', 'op_CheckedExplicit']
 
 INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*?))?')
-CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern +
-                          CONSTRAINTS_RE.pattern + r'$')
+PRIMARY_CONSTRUCTOR_RE = re.compile(r'(?:\s*\((?P<params>.*?)\))?')
+CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + PRIMARY_CONSTRUCTOR_RE.pattern +
+                          INHERITS_RE.pattern + CONSTRAINTS_RE.pattern + r'$')
+# A base type with arguments for its constructor, such as Base(x)
+BASE_ARGS_RE = re.compile(r'^(?P<type>[^(]+?)\s*(?P<args>\(.*\))$')
+# Doxygen writes records, and types with primary constructors, as functions
+TYPE_AS_FUNCTION_RE = re.compile(
+    r'^' + MODIFIERS_RE.pattern + r'(?P<keyword>record(?:\s+(?:class|struct))?|class|struct)\s+(?P<sig>.+\))$')
+RECORD_KIND_RE = re.compile(r'^' + MODIFIERS_RE.pattern + r'(?P<kind>class|struct)\s+(?P<sig>.+)$')
 
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 
@@ -167,6 +174,8 @@ class TypeSig(NamedTuple):
     array: str | None
     ptr: str | None
     constraints: list[Constraint]
+    # The primary constructor parameters, or None if the type has no primary constructor
+    params: list[ParamTuple] | None
 
 
 class AttrSig(NamedTuple):
@@ -399,8 +408,10 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
     inherits = split_sig(groups['inherits']) if groups['inherits'] else []
 
     constraints = parse_constraints(groups['constraints'], location)
+    params = None if groups['params'] is None else parse_params(groups['params'], location)
 
-    result = TypeSig(groups['type'], modifiers, generics, inherits, groups['array'], groups['ptr'], constraints)
+    result = TypeSig(groups['type'], modifiers, generics, inherits, groups['array'], groups['ptr'], constraints,
+                     params)
     if CSDebug.parse_type:
         logger.info(f"parsed type: {tuple(result)}")
     return result
@@ -493,7 +504,7 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, _, array, ptr, _ = parse_type_signature(
+        typ, modifiers, generic_types, _, array, ptr, _, _ = parse_type_signature(
             input_typ, (self.env.docname, self.lineno))
 
         if modifiers:
@@ -579,7 +590,10 @@ class CSharpObject(ObjectDescription[str]):
         """ Adds inherited types, inherits must be a list of string types """
         node += nodes.Text(' : ')
         for (i, typ) in enumerate(inherits):
-            self.append_type(node, typ)
+            match = BASE_ARGS_RE.match(typ)
+            self.append_type(node, match['type'] if match else typ)
+            if match:
+                node += nodes.Text(match['args'])
             if i != len(inherits) - 1:
                 node += nodes.Text(', ')
 
@@ -636,6 +650,38 @@ class CSharpObject(ObjectDescription[str]):
         return self.get_fullname(name + '[]')
 
 
+    def handle_type_signature(self, sig: str, signode: addnodes.desc_signature, keyword: str) -> str:
+        """ Handle a type declaration, such as a class, and return its full name """
+        typ, modifiers, generics, inherits, _, _, constraints, params = parse_type_signature(
+            sig, (self.env.docname, self.lineno))
+
+        if modifiers:
+            self.append_modifiers(signode, modifiers)
+
+        prefix = keyword + ' '
+        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += addnodes.desc_name(typ, typ)
+
+        if generics:
+            self.append_generics(signode, generics, nolink=True)
+        # Variance modifiers such as in T come before the parameter name
+        generic_params = [generic.split()[-1] for generic in generics]
+        if params is not None:
+            signode += nodes.Text('\xa0')
+            self.append_parameters(signode, params, generic_params)
+        if inherits:
+            self.append_inherits(signode, inherits)
+        self.append_constraints(signode, constraints, generic_params)
+        return self.get_fullname(typ)
+
+    def change_objtype(self, signode: addnodes.desc_signature, objtype: str) -> None:
+        """ Describe this object as another object type, such as an indexer passed to the property directive """
+        desc = signode.parent
+        desc['classes'].remove(self.objtype)
+        self.objtype = desc['objtype'] = desc['desctype'] = objtype
+        desc['classes'].append(objtype)
+
+
 class CSharpCurrentNamespace(Directive):
     """ Set the current C# namespace """
 
@@ -674,23 +720,7 @@ class CSharpType(CSharpObject):
     keyword = ''
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        typ, modifiers, generics, inherits, _, _, constraints = parse_type_signature(
-            sig, (self.env.docname, self.lineno))
-
-        if modifiers:
-            self.append_modifiers(signode, modifiers)
-
-        prefix = self.keyword + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
-        signode += addnodes.desc_name(typ, typ)
-
-        if generics:
-            self.append_generics(signode, generics, nolink=True)
-        if inherits:
-            self.append_inherits(signode, inherits)
-        # Variance modifiers such as in T come before the parameter name
-        self.append_constraints(signode, constraints, [generic.split()[-1] for generic in generics])
-        return self.get_fullname(typ)
+        return self.handle_type_signature(sig, signode, self.keyword)
 
 
 class CSharpClass(CSharpType):
@@ -708,6 +738,17 @@ class CSharpInterface(CSharpType):
     keyword = 'interface'
 
 
+class CSharpRecord(CSharpType):
+    """ Description of a C# record, or a record class or record struct if the signature starts with class or struct """
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        match = RECORD_KIND_RE.match(sig.strip())
+        if not match:
+            return self.handle_type_signature(sig, signode, 'record')
+        modifiers = match['modifiers'] + ' ' if match['modifiers'] else ''
+        return self.handle_type_signature(modifiers + match['sig'], signode, 'record ' + match['kind'])
+
+
 class CSharpInherits(CSharpObject):
     """ Description of a type that a C# type inherits from """
 
@@ -721,6 +762,13 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        match = TYPE_AS_FUNCTION_RE.match(sig.strip())
+        if match:
+            keyword = ' '.join(match['keyword'].split())
+            self.change_objtype(signode, keyword.split()[0])
+            modifiers = match['modifiers'] + ' ' if match['modifiers'] else ''
+            return self.handle_type_signature(modifiers + match['sig'], signode, keyword)
+
         modifiers, return_type, name, generic_params, params, constraints, operator = parse_method_signature(
             sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
@@ -780,10 +828,7 @@ class CSharpProperty(CSharpObject):
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         # Doxygen writes indexers as properties named this[...]
         if IDXR_SIG_RE.match(sig.strip()):
-            desc = signode.parent
-            desc['classes'].remove(self.objtype)
-            self.objtype = desc['objtype'] = desc['desctype'] = 'indexer'
-            desc['classes'].append(self.objtype)
+            self.change_objtype(signode, 'indexer')
             return self.handle_indexer_signature(sig, signode)
 
         modifiers, typ, name, accessors, default_val = parse_property_signature(
@@ -882,6 +927,7 @@ class CSharpDomain(Domain):
         'struct': ObjType(_('struct'), 'struct', 'type'),
         'interface': ObjType(_('interface'), 'interface', 'type'),
         'enum': ObjType(_('enum'), 'enum', 'type'),
+        'record': ObjType(_('record'), 'record', 'type'),
 
         'function': ObjType(_('function'), 'function', 'func', 'meth', 'member'),
 
@@ -899,6 +945,7 @@ class CSharpDomain(Domain):
         'class': CSharpClass,
         'struct': CSharpStruct,
         'interface': CSharpInterface,
+        'record': CSharpRecord,
         'inherits': CSharpInherits,
 
         'function': CSharpMethod,
@@ -919,6 +966,7 @@ class CSharpDomain(Domain):
         'class': CSharpXRefRole(),
         'struct': CSharpXRefRole(),
         'interface': CSharpXRefRole(),
+        'record': CSharpXRefRole(),
 
         'func': CSharpXRefRole(),
         'meth': CSharpXRefRole(),

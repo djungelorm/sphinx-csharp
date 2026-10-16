@@ -383,6 +383,36 @@ def test_operator_signature(build, sig, node_id, text):
     assert references(app)[f'Vector.{node_id.split(".")[-1]}'] == node_id
 
 
+@pytest.mark.parametrize('directive, sig, node_id, text', [
+    ('record', 'public Point(int X, int Y)', 'record-Point', 'public record Point (int X, int Y)'),
+    ('record', 'readonly struct Point(int X, int Y)', 'record-Point', 'readonly record struct Point (int X, int Y)'),
+    ('record', 'class Point<T>(T X) : Base(X), System.IDisposable where T : notnull', 'record-Point',
+     'record class Point<T> (T X) : Base(X), IDisposable where T : notnull'),
+    ('class', 'Service(Base logger, int timeout = 30) : Base(logger)', 'class-Service',
+     'class Service (Base logger, int timeout = 30) : Base(logger)'),
+    ('struct', 'Empty()', 'struct-Empty', 'struct Empty ()'),
+    # Doxygen writes records, and types with primary constructors, as functions
+    ('function', 'record Point (int X, int Y)', 'record-Point', 'record Point (int X, int Y)'),
+    ('function', 'readonly record  struct Point (int X, int Y)', 'record-Point',
+     'readonly record struct Point (int X, int Y)'),
+    ('function', 'record class Point< T > (T X)', 'record-Point', 'record class Point<T> (T X)'),
+    ('function', 'class Point (int X)', 'class-Point', 'class Point (int X)'),
+])
+def test_record_signature(build, directive, sig, node_id, text):
+    app = build(f'.. cs:class:: Base\n\n.. cs:{directive}:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)[node_id] == text
+    if 'Base' in text:
+        assert references(app, node_id)['Base'] == 'class-Base'
+
+
+def test_record_role_and_index_entry(build):
+    app = build('.. cs:record:: Point(int X, int Y)\n\n:cs:record:`Point`\n')
+    assert warnings(app) == []
+    assert references(app)['Point'] == 'record-Point'
+    assert index_entries(app) == [('Point (C# record)', 'record-Point')]
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
