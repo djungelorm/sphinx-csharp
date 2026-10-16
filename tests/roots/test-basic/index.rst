@@ -140,6 +140,8 @@
 
    .. indexer:: string this[int i, MyClass j, int k] { get; protected set; }
 
+   .. indexer:: string this[System.Collections.Generic.IDictionary<string, int> map, int offset = 0] { get; }
+
    .. event:: public System.EventHandler Changed
 
    .. event:: public System.EventHandler Closed { add; remove; }

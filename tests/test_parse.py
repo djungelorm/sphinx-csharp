@@ -101,10 +101,22 @@ def test_parse_type(sig, expected):
 
 
 @pytest.mark.parametrize('sig, expected', [
-    ('string this[int i] { get; set; }', ([], 'string', [param('int', 'i')], ['get', 'set'])),
+    ('string this[int i] { get; set; }', ([], 'string', None, [param('int', 'i')], ['get', 'set'])),
     ('virtual string this[int i, MyClass j] { get; }',
-     (['virtual'], 'string', [param('int', 'i'), param('MyClass', 'j')], ['get'])),
-    ('string this[int i] { get; private init; }', ([], 'string', [param('int', 'i')], ['get', 'private init'])),
+     (['virtual'], 'string', None, [param('int', 'i'), param('MyClass', 'j')], ['get'])),
+    ('string this[int i] { get; private init; }', ([], 'string', None, [param('int', 'i')], ['get', 'private init'])),
+    ('Dictionary<string, int> this[List<int> a, Dictionary<string, int> b] { get; }',
+     ([], 'Dictionary<string, int>', None, [param('List<int>', 'a'), param('Dictionary<string, int>', 'b')], ['get'])),
+    ('int this[params int[] i] { get; }', ([], 'int', None, [param('int[]', 'i', modifiers=['params'])], ['get'])),
+    ('int this[in int i, int j = 0] { get; }',
+     ([], 'int', None, [param('int', 'i', modifiers=['in']), param('int', 'j', '0')], ['get'])),
+    ('int? this[int i] { get; }', ([], 'int?', None, [param('int', 'i')], ['get'])),
+    ('ref int this[int i] { get; }', (['ref'], 'int', None, [param('int', 'i')], ['get'])),
+    ('int IList<int>.this[int i] { get; }', ([], 'int', 'IList<int>', [param('int', 'i')], ['get'])),
+    ('int this[int i] => i;', ([], 'int', None, [param('int', 'i')], ['get'])),
+    ('int this[int i]', ([], 'int', None, [param('int', 'i')], [])),
+    ('string this[string s, int j=0] {get;}',
+     ([], 'string', None, [param('string', 's'), param('int', 'j', '0')], ['get'])),
 ])
 def test_parse_indexer(sig, expected):
     assert parse_indexer_signature(sig, None) == expected
@@ -124,6 +136,7 @@ def test_parse_attribute(sig, expected):
     (parse_property_signature, 'int'),
     (parse_variable_signature, 'int'),
     (parse_indexer_signature, 'string this[] { get; }'),
+    (parse_indexer_signature, 'string this[int] { get; }'),
     (parse_indexer_signature, 'string this[int i] { fetch; }'),
     (parse_property_signature, 'int P { get }'),
     (parse_type_signature, '<T>'),

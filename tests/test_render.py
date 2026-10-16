@@ -268,11 +268,19 @@ def test_no_index_entry(build, option):
     ('string this[int i, MyClass j] { get; }', 'string this[int i, MyClass j] { get; }'),
     ('int this[int i] { set; }', 'int this[int i] { set; }'),
     ('int this[int i] { get; private init; }', 'int this[int i] { get; private init; }'),
+    ('int this[params int[] i, int j = 0] { get; }', 'int this[params int[] i, int j = 0] { get; }'),
+    ('int this[System.Collections.Generic.List<int> i] => 1', 'int this[List<int> i] { get; }'),
 ])
 def test_indexer_signature(build, sig, text):
     app = build(f'.. cs:class:: MyClass\n\n   .. cs:indexer:: {sig}\n')
     assert warnings(app) == []
     assert signatures(app)['indexer-MyClass.this[]'] == text
+
+
+def test_explicit_interface_indexer(build):
+    app = build('.. cs:class:: MyClass\n\n   .. cs:indexer:: int IList<int>.this[int i] { get; }\n')
+    assert warnings(app) == []
+    assert signatures(app)['indexer-MyClass.IList<int>.this[]'] == 'int IList<int>.this[int i] { get; }'
 
 
 @pytest.mark.parametrize('sig, text', [

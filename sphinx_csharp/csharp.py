@@ -62,9 +62,8 @@ PROP_SIG_RE = re.compile(
     r'(?:' + ACCESSORS_RE.pattern + r'\s*(?:=\s*(?P<value>.+?))?|(?P<expr>=>.+?))\s*;?\s*$')
 
 IDXR_SIG_RE = re.compile(
-    r'^(?P<modifiers>(?:(?:' + MODIFIERS_RE_SIMPLE +
-    r')\s+)*)(?P<type>[^\s]+)\s*this\s*\[\s*(?P<params>(?:[^\s]+)\s+(?:[^\s]+)' +
-    r'(?:\s*,\s*(?:[^\s]+)\s+(?:[^\s]+))*)\s*\]\s*' + ACCESSORS_RE.pattern + r'$')
+    r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<interface>[^\s\[]+\.)?this\s*\[(?P<params>.*)\]\s*'
+    r'(?:' + ACCESSORS_RE.pattern + r'|(?P<expr>=>.+?))?\s*;?\s*$')
 
 INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*))?')
 CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern + r'$')
@@ -110,6 +109,7 @@ class PropertySig(NamedTuple):
 class IndexerSig(NamedTuple):
     modifiers: list[str]
     return_type: str
+    interface: str | None
     params: list[ParamTuple]
     accessors: list[str]
 
@@ -246,14 +246,17 @@ def parse_property_signature(sig: str, location: Location) -> PropertySig:
 
 def parse_indexer_signature(sig: str, location: Location) -> IndexerSig:
     """ Parse a indexer signature of the form:
-        modifier* type this[params] { accessor* } """
+        modifier* type (interface.)?this[params] ({ accessor* } | => expression)? """
     match = IDXR_SIG_RE.match(sig.strip())
-    if not match:
+    if not match or not match['params'].strip():
         raise invalid_signature('Indexer', sig, location)
 
     groups = match.groupdict()
-    result = IndexerSig(groups['modifiers'].split(), groups['type'], parse_params(groups['params'], location),
-                        parse_accessors(groups['accessors']))
+    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    interface = groups['interface'][:-1] if groups['interface'] else None
+    accessors = ['get'] if groups['expr'] else parse_accessors(groups['accessors'] or '')
+    result = IndexerSig(modifiers, groups['fulltype'].strip(), interface,
+                        parse_params(groups['params'], location), accessors)
     if CSDebug.parse_idxr:
         logger.info(f"parsed idxr: {tuple(result)}")
     return result
@@ -431,20 +434,21 @@ class CSharpObject(ObjectDescription[str]):
         pnodes = addnodes.desc_parameterlist()
         for param in params:
             pnode = addnodes.desc_parameter('', '', noemph=True)
-
-            self.append_modifiers(pnode, param.modifiers)
-
-            if ignore_types and param.typ in ignore_types:
-                pnode += addnodes.desc_type(param.typ, param.typ)
-            else:
-                self.append_type(pnode, param.typ, ignore_types)
-            pnode += nodes.Text('\xa0')
-            pnode += nodes.emphasis(param.name, param.name)
-            if param.default is not None:
-                default = ' = ' + param.default
-                pnode += nodes.emphasis(default, default)
+            self.append_parameter(pnode, param, ignore_types)
             pnodes += pnode
         node += pnodes
+
+    def append_parameter(self, node: nodes.Element, param: ParamTuple, ignore_types: list[str]) -> None:
+        self.append_modifiers(node, param.modifiers)
+        if param.typ in ignore_types:
+            node += addnodes.desc_type(param.typ, param.typ)
+        else:
+            self.append_type(node, param.typ, ignore_types)
+        node += nodes.Text('\xa0')
+        node += nodes.emphasis(param.name, param.name)
+        if param.default is not None:
+            default = ' = ' + param.default
+            node += nodes.emphasis(default, default)
 
     @staticmethod
     def append_accessors(node: nodes.Element, accessors: list[str]) -> None:
@@ -458,17 +462,23 @@ class CSharpObject(ObjectDescription[str]):
     def append_indexer_parameters(self, node: nodes.Element, params: list[ParamTuple]) -> None:
         pnodes = addnodes.desc_addname()
         pnodes += nodes.Text('[')
-
         for i, param in enumerate(params):
             if i:
                 pnodes += nodes.Text(', ')
-
-            self.append_type(pnodes, param.typ)
-            pnodes += nodes.Text('\xa0')
-            pnodes += nodes.emphasis(param.name, param.name)
-
+            self.append_parameter(pnodes, param, [])
         pnodes += nodes.Text(']')
         node += pnodes
+
+    def handle_indexer_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        modifiers, typ, interface, params, accessors = parse_indexer_signature(sig, (self.env.docname, self.lineno))
+        name = interface + '.this' if interface else 'this'
+        self.append_modifiers(signode, modifiers)
+        self.append_type(signode, typ)
+        signode += nodes.Text('\xa0')
+        signode += addnodes.desc_name(name, name)
+        self.append_indexer_parameters(signode, params)
+        self.append_accessors(signode, accessors)
+        return self.get_fullname(name + '[]')
 
 
 class CSharpCurrentNamespace(Directive):
@@ -639,14 +649,7 @@ class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        modifiers, typ, params, accessors = parse_indexer_signature(sig, (self.env.docname, self.lineno))
-        self.append_modifiers(signode, modifiers)
-        self.append_type(signode, typ)
-        signode += nodes.Text('\xa0')
-        signode += addnodes.desc_name('this[]', 'this')
-        self.append_indexer_parameters(signode, params)
-        self.append_accessors(signode, accessors)
-        return self.get_fullname('this[]')
+        return self.handle_indexer_signature(sig, signode)
 
 
 class CSharpEnum(CSharpObject):
