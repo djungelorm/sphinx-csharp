@@ -12,7 +12,8 @@ def test_basic(app):
 
 
 @pytest.mark.skipif(shutil.which('doxygen') is None, reason='doxygen is not installed')
-@pytest.mark.sphinx('html', testroot='breathe', copy_test_root=True, confoverrides={'nitpicky': True})
+# Note: Passing srcdir copies the test root in every supported Sphinx version.
+@pytest.mark.sphinx('html', testroot='breathe', srcdir='breathe', confoverrides={'nitpicky': True})
 def test_breathe(app):
     subprocess.run(['doxygen'], cwd=app.srcdir, check=True)
     app.build()

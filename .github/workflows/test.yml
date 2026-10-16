@@ -40,4 +40,19 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: sudo apt-get install -y doxygen
       - run: pip install hatch
-      - run: hatch run +py=${{ matrix.python }} test:all
+      - run: hatch run test.py${{ matrix.python }}:all
+
+  test-sphinx:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sphinx: ['7.2', '7.3', '7.4', '8.0', '8.1', '8.2']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: sudo apt-get install -y doxygen
+      - run: pip install hatch
+      - run: hatch run test.py3.11-${{ matrix.sphinx }}:all

@@ -315,7 +315,8 @@ class CSharpObject(ObjectDescription[str]):
                                location=(self.env.docname, self.lineno))
             objects[key] = self.env.docname
 
-        if 'no-index-entry' not in self.options:
+        # Sphinx 7 and 8 keep noindexentry as a separate option
+        if 'no-index-entry' not in self.options and 'noindexentry' not in self.options:
             indextext = self.get_index_text(name)
             if indextext:
                 self.indexnode['entries'].append(('single', indextext, targetname, '', None))
