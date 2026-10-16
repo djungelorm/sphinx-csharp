@@ -424,6 +424,28 @@ def test_enum_signature(build):
     assert references(app)['Color.Red'] == 'enumerator-Color.Red'
 
 
+@pytest.mark.parametrize('directive, sig, text', [
+    ('delegate', 'public void Handler (object sender, int e)', 'public delegate void Handler (object sender, int e)'),
+    ('delegate', 'delegate void Handler (object sender, int e)', 'delegate void Handler (object sender, int e)'),
+    # Breathe passes delegates from Doxygen to the function directive
+    ('function', 'delegate void Handler (object sender, int e)', 'delegate void Handler (object sender, int e)'),
+])
+def test_delegate_signature(build, directive, sig, text):
+    app = build(f'.. cs:{directive}:: {sig}\n\n:cs:delegate:`Handler` :cs:type:`Handler`\n')
+    assert warnings(app) == []
+    assert signatures(app)['delegate-Handler'] == text
+    assert references(app)['Handler'] == 'delegate-Handler'
+    assert index_entries(app) == [('Handler (C# delegate)', 'delegate-Handler')]
+
+
+def test_generic_delegate_variance(build):
+    app = build('.. cs:delegate:: TResult Factory<in T, out TResult> (T arg) where T : class\n')
+    assert warnings(app) == []
+    assert signatures(app)['delegate-Factory'] == \
+        'delegate TResult Factory<in T, out TResult> (T arg) where T : class'
+    assert references(app, 'delegate-Factory') == {}
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
