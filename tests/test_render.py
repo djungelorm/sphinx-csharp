@@ -413,6 +413,17 @@ def test_record_role_and_index_entry(build):
     assert index_entries(app) == [('Point (C# record)', 'record-Point')]
 
 
+def test_enum_signature(build):
+    app = build('.. cs:enum:: public Color : byte\n\n   .. cs:enumerator:: Red = 1\n\n   .. cs:enumerator:: Green\n\n'
+                ':cs:enumerator:`Color.Red`\n')
+    assert warnings(app) == []
+    assert signatures(app)['enum-Color'] == 'public enum Color : byte'
+    assert references(app, 'enum-Color') == {'byte': MICROSOFT_DOCS + 'System.Byte'}
+    assert signatures(app)['enumerator-Color.Red'] == 'Red = 1'
+    assert signatures(app)['enumerator-Color.Green'] == 'Green'
+    assert references(app)['Color.Red'] == 'enumerator-Color.Red'
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []

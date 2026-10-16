@@ -6,6 +6,8 @@ from sphinx_csharp.csharp import (
     ParamTuple,
     TypeSig,
     parse_attr_signature,
+    parse_enum_signature,
+    parse_enumerator_signature,
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
@@ -199,6 +201,24 @@ def test_parse_indexer(sig, expected):
 
 
 @pytest.mark.parametrize('sig, expected', [
+    ('Color', ([], 'Color', None)),
+    ('public Color : byte', (['public'], 'Color', 'byte')),
+    ('internal Flags:System.UInt16', (['internal'], 'Flags', 'System.UInt16')),
+])
+def test_parse_enum(sig, expected):
+    assert parse_enum_signature(sig, None) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('Red', ('Red', None)),
+    ('Red = 1', ('Red', '1')),
+    ('All=Red | Green', ('All', 'Red | Green')),
+])
+def test_parse_enumerator(sig, expected):
+    assert parse_enumerator_signature(sig, None) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
     ('MyAttr', ('MyAttr', [])),
     ('MyAttr (string a, int b)', ('MyAttr', [param('string', 'a'), param('int', 'b')])),
 ])
@@ -221,6 +241,8 @@ def test_parse_attribute(sig, expected):
     (parse_type_signature, 'MyClass<T> where T'),
     (parse_method_signature, 'void Foo<T>() where : IFoo'),
     (parse_attr_signature, 'A B C'),
+    (parse_enum_signature, 'Color Shade'),
+    (parse_enumerator_signature, '= 1'),
 ])
 def test_parse_invalid(parse, sig):
     with pytest.raises(ValueError, match='signature invalid'):
