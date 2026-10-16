@@ -489,6 +489,9 @@ class CSharpObject(ObjectDescription[str]):
         super().__init__(*args, **kwargs)
         self.parentname_set = False
         self.parentname_saved: str | None = None
+        # The generic parameters this object declares for its content, such as T in class List<T>
+        self.generic_names: list[str] = []
+        self.generic_names_saved: list[str] = []
 
     def add_target_and_index(self, name: str, _: str, signode: addnodes.desc_signature) -> None:
         targetname = self.objtype + '-' + name
@@ -527,10 +530,13 @@ class CSharpObject(ObjectDescription[str]):
             self.env.ref_context['cs:parent'] = lastname
         else:
             self.parentname_set = False
+        self.generic_names_saved = self.env.ref_context.get('cs:generic_names', [])
+        self.env.ref_context['cs:generic_names'] = self.generic_names_saved + self.generic_names
 
     def after_content(self) -> None:
         if self.parentname_set:
             self.env.ref_context['cs:parent'] = self.parentname_saved
+        self.env.ref_context['cs:generic_names'] = self.generic_names_saved
 
     def has_parent(self) -> bool:
         return 'cs:parent' in self.env.ref_context and \
@@ -587,7 +593,8 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_type_name(self, node: nodes.Element, typ: str, text: str, arity: int) -> addnodes.pending_xref | None:
         """ Adds a reference to a type, with arity generic arguments, unless the type is never linked """
-        if ExternalRefs.check_ignored_ref(typ):
+        # The generic parameters of an enclosing type are not linked
+        if ExternalRefs.check_ignored_ref(typ) or typ in self.env.ref_context.get('cs:generic_names', []):
             node += addnodes.desc_type(text, text)
             return None
 
@@ -735,6 +742,7 @@ class CSharpObject(ObjectDescription[str]):
             self.append_generics(signode, generics, nolink=True)
         # Variance modifiers such as in T come before the parameter name
         generic_params = [generic.split()[-1] for generic in generics]
+        self.generic_names = generic_params
         if params is not None:
             signode += nodes.Text('\xa0')
             self.append_parameters(signode, params, generic_params)

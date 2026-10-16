@@ -495,6 +495,17 @@ def test_nested_type_in_unknown_or_ignored_type(build):
     assert signatures(app)['function-Bar'] == 'Skip<int>.Inner Bar ()'
 
 
+def test_enclosing_type_generic_parameter_is_not_linked(build):
+    app = build('.. cs:class:: MyList<T>\n\n   .. cs:function:: T Get (System.Collections.Generic.List<T> items)\n\n'
+                '   .. cs:class:: Node\n\n      .. cs:property:: T Value { get; }\n\n'
+                '.. cs:class:: Other\n\n   .. cs:function:: void Take (T a)\n')
+    # T is only a generic parameter inside MyList
+    assert len(warnings(app)) == 1
+    assert 'reference target not found: T' in warnings(app)[0]
+    assert references(app, 'function-MyList.Get') == {'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1'}
+    assert references(app, 'property-MyList.Node.Value') == {}
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
