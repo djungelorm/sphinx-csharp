@@ -193,6 +193,8 @@
 
 .. attribute:: MyAttribute2 (string param1, int param2)
 
+.. attribute:: MyAttribute3(string param1, bool param2 = false)
+
    Another attribute.
 
 .. _references:
