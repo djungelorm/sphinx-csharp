@@ -214,12 +214,24 @@ def split_sig(params: str) -> list[str]:
     result = []
     current = ''
     level = 0
+    # The quote character of the string or char literal we are in
+    quote = None
+    escaped = False
     for char in params:
-        if char in ('<', '{', '[', '('):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char in ('"', "'"):
+            quote = char
+        elif char in ('<', '{', '[', '('):
             level += 1
         elif char in ('>', '}', ']', ')'):
             level -= 1
-        if char != ',' or level > 0:
+        if char != ',' or level > 0 or quote:
             current += char
         else:
             result.append(current.strip())

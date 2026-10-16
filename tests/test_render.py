@@ -461,6 +461,12 @@ def test_parameter_attributes_and_modifiers(build):
         'bool Try ([NotNullWhen(true)] out string? s, scoped ref readonly int i)'
 
 
+def test_default_value_with_comma(build):
+    app = build('.. cs:function:: void Join (string sep = ", ", char quote = \'"\')\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Join'] == 'void Join (string sep = ", ", char quote = \'"\')'
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []

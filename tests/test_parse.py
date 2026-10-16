@@ -27,6 +27,9 @@ def param(typ, name, default=None, modifiers=()):
     ('a,', ['a']),
     ('a>, b', ['a>', 'b']),
     ('(int, string) a, Foo b = new Foo(1, 2)', ['(int, string) a', 'Foo b = new Foo(1, 2)']),
+    ('string a = "x, <y", char b = \',\', int c', ['string a = "x, <y"', "char b = ','", 'int c']),
+    ('string a = "\\", b", int c', ['string a = "\\", b"', 'int c']),
+    ("char a = '\\'', int b", ["char a = '\\''", 'int b']),
 ])
 def test_split_sig(params, expected):
     assert split_sig(params) == expected
@@ -59,6 +62,8 @@ def test_split_sig(params, expected):
                                param('int', 'b', modifiers=['ref', 'readonly']),
                                param('Span< int >', 'c', modifiers=['scoped'])])),
     ('file void Foo()', (['file'], 'void', 'Foo', [], [])),
+    ('void Foo(string s = "a, b", char c = \',\')',
+     ([], 'void', 'Foo', [], [param('string', 's', '"a, b"'), param('char', 'c', "','")])),
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
 ])
 def test_parse_method(sig, expected):
