@@ -37,7 +37,7 @@ include = ["sphinx_csharp", "tests", "CHANGES.txt"]
 dependencies = ["ruff"]
 
 [tool.hatch.envs.lint.scripts]
-check = "ruff check sphinx_csharp tests"
+check = "ruff check sphinx_csharp tests scripts"
 
 [tool.hatch.envs.types]
 dependencies = ["mypy", "types-docutils", "types-requests"]
@@ -46,20 +46,37 @@ dependencies = ["mypy", "types-docutils", "types-requests"]
 check = "mypy sphinx_csharp"
 
 [tool.hatch.envs.test]
-dependencies = ["breathe", "defusedxml", "pytest", "pytest-cov"]
+installer = "uv"
+dependencies = ["defusedxml", "pytest", "pytest-cov"]
 
 [[tool.hatch.envs.test.matrix]]
 python = ["3.11", "3.12", "3.13", "3.14", "3.15"]
+sphinx = ["7.2", "7.3", "7.4", "8.0", "8.1", "8.2", "9.0"]
+breathe = ["4.35", "4.36", "5.0", "5.1"]
 
+# Sphinx 9.1 needs Python 3.12
 [[tool.hatch.envs.test.matrix]]
-python = ["3.11"]
-sphinx = ["7.2", "7.3", "7.4", "8.0", "8.1", "8.2"]
+python = ["3.12", "3.13", "3.14", "3.15"]
+sphinx = ["9.1"]
+breathe = ["4.35", "4.36", "5.0", "5.1"]
+
+# Each environment writes its own coverage data, so environments can run in parallel
+[tool.hatch.envs.test.env-vars]
+COVERAGE_FILE = "{root}/.coverage.{env_name}"
 
 [tool.hatch.envs.test.overrides]
 matrix.sphinx.dependencies = ["sphinx~={matrix:sphinx}.0"]
+matrix.breathe.dependencies = ["breathe~={matrix:breathe}.0"]
 
 [tool.hatch.envs.test.scripts]
 all = "pytest --cov=sphinx_csharp --cov-report=term-missing {args}"
+
+# Runs the test environments in parallel
+[tool.hatch.envs.matrix]
+skip-install = true
+
+[tool.hatch.envs.matrix.scripts]
+all = "python scripts/test_matrix.py {args}"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

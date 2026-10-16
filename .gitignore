@@ -3,3 +3,4 @@ test-output/
 _doxygen/
 __pycache__/
 .coverage
+.coverage.*

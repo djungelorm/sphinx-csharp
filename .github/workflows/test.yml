@@ -33,26 +33,18 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        # The latest release, and the version in Ubuntu 24.04
+        doxygen: ['1.15.0', '1.9.8']
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - run: sudo apt-get install -y doxygen
+      - name: Install Doxygen ${{ matrix.doxygen }}
+        run: |
+          version=${{ matrix.doxygen }}
+          curl -sSfL "https://github.com/doxygen/doxygen/releases/download/Release_${version//./_}/doxygen-$version.linux.bin.tar.gz" | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/doxygen-$version/bin" >> "$GITHUB_PATH"
       - run: pip install hatch
-      - run: hatch run test.py${{ matrix.python }}:all
-
-  test-sphinx:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        sphinx: ['7.2', '7.3', '7.4', '8.0', '8.1', '8.2']
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.11'
-      - run: sudo apt-get install -y doxygen
-      - run: pip install hatch
-      - run: hatch run test.py3.11-${{ matrix.sphinx }}:all
+      # Every Sphinx and Breathe version on this Python
+      - run: hatch run matrix:all --python ${{ matrix.python }}
