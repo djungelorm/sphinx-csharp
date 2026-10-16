@@ -18,3 +18,9 @@ def test_breathe(app):
     subprocess.run(['doxygen'], cwd=app.srcdir, check=True)
     app.build()
     assert warnings(app) == []
+
+
+@pytest.mark.skipif(shutil.which('dotnet') is None, reason='dotnet is not installed')
+def test_breathe_sources_compile(rootdir, tmp_path):
+    shutil.copytree(rootdir / 'test-breathe', tmp_path, dirs_exist_ok=True)
+    subprocess.run(['dotnet', 'build', '-nologo'], cwd=tmp_path, check=True)

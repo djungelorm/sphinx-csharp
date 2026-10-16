@@ -93,7 +93,7 @@ sphinx_csharp_debug_ext_links = False
 
 ## Development
 
-The project uses [Hatch](https://hatch.pypa.io). The Breathe test also needs [Doxygen](https://www.doxygen.nl) on the PATH.
+The project uses [Hatch](https://hatch.pypa.io). The Breathe tests also need [Doxygen](https://www.doxygen.nl) and the [.NET SDK](https://dotnet.microsoft.com/download) on the PATH.
 
 ```
 hatch run lint:check                   # ruff
@@ -103,7 +103,7 @@ hatch run +py=3.14 test:all -k parse   # selected tests on one Python
 hatch build                            # sdist and wheel in dist/
 ```
 
-The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `tests/test_render.py` checks rendered signatures and cross-references. `tests/test_projects.py` builds the projects in `tests/roots` in nitpicky mode and fails on any warning. `test-breathe` renders C# sources through Doxygen and Breathe, and is skipped if Doxygen is not installed.
+The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `tests/test_render.py` checks rendered signatures and cross-references. `tests/test_projects.py` builds the projects in `tests/roots` in nitpicky mode and fails on any warning. `test-breathe` renders C# sources through Doxygen and Breathe, and is skipped if Doxygen is not installed. The same sources are compiled with `dotnet build`, and that test is skipped if the .NET SDK is not installed.
 
 ### Common Bug Sources
 - Newer C# syntax that is not supported yet, see regexes at beginning of `csharp.py` for parsing

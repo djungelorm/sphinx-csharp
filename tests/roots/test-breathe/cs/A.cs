@@ -42,5 +42,9 @@ namespace MyNamespace
         {
             
         }
+
+        public void Dispose()
+        {
+        }
     }
 }
