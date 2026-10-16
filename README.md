@@ -28,6 +28,24 @@ Each object gets an entry in the general index, such as `MyNamespace.MyClass (C#
    :no-index-entry:
 ```
 
+### Doc Fields
+
+Describe parameters, type parameters, return values and exceptions with field lists:
+
+```rst
+.. cs:function:: T Find<T> (List<T> items, int start)
+
+   :param items: The items to search.
+   :type items: List<T>
+   :param int start: The index to start at.
+   :typeparam T: The item type.
+   :returns: The first item.
+   :rtype: T
+   :throws ArgumentOutOfRangeException: If start is out of range.
+```
+
+The types in the `type`, `rtype` and `throws` fields link like the types in a signature.
+
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 

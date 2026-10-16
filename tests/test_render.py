@@ -531,6 +531,44 @@ def test_generic_parameter_in_base_type_is_not_linked(build):
         'IEnumerable': MICROSOFT_DOCS + 'System.Collections.Generic.IEnumerable-1'}
 
 
+DOC_FIELDS_SOURCE = '''
+.. cs:class:: MyClass
+
+   .. cs:function:: T Find<T> (System.Collections.Generic.List<T> items, int start)
+
+      :param items: The items to search.
+      :type items: System.Collections.Generic.List<T>
+      :param int start: The index to start at.
+      :typeparam T: The item type.
+      :returns: The first item.
+      :rtype: T
+      :throws System.ArgumentOutOfRangeException: If start is out of range.
+      :throws MyClass: Never.
+'''
+
+
+def test_doc_fields(build):
+    app = build(DOC_FIELDS_SOURCE)
+    assert warnings(app) == []
+    doctree = resolved_doctree(app)
+    fields = {field[0].astext(): field[1].astext().replace('\xa0', ' ') for field in doctree.findall(nodes.field)}
+    assert fields['Parameters'] == 'items (List<T>) – The items to search.\n\nstart (int) – The index to start at.'
+    assert fields['Type Parameters'] == 'T – The item type.'
+    assert fields['Returns'] == 'The first item.'
+    assert fields['Return type'] == 'T'
+    assert fields['Throws'] == 'ArgumentOutOfRangeException – If start is out of range.\n\nMyClass – Never.'
+    assert references(app) == {
+        'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1', 'int': MICROSOFT_DOCS + 'System.Int32',
+        'ArgumentOutOfRangeException': MICROSOFT_DOCS + 'System.ArgumentOutOfRangeException',
+        'MyClass': 'class-MyClass'}
+
+
+def test_doc_field_with_invalid_type(build):
+    app = build('.. cs:function:: void Foo (int a)\n\n   :param a: The value.\n   :type a: <int>\n', nitpicky=False)
+    assert len(warnings(app)) == 1
+    assert 'Type signature invalid: <int>' in warnings(app)[0]
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
