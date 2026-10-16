@@ -365,6 +365,24 @@ def test_method_constraints(build):
     assert references(app, 'function-Make') == {'MyClass': 'class-MyClass'}
 
 
+@pytest.mark.parametrize('sig, node_id, text', [
+    ('public static Vector operator + (Vector a, Vector b)', 'function-Vector.op_Addition',
+     'public static Vector operator + (Vector a, Vector b)'),
+    ('static bool operator <(Vector a, Vector b)', 'function-Vector.op_LessThan',
+     'static bool operator < (Vector a, Vector b)'),
+    ('public static implicit operator double (Vector v)', 'function-Vector.op_Implicit',
+     'public static implicit operator double (Vector v)'),
+    ('static operator Vector (double d)', 'function-Vector.op_Explicit',
+     'static explicit operator Vector (double d)'),
+])
+def test_operator_signature(build, sig, node_id, text):
+    app = build(f'.. cs:struct:: Vector\n\n   .. cs:function:: {sig}\n\n'
+                f':cs:meth:`Vector.{node_id.split(".")[-1]}`\n')
+    assert warnings(app) == []
+    assert signatures(app)[node_id] == text
+    assert references(app)[f'Vector.{node_id.split(".")[-1]}'] == node_id
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []

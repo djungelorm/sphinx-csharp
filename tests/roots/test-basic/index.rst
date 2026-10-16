@@ -224,6 +224,14 @@ Section ref :ref:`references`
 More Tests
 ----------
 
+.. struct:: MyVector
+
+   .. function:: public static MyVector operator +(MyVector a, MyVector b)
+
+   .. function:: public static bool operator ==(MyVector a, MyVector b)
+
+   .. function:: public static explicit operator MyVector(double d)
+
 .. namespace:: OtherNamespace
 
 .. struct:: public MyStruct < T, U > : IList
