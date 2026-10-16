@@ -41,18 +41,22 @@ TUPLE_ELEMENT_RE = re.compile(r'^(?P<type>.+?)(?:\s+(?P<name>[A-Za-z_@]\w*))?$')
 TYPE_NAME_RE = r'(?P<type>' + TUPLE_RE.pattern + r'|[^\s<\[{*&?(]+)'
 
 TYPE_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+\s*>)?\s*'
+                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?\s*'
                      r'(?P<array>(\[,*\])*)?\s*(?P<ptr>[*&?])?)\??')
 
 TYPE_OPTIONAL_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                              r'(?:(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+\s*>)?\s*'
+                              r'(?:(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?\s*'
                               r'(?P<array>(\[,*\])*)?\s*(?P<ptr>[*&?])?)\s+)?\??')
+
+# Generic constraints, such as where T : class, new() where U : IFoo<T>
+CONSTRAINTS_RE = re.compile(r'(?:\s+where\s+(?P<constraints>.+))?')
+CONSTRAINT_KEYWORDS = ['class', 'class?', 'struct', 'notnull', 'unmanaged', 'default', 'new()', 'allows ref struct']
 
 METH_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + TYPE_OPTIONAL_RE.pattern +
     r'(?P<fname>[^\s<(]+)\s*'
     r'(?P<genericparams><[^(]+>)?\s*'
-    r'\((?P<params>.*)?\)$')
+    r'\((?P<params>.*?)\)' + CONSTRAINTS_RE.pattern + r'$')
 
 VAR_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{(=]+)\s*(?:=\s*(?P<value>.+))?$')
@@ -71,8 +75,9 @@ IDXR_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<interface>[^\s\[]+\.)?this\s*\[(?P<params>.*)\]\s*'
     r'(?:' + ACCESSORS_RE.pattern + r'|(?P<expr>=>.+?))?\s*;?\s*$')
 
-INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*))?')
-CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern + r'$')
+INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*?))?')
+CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern +
+                          CONSTRAINTS_RE.pattern + r'$')
 
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 
@@ -87,12 +92,18 @@ class ParamTuple(NamedTuple):
     modifiers: list[str]
 
 
+class Constraint(NamedTuple):
+    param: str
+    constraints: list[str]
+
+
 class MethodSig(NamedTuple):
     modifiers: list[str]
     return_type: str | None
     name: str
     generic_params: list[str]
     params: list[ParamTuple]
+    constraints: list[Constraint]
 
 
 class VariableSig(NamedTuple):
@@ -127,6 +138,7 @@ class TypeSig(NamedTuple):
     inherits: list[str]
     array: str | None
     ptr: str | None
+    constraints: list[Constraint]
 
 
 class AttrSig(NamedTuple):
@@ -185,6 +197,19 @@ def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
     return ValueError(f'{kind} signature invalid: {sig}')
 
 
+def parse_constraints(constraints: str | None, location: Location) -> list[Constraint]:
+    """ Parse the generic constraints after the first where, such as "T : class, new() where U : IFoo" """
+    if not constraints:
+        return []
+    result = []
+    for clause in re.split(r'\s+where\s+', constraints):
+        param, sep, types = clause.partition(':')
+        if not sep or not param.strip() or not types.strip():
+            raise invalid_signature('Constraint', clause, location)
+        result.append(Constraint(param.strip(), [' '.join(typ.split()) for typ in split_sig(types)]))
+    return result
+
+
 def parse_method_signature(sig: str, location: Location) -> MethodSig:
     """ Parse a method signature of the form: modifier* type name (params) """
     match = METH_SIG_RE.match(sig.strip())
@@ -198,7 +223,9 @@ def parse_method_signature(sig: str, location: Location) -> MethodSig:
     generic_params = split_generics(groups['genericparams'] or groups['templates'])
     params = parse_params(groups['params'], location)
 
-    result = MethodSig(modifiers, return_type, groups['fname'], generic_params, params)
+    constraints = parse_constraints(groups['constraints'], location)
+
+    result = MethodSig(modifiers, return_type, groups['fname'], generic_params, params, constraints)
     if CSDebug.parse_func:
         logger.info(f"parsed func: {tuple(result)}")
     return result
@@ -287,7 +314,9 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
     generics = split_generics(groups['generics'] or groups['templates'])
     inherits = split_sig(groups['inherits']) if groups['inherits'] else []
 
-    result = TypeSig(groups['type'], modifiers, generics, inherits, groups['array'], groups['ptr'])
+    constraints = parse_constraints(groups['constraints'], location)
+
+    result = TypeSig(groups['type'], modifiers, generics, inherits, groups['array'], groups['ptr'], constraints)
     if CSDebug.parse_type:
         logger.info(f"parsed type: {tuple(result)}")
     return result
@@ -380,7 +409,7 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, _, array, ptr = parse_type_signature(
+        typ, modifiers, generic_types, _, array, ptr, _ = parse_type_signature(
             input_typ, (self.env.docname, self.lineno))
 
         if modifiers:
@@ -443,6 +472,24 @@ class CSharpObject(ObjectDescription[str]):
             if i != len(generics) - 1:
                 node += nodes.Text(', ')
         node += nodes.Text('>')
+
+    def append_constraints(self, node: nodes.Element, constraints: list[Constraint], generic_params: list[str]) -> None:
+        """ Adds generic constraints, without links to the generic parameters """
+        for param, types in constraints:
+            node += nodes.Text(' ')
+            node += addnodes.desc_annotation('where', 'where')
+            node += nodes.Text(' ')
+            node += addnodes.desc_type(param, param)
+            node += nodes.Text(' : ')
+            for i, typ in enumerate(types):
+                if i:
+                    node += nodes.Text(', ')
+                if typ in CONSTRAINT_KEYWORDS:
+                    node += addnodes.desc_annotation(typ, typ)
+                elif typ in generic_params:
+                    node += addnodes.desc_type(typ, typ)
+                else:
+                    self.append_type(node, typ, generic_params)
 
     def append_inherits(self, node: nodes.Element, inherits: list[str]) -> None:
         """ Adds inherited types, inherits must be a list of string types """
@@ -543,7 +590,8 @@ class CSharpType(CSharpObject):
     keyword = ''
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        typ, modifiers, generics, inherits, _, _ = parse_type_signature(sig, (self.env.docname, self.lineno))
+        typ, modifiers, generics, inherits, _, _, constraints = parse_type_signature(
+            sig, (self.env.docname, self.lineno))
 
         if modifiers:
             self.append_modifiers(signode, modifiers)
@@ -556,6 +604,8 @@ class CSharpType(CSharpObject):
             self.append_generics(signode, generics, nolink=True)
         if inherits:
             self.append_inherits(signode, inherits)
+        # Variance modifiers such as in T come before the parameter name
+        self.append_constraints(signode, constraints, [generic.split()[-1] for generic in generics])
         return self.get_fullname(typ)
 
 
@@ -587,7 +637,7 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        modifiers, return_type, name, generic_params, params = parse_method_signature(
+        modifiers, return_type, name, generic_params, params, constraints = parse_method_signature(
             sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
 
@@ -607,6 +657,7 @@ class CSharpMethod(CSharpObject):
         signode += nodes.Text('\xa0')
 
         self.append_parameters(signode, params, generic_params)
+        self.append_constraints(signode, constraints, generic_params)
 
         return self.get_fullname(name)
 

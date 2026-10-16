@@ -346,6 +346,25 @@ def test_invalid_tuple_element(build):
     assert 'Type signature invalid: (int, , string)' in warnings(app)[0]
 
 
+def test_type_constraints(build):
+    app = build('.. cs:class:: MyClass<T, U> : System.IDisposable where T : class, new() where U : IFoo<T>\n\n'
+                '.. cs:interface:: IFoo<in T> where T : notnull\n')
+    assert warnings(app) == []
+    assert signatures(app)['class-MyClass'] == \
+        'class MyClass<T, U> : IDisposable where T : class, new() where U : IFoo<T>'
+    assert references(app, 'class-MyClass') == {
+        'IDisposable': MICROSOFT_DOCS + 'System.IDisposable', 'IFoo': 'interface-IFoo'}
+    assert signatures(app)['interface-IFoo'] == 'interface IFoo<in T> where T : notnull'
+    assert references(app, 'interface-IFoo') == {}
+
+
+def test_method_constraints(build):
+    app = build('.. cs:class:: MyClass\n\n.. cs:function:: T Make<T, U> (U u) where T : MyClass, U where U : struct\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Make'] == 'T Make<T, U> (U u) where T : MyClass, U where U : struct'
+    assert references(app, 'function-Make') == {'MyClass': 'class-MyClass'}
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
