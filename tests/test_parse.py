@@ -1,7 +1,10 @@
 import pytest
 
 from sphinx_csharp.csharp import (
+    Constraint,
+    MethodSig,
     ParamTuple,
+    TypeSig,
     parse_attr_signature,
     parse_indexer_signature,
     parse_method_signature,
@@ -47,11 +50,24 @@ def test_split_sig(params, expected):
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
 ])
 def test_parse_method(sig, expected):
-    assert parse_method_signature(sig, None) == expected
+    assert parse_method_signature(sig, None) == MethodSig(*expected, constraints=[])
 
 
 def test_parse_method_doxygen_template():
-    assert parse_method_signature('template<T> void Foo(T a)', None) == ([], 'void', 'Foo', ['T'], [param('T', 'a')])
+    assert parse_method_signature('template<T> void Foo(T a)', None) == \
+        MethodSig([], 'void', 'Foo', ['T'], [param('T', 'a')], [])
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('T Foo<T>(T x) where T : notnull', [Constraint('T', ['notnull'])]),
+    ('void Foo<T, U>(T a, U b = default) where T : class, new() where U : IComparable<U>, IFoo',
+     [Constraint('T', ['class', 'new()']), Constraint('U', ['IComparable<U>', 'IFoo'])]),
+    ('void Foo<T>(Func<T> f = null) where T : Dictionary<string, (int, int)>',
+     [Constraint('T', ['Dictionary<string, (int, int)>'])]),
+    ('void Foo<T>() where T : allows  ref struct', [Constraint('T', ['allows ref struct'])]),
+])
+def test_parse_method_constraints(sig, expected):
+    assert parse_method_signature(sig, None).constraints == expected
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -106,6 +122,18 @@ def test_parse_variable(sig, expected):
     ('template<T> Bar', ('Bar', [], ['T'], [], '', None)),
 ])
 def test_parse_type(sig, expected):
+    assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[])
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('MyClass<T> where T : IFoo', ('MyClass', [], ['T'], [], '', None, [Constraint('T', ['IFoo'])])),
+    ('MyClass<T> where T : IComparable<T>',
+     ('MyClass', [], ['T'], [], '', None, [Constraint('T', ['IComparable<T>'])])),
+    ('MyClass<T, U> : Base<T>, IFoo where T : new() where U : struct',
+     ('MyClass', [], ['T', 'U'], ['Base<T>', 'IFoo'], '', None,
+      [Constraint('T', ['new()']), Constraint('U', ['struct'])])),
+])
+def test_parse_type_constraints(sig, expected):
     assert parse_type_signature(sig, None) == expected
 
 
@@ -150,6 +178,8 @@ def test_parse_attribute(sig, expected):
     (parse_property_signature, 'int P { get }'),
     (parse_type_signature, '<T>'),
     (parse_type_signature, None),
+    (parse_type_signature, 'MyClass<T> where T'),
+    (parse_method_signature, 'void Foo<T>() where : IFoo'),
     (parse_attr_signature, 'A B C'),
 ])
 def test_parse_invalid(parse, sig):

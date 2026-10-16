@@ -165,11 +165,13 @@
    .. enumerator:: Bar
    .. enumerator:: Baz
 
-.. class:: MyGenericClass<T>
+.. class:: MyGenericClass<T> where T : MyClass, new()
 
    .. function:: void AMethod()
 
    .. function:: T AGenericMethod<T> (int x)
+
+   .. function:: U AConstrainedMethod<U> (U x) where U : System.IComparable<U>
 
 .. attribute:: MyAttribute1
 
