@@ -802,6 +802,10 @@ class CSharpMethod(CSharpObject):
 
         modifiers, return_type, name, generic_params, params, constraints, operator = parse_method_signature(
             sig, (self.env.docname, self.lineno))
+        if self.objtype == 'delegate' and 'delegate' not in modifiers:
+            modifiers.append('delegate')
+        if 'delegate' in modifiers and self.objtype != 'delegate':
+            self.change_objtype(signode, 'delegate')
         self.append_modifiers(signode, modifiers)
 
         # A conversion operator names its type after the operator keyword
@@ -813,13 +817,16 @@ class CSharpMethod(CSharpObject):
             self.append_parameters(signode, params)
             return self.get_fullname(name)
 
+        # Variance modifiers such as out T come before the parameter name
+        generic_names = [generic.split()[-1] for generic in generic_params]
+
         # Constructors have no return type
         if return_type is not None:
             # Generic type parameters are not linked
-            if generic_params and return_type in generic_params:
+            if return_type in generic_names:
                 signode += addnodes.desc_type(return_type, return_type)
             else:
-                self.append_type(signode, return_type, generic_params)
+                self.append_type(signode, return_type, generic_names)
             signode += nodes.Text('\xa0')
 
         display_name = operator or name
@@ -829,10 +836,14 @@ class CSharpMethod(CSharpObject):
             self.append_generics(signode, generic_params, True)
         signode += nodes.Text('\xa0')
 
-        self.append_parameters(signode, params, generic_params)
-        self.append_constraints(signode, constraints, generic_params)
+        self.append_parameters(signode, params, generic_names)
+        self.append_constraints(signode, constraints, generic_names)
 
         return self.get_fullname(name)
+
+
+class CSharpDelegate(CSharpMethod):
+    """ Description of a C# delegate """
 
 
 class CSharpVariable(CSharpObject):
@@ -966,6 +977,7 @@ class CSharpDomain(Domain):
         'interface': ObjType(_('interface'), 'interface', 'type'),
         'enum': ObjType(_('enum'), 'enum', 'type'),
         'record': ObjType(_('record'), 'record', 'type'),
+        'delegate': ObjType(_('delegate'), 'delegate', 'type'),
 
         'function': ObjType(_('function'), 'function', 'func', 'meth', 'member'),
 
@@ -987,6 +999,7 @@ class CSharpDomain(Domain):
         'inherits': CSharpInherits,
 
         'function': CSharpMethod,
+        'delegate': CSharpDelegate,
 
         'var': CSharpVariable,
         'property': CSharpProperty,
@@ -1005,6 +1018,7 @@ class CSharpDomain(Domain):
         'struct': CSharpXRefRole(),
         'interface': CSharpXRefRole(),
         'record': CSharpXRefRole(),
+        'delegate': CSharpXRefRole(),
 
         'func': CSharpXRefRole(),
         'meth': CSharpXRefRole(),

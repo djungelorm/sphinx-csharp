@@ -238,6 +238,10 @@ More Tests
 
 .. class:: MyService(MyClass client, int timeout = 30) : MyClass(client)
 
+.. delegate:: public void MyHandler(object sender, MyClass item)
+
+.. delegate:: TResult MyFactory<in T, out TResult>(T arg)
+
 .. struct:: MyVector
 
    .. function:: public static MyVector operator +(MyVector a, MyVector b)
