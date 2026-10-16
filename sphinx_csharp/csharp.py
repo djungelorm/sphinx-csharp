@@ -25,7 +25,7 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
                                 'abstract', 'async', 'const', 'event', 'delegate',
                                 'extern', 'new', 'override', 'partial',
                                 'readonly', 'required', 'sealed', 'static', 'unsafe',
-                                'virtual', 'volatile', 'ref'])
+                                'virtual', 'volatile', 'ref', 'implicit', 'explicit'])
 
 PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params'])
 
@@ -75,6 +75,32 @@ IDXR_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<interface>[^\s\[]+\.)?this\s*\[(?P<params>.*)\]\s*'
     r'(?:' + ACCESSORS_RE.pattern + r'|(?P<expr>=>.+?))?\s*;?\s*$')
 
+# Operators, named by their .NET metadata names such as op_Addition
+OPERATOR_SYMBOL_RE = r'>>>=|>>=|<<=|>>>|\+\+|--|<<|>>|[=!<>]=|[-+*/%&|^]=?|[!~<>]|true|false'
+OPERATOR_SIG_RE = re.compile(
+    r'^' + MODIFIERS_RE.pattern + TYPE_OPTIONAL_RE.pattern +
+    r'operator\s*(?P<checked>checked\s+)?(?P<op>' + OPERATOR_SYMBOL_RE + r')\s*\((?P<params>.*?)\)\s*$')
+CONVERSION_SIG_RE = re.compile(
+    r'^' + MODIFIERS_RE.pattern + r'operator\s+(?P<checked>checked\s+)?' + TYPE_RE.pattern +
+    r'\s*\((?P<params>.*?)\)\s*$')
+OPERATOR_NAMES = {
+    '+': 'Addition', '-': 'Subtraction', '*': 'Multiply', '/': 'Division', '%': 'Modulus',
+    '&': 'BitwiseAnd', '|': 'BitwiseOr', '^': 'ExclusiveOr',
+    '<<': 'LeftShift', '>>': 'RightShift', '>>>': 'UnsignedRightShift',
+    '==': 'Equality', '!=': 'Inequality', '<': 'LessThan', '>': 'GreaterThan',
+    '<=': 'LessThanOrEqual', '>=': 'GreaterThanOrEqual',
+    '!': 'LogicalNot', '~': 'OnesComplement', '++': 'Increment', '--': 'Decrement', 'true': 'True', 'false': 'False',
+    '+=': 'AdditionAssignment', '-=': 'SubtractionAssignment', '*=': 'MultiplicationAssignment',
+    '/=': 'DivisionAssignment', '%=': 'ModulusAssignment', '&=': 'BitwiseAndAssignment',
+    '|=': 'BitwiseOrAssignment', '^=': 'ExclusiveOrAssignment', '<<=': 'LeftShiftAssignment',
+    '>>=': 'RightShiftAssignment', '>>>=': 'UnsignedRightShiftAssignment',
+}
+# Operators with these symbols and a single parameter are unary
+UNARY_OPERATOR_NAMES = {'+': 'UnaryPlus', '-': 'UnaryNegation'}
+# Instance increment and decrement operators have no parameters
+INSTANCE_OPERATOR_NAMES = {'++': 'IncrementAssignment', '--': 'DecrementAssignment'}
+CONVERSION_OPERATORS = ['op_Implicit', 'op_Explicit', 'op_CheckedImplicit', 'op_CheckedExplicit']
+
 INHERITS_RE = re.compile(r'(?:\s*:\s*(?P<inherits>.*?))?')
 CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + INHERITS_RE.pattern +
                           CONSTRAINTS_RE.pattern + r'$')
@@ -104,6 +130,8 @@ class MethodSig(NamedTuple):
     generic_params: list[str]
     params: list[ParamTuple]
     constraints: list[Constraint]
+    # The operator as written, such as "operator +", or "operator" for a conversion
+    operator: str | None
 
 
 class VariableSig(NamedTuple):
@@ -210,8 +238,64 @@ def parse_constraints(constraints: str | None, location: Location) -> list[Const
     return result
 
 
+def parse_operator_signature(sig: str, location: Location) -> MethodSig | None:
+    """ Parse an operator or conversion operator signature, or return None if it is neither """
+    operator_match = OPERATOR_SIG_RE.match(sig.strip())
+    match = operator_match or CONVERSION_SIG_RE.match(sig.strip())
+    if match is None:
+        return None
+    conversion = operator_match is None
+
+    groups = match.groupdict()
+    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    return_type = groups['fulltype'].strip() if groups['fulltype'] else None
+    params = parse_params(groups['params'], location)
+    checked = 'checked ' if groups['checked'] else ''
+
+    if conversion:
+        # Doxygen drops the explicit keyword from conversion operators
+        if 'implicit' not in modifiers and 'explicit' not in modifiers:
+            modifiers.append('explicit')
+        name = 'Implicit' if 'implicit' in modifiers else 'Explicit'
+        operator = ('operator ' + checked).strip()
+    else:
+        op = groups['op']
+        if len(params) == 1 and op in UNARY_OPERATOR_NAMES:
+            name = UNARY_OPERATOR_NAMES[op]
+        elif not params and op in INSTANCE_OPERATOR_NAMES:
+            name = INSTANCE_OPERATOR_NAMES[op]
+        else:
+            name = OPERATOR_NAMES[op]
+        operator = 'operator ' + checked + op
+
+    name = 'op_' + ('Checked' if checked else '') + name
+    return MethodSig(modifiers, return_type, name, [], params, [], operator)
+
+
 def parse_method_signature(sig: str, location: Location) -> MethodSig:
+    """ Parse a method signature of the form: modifier* type name (params),
+        or an operator signature such as: modifier* type operator + (params) """
+    result = parse_operator_signature(sig, location) or parse_named_method_signature(sig, location)
+    if CSDebug.parse_func:
+        logger.info(f"parsed func: {tuple(result)}")
+    return result
+
+
+def parse_named_method_signature(sig: str, location: Location) -> MethodSig:
     """ Parse a method signature of the form: modifier* type name (params) """
+    match = METH_SIG_RE.match(sig.strip())
+    if not match:
+        raise invalid_signature('Method', sig, location)
+
+    groups = match.groupdict()
+    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    return_type = groups['fulltype'].strip() if groups['fulltype'] else None
+    # Doxygen writes generic parameters as a C++ template prefix
+    generic_params = split_generics(groups['genericparams'] or groups['templates'])
+    params = parse_params(groups['params'], location)
+    constraints = parse_constraints(groups['constraints'], location)
+    return MethodSig(modifiers, return_type, groups['fname'], generic_params, params, constraints, None)
+
     match = METH_SIG_RE.match(sig.strip())
     if not match:
         raise invalid_signature('Method', sig, location)
@@ -225,7 +309,7 @@ def parse_method_signature(sig: str, location: Location) -> MethodSig:
 
     constraints = parse_constraints(groups['constraints'], location)
 
-    result = MethodSig(modifiers, return_type, groups['fname'], generic_params, params, constraints)
+    result = MethodSig(modifiers, return_type, groups['fname'], generic_params, params, constraints, None)
     if CSDebug.parse_func:
         logger.info(f"parsed func: {tuple(result)}")
     return result
@@ -637,9 +721,18 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        modifiers, return_type, name, generic_params, params, constraints = parse_method_signature(
+        modifiers, return_type, name, generic_params, params, constraints, operator = parse_method_signature(
             sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
+
+        # A conversion operator names its type after the operator keyword
+        if operator is not None and return_type is not None and name in CONVERSION_OPERATORS:
+            signode += addnodes.desc_name(operator, operator)
+            signode += nodes.Text('\xa0')
+            self.append_type(signode, return_type)
+            signode += nodes.Text('\xa0')
+            self.append_parameters(signode, params)
+            return self.get_fullname(name)
 
         # Constructors have no return type
         if return_type is not None:
@@ -650,7 +743,8 @@ class CSharpMethod(CSharpObject):
                 self.append_type(signode, return_type, generic_params)
             signode += nodes.Text('\xa0')
 
-        signode += addnodes.desc_name(name, name)
+        display_name = operator or name
+        signode += addnodes.desc_name(display_name, display_name)
 
         if generic_params:
             self.append_generics(signode, generic_params, True)

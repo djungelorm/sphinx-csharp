@@ -50,12 +50,40 @@ def test_split_sig(params, expected):
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
 ])
 def test_parse_method(sig, expected):
-    assert parse_method_signature(sig, None) == MethodSig(*expected, constraints=[])
+    assert parse_method_signature(sig, None) == MethodSig(*expected, constraints=[], operator=None)
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('public static V operator +(V a, V b)', (['public', 'static'], 'V', 'op_Addition', 'operator +', 2)),
+    ('static V operator-(V a)', (['static'], 'V', 'op_UnaryNegation', 'operator -', 1)),
+    ('static V operator - (V a, V b)', (['static'], 'V', 'op_Subtraction', 'operator -', 2)),
+    ('static bool operator ==(V a, V b)', (['static'], 'bool', 'op_Equality', 'operator ==', 2)),
+    ('static bool operator<=(V a, V b)', (['static'], 'bool', 'op_LessThanOrEqual', 'operator <=', 2)),
+    ('static V operator >>>(V a, int b)', (['static'], 'V', 'op_UnsignedRightShift', 'operator >>>', 2)),
+    ('static bool operator true(V a)', (['static'], 'bool', 'op_True', 'operator true', 1)),
+    ('static V operator checked +(V a, V b)', (['static'], 'V', 'op_CheckedAddition', 'operator checked +', 2)),
+    ('static V operator ++(V a)', (['static'], 'V', 'op_Increment', 'operator ++', 1)),
+    ('void operator ++()', ([], 'void', 'op_IncrementAssignment', 'operator ++', 0)),
+    ('void operator +=(V b)', ([], 'void', 'op_AdditionAssignment', 'operator +=', 1)),
+    ('void operator >>>=(int b)', ([], 'void', 'op_UnsignedRightShiftAssignment', 'operator >>>=', 1)),
+    ('public static implicit operator int(V a)',
+     (['public', 'static', 'implicit'], 'int', 'op_Implicit', 'operator', 1)),
+    ('static explicit operator checked V(int a)',
+     (['static', 'explicit'], 'V', 'op_CheckedExplicit', 'operator checked', 1)),
+    ('static explicit operator List<int>(V a)', (['static', 'explicit'], 'List<int>', 'op_Explicit', 'operator', 1)),
+    # Doxygen drops explicit, and writes implicit in place of the return type
+    (' V operator+ (V a, V b)', ([], 'V', 'op_Addition', 'operator +', 2)),
+    ('static operator V (int a)', (['static', 'explicit'], 'V', 'op_Explicit', 'operator', 1)),
+    ('implicit operator int (V a)', (['implicit'], 'int', 'op_Implicit', 'operator', 1)),
+])
+def test_parse_operator(sig, expected):
+    result = parse_method_signature(sig, None)
+    assert (result.modifiers, result.return_type, result.name, result.operator, len(result.params)) == expected
 
 
 def test_parse_method_doxygen_template():
     assert parse_method_signature('template<T> void Foo(T a)', None) == \
-        MethodSig([], 'void', 'Foo', ['T'], [param('T', 'a')], [])
+        MethodSig([], 'void', 'Foo', ['T'], [param('T', 'a')], [], None)
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -170,6 +198,7 @@ def test_parse_attribute(sig, expected):
 @pytest.mark.parametrize('parse, sig', [
     (parse_method_signature, '(int, string Foo()'),
     (parse_method_signature, 'void Foo(int)'),
+    (parse_method_signature, 'V operator =(V a)'),
     (parse_property_signature, 'int'),
     (parse_variable_signature, 'int'),
     (parse_indexer_signature, 'string this[] { get; }'),
