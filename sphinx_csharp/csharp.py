@@ -112,6 +112,9 @@ TYPE_AS_FUNCTION_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + r'(?P<keyword>record(?:\s+(?:class|struct))?|class|struct)\s+(?P<sig>.+\))$')
 RECORD_KIND_RE = re.compile(r'^' + MODIFIERS_RE.pattern + r'(?P<kind>class|struct)\s+(?P<sig>.+)$')
 
+ENUM_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + r'(?P<name>[^\s:]+)\s*(?::\s*(?P<base>\S+))?$')
+ENUMERATOR_SIG_RE = re.compile(r'^(?P<name>[^\s=]+)\s*(?:=\s*(?P<value>.+))?$')
+
 ATTR_SIG_RE = re.compile(r'^([^\s]+)(\s+\((.*)\))?$')
 
 # Source location of a signature, as a (docname, line) pair
@@ -176,6 +179,17 @@ class TypeSig(NamedTuple):
     constraints: list[Constraint]
     # The primary constructor parameters, or None if the type has no primary constructor
     params: list[ParamTuple] | None
+
+
+class EnumSig(NamedTuple):
+    modifiers: list[str]
+    name: str
+    base: str | None
+
+
+class EnumeratorSig(NamedTuple):
+    name: str
+    value: str | None
 
 
 class AttrSig(NamedTuple):
@@ -415,6 +429,23 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
     if CSDebug.parse_type:
         logger.info(f"parsed type: {tuple(result)}")
     return result
+
+
+def parse_enum_signature(sig: str, location: Location) -> EnumSig:
+    """ Parse an enum signature of the form: modifier* name (: type)? """
+    match = ENUM_SIG_RE.match(sig.strip())
+    if not match:
+        raise invalid_signature('Enum', sig, location)
+    modifiers = match['modifiers'].split() if match['modifiers'] else []
+    return EnumSig(modifiers, match['name'], match['base'])
+
+
+def parse_enumerator_signature(sig: str, location: Location) -> EnumeratorSig:
+    """ Parse an enum value signature of the form: name (= value)? """
+    match = ENUMERATOR_SIG_RE.match(sig.strip())
+    if not match:
+        raise invalid_signature('Enumerator', sig, location)
+    return EnumeratorSig(match['name'], match['value'])
 
 
 def parse_attr_signature(sig: str, location: Location) -> AttrSig:
@@ -878,18 +909,25 @@ class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        modifiers, name, base = parse_enum_signature(sig, (self.env.docname, self.lineno))
+        self.append_modifiers(signode, modifiers)
         prefix = 'enum' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
-        signode += addnodes.desc_name(sig, sig)
-        return self.get_fullname(sig)
+        signode += addnodes.desc_name(name, name)
+        if base:
+            signode += nodes.Text(' : ')
+            self.append_type(signode, base)
+        return self.get_fullname(name)
 
 
 class CSharpEnumValue(CSharpObject):
     """ Description of a C# enum value """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        name = sig
+        name, value = parse_enumerator_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
+        if value:
+            signode += nodes.Text(' = ' + value)
         return self.get_fullname(name)
 
 

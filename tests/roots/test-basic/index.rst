@@ -165,6 +165,14 @@
    .. enumerator:: Bar
    .. enumerator:: Baz
 
+.. enum:: public MyFlags : byte
+
+   .. enumerator:: None = 0
+
+   .. enumerator:: First = 1
+
+   .. enumerator:: All = First | 2
+
 .. class:: MyGenericClass<T> where T : MyClass, new()
 
    .. function:: void AMethod()
