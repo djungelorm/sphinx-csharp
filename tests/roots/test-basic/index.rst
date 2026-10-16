@@ -58,6 +58,8 @@
 
    .. function:: int? MyMethodNullable (MyClass? arg)
 
+   .. function:: MyClass?[] MyMethodNullableElements (int** ptr, string?[]? arg)
+
       A method with nullable parameter and return types.
 
    .. function:: MyClass MyMethodClass (MyClass arg)

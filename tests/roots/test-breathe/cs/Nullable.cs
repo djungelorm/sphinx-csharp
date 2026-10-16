@@ -30,5 +30,13 @@ namespace OtherNamespace
         {
             return null;
         }
+
+        /// <summary>
+        /// A method with nullable array elements.
+        /// </summary>
+        public string?[] NullableElements(int?[] values)
+        {
+            return [];
+        }
     }
 }

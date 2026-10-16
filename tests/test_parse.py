@@ -42,6 +42,8 @@ def test_split_sig(params, expected):
      ([], 'List<Dictionary<string, int>>', 'Foo', [], [param('List<T>', 'a', 'default', ['ref'])])),
     ('int? Foo(MyClass? b)', ([], 'int?', 'Foo', [], [param('MyClass?', 'b')])),
     ('int[,] Foo(int[,,] a)', ([], 'int[,]', 'Foo', [], [param('int[,,]', 'a')])),
+    ('int?[] Foo(int** p, string?[]? s)',
+     ([], 'int?[]', 'Foo', [], [param('int**', 'p'), param('string?[]?', 's')])),
     ('byte[][] Foo(out byte[][] d)', ([], 'byte[][]', 'Foo', [], [param('byte[][]', 'd', modifiers=['out'])])),
     ('static void Ext(this string s)', (['static'], 'void', 'Ext', [], [param('string', 's', modifiers=['this'])])),
     ('(int, string) Foo((int a, string b) t)',
@@ -141,26 +143,29 @@ def test_parse_variable(sig, expected):
 
 
 @pytest.mark.parametrize('sig, expected', [
-    ('MyClass', ('MyClass', [], [], [], '', None)),
-    ('public sealed MyClass<T, U> : Base, IFoo',
-     ('MyClass', ['public', 'sealed'], ['T', 'U'], ['Base', 'IFoo'], '', None)),
-    ('List<int>', ('List', [], ['int'], [], '', None)),
-    ('int[,]', ('int', [], [], [], '[,]', None)),
-    ('int?', ('int', [], [], [], '', '?')),
-    ('(int, string)?', ('(int, string)', [], [], [], '', '?')),
-    ('Foo*', ('Foo', [], [], [], '', '*')),
-    ('template<T> Bar', ('Bar', [], ['T'], [], '', None)),
+    ('MyClass', ('MyClass', [], [], [], '')),
+    ('public sealed MyClass<T, U> : Base, IFoo', ('MyClass', ['public', 'sealed'], ['T', 'U'], ['Base', 'IFoo'], '')),
+    ('List<int>', ('List', [], ['int'], [], '')),
+    ('int[,]', ('int', [], [], [], '[,]')),
+    ('int?', ('int', [], [], [], '?')),
+    ('(int, string)?', ('(int, string)', [], [], [], '?')),
+    ('Foo*', ('Foo', [], [], [], '*')),
+    ('int**', ('int', [], [], [], '**')),
+    ('int?[]', ('int', [], [], [], '?[]')),
+    ('string?[]?', ('string', [], [], [], '?[]?')),
+    ('List<int> [] []', ('List', [], ['int'], [], '[][]')),
+    ('template<T> Bar', ('Bar', [], ['T'], [], '')),
 ])
 def test_parse_type(sig, expected):
     assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[], params=None)
 
 
 @pytest.mark.parametrize('sig, expected', [
-    ('MyClass<T> where T : IFoo', ('MyClass', [], ['T'], [], '', None, [Constraint('T', ['IFoo'])])),
+    ('MyClass<T> where T : IFoo', ('MyClass', [], ['T'], [], '', [Constraint('T', ['IFoo'])])),
     ('MyClass<T> where T : IComparable<T>',
-     ('MyClass', [], ['T'], [], '', None, [Constraint('T', ['IComparable<T>'])])),
+     ('MyClass', [], ['T'], [], '', [Constraint('T', ['IComparable<T>'])])),
     ('MyClass<T, U> : Base<T>, IFoo where T : new() where U : struct',
-     ('MyClass', [], ['T', 'U'], ['Base<T>', 'IFoo'], '', None,
+     ('MyClass', [], ['T', 'U'], ['Base<T>', 'IFoo'], '',
       [Constraint('T', ['new()']), Constraint('U', ['struct'])])),
 ])
 def test_parse_type_constraints(sig, expected):

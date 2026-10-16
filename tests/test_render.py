@@ -446,6 +446,14 @@ def test_generic_delegate_variance(build):
     assert references(app, 'delegate-Factory') == {}
 
 
+def test_type_suffixes(build):
+    app = build('.. cs:class:: MyClass\n\n.. cs:function:: MyClass?[] Foo (int** p, string?[]? s)\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Foo'] == 'MyClass?[] Foo (int** p, string?[]? s)'
+    assert references(app, 'function-Foo') == {
+        'MyClass': 'class-MyClass', 'int': MICROSOFT_DOCS + 'System.Int32', 'string': MICROSOFT_DOCS + 'System.String'}
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
