@@ -6,6 +6,7 @@ from typing import Any, NamedTuple
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
+from docutils.parsers.rst.states import Inliner
 from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.builders import Builder
@@ -16,7 +17,9 @@ from sphinx.environment import BuildEnvironment
 from sphinx.locale import _
 from sphinx.roles import XRefRole
 from sphinx.util import logging
+from sphinx.util.docfields import Field, GroupedField, TypedField
 from sphinx.util.nodes import make_refnode
+from sphinx.util.typing import TextlikeNode
 
 from .debug import CSDebug
 from .extrefs import ExternalRefs
@@ -127,8 +130,8 @@ ENUMERATOR_SIG_RE = re.compile(r'^(?P<name>[^\s=]+)\s*(?:=\s*(?P<value>.+))?$')
 
 ATTR_SIG_RE = re.compile(r'^([^\s(]+)(\s*\((.*)\))?$')
 
-# Source location of a signature, as a (docname, line) pair
-Location = tuple[str, int] | None
+# Source location of a signature, as a (docname, line) pair, or the node of a doc field
+Location = tuple[str, int] | nodes.Node | None
 
 
 class ParamTuple(NamedTuple):
@@ -576,8 +579,43 @@ class TypeRenderer:
 
 
 
+class CSharpTypeField(Field):
+    """ A doc field whose types, such as List<int> in :type x: List<int>, render like the types in a signature """
+
+    def make_xrefs(self, rolename: str, domain: str, target: str,
+                   innernode: type[TextlikeNode] = addnodes.literal_emphasis, contnode: nodes.Node | None = None,
+                   env: BuildEnvironment | None = None, inliner: Inliner | None = None,
+                   location: nodes.Element | None = None) -> list[nodes.Node]:
+        if rolename == 'type' and env is not None and issubclass(innernode, nodes.TextElement):
+            node = innernode('', '')
+            try:
+                TypeRenderer(env, location).append_type(node, target)
+                return [node]
+            except ValueError:
+                pass
+        return super().make_xrefs(rolename, domain, target, innernode, contnode, env, inliner, location)
+
+
+class CSharpTypedField(CSharpTypeField, TypedField):
+    """ A doc field with a type for each argument, such as :param x: with :type x: """
+
+
+class CSharpGroupedField(CSharpTypeField, GroupedField):
+    """ A doc field whose arguments are types, such as :throws ArgumentException: """
+
+
 class CSharpObject(ObjectDescription[str]):
     """ Description of generic C# objects """
+
+    doc_field_types = [
+        CSharpTypedField('parameter', label=_('Parameters'), names=('param', 'parameter', 'arg', 'argument'),
+                         typerolename='type', typenames=('type',), can_collapse=True),
+        GroupedField('typeparameter', label=_('Type Parameters'), names=('typeparam', 'tparam'), can_collapse=True),
+        Field('returnvalue', label=_('Returns'), has_arg=False, names=('returns', 'return')),
+        CSharpTypeField('returntype', label=_('Return type'), has_arg=False, names=('rtype',), bodyrolename='type'),
+        CSharpGroupedField('exceptions', label=_('Throws'), rolename='type', names=('throws', 'throw', 'exception'),
+                           can_collapse=True),
+    ]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -888,6 +926,7 @@ class CSharpMethod(CSharpObject):
 
         # Variance modifiers such as out T come before the parameter name
         generic_names = [generic.split()[-1] for generic in generic_params]
+        self.generic_names = generic_names
 
         # Constructors have no return type
         if return_type is not None:
