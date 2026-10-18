@@ -563,6 +563,12 @@ def test_doc_fields(build):
         'MyClass': 'class-MyClass'}
 
 
+def test_doc_field_with_generic_parameter_of_any_signature(build):
+    app = build('.. cs:function:: T Get<T> ()\n                 void Get (int i)\n\n   :rtype: T\n')
+    assert warnings(app) == []
+    assert references(app) == {'int': MICROSOFT_DOCS + 'System.Int32'}
+
+
 def test_doc_field_with_invalid_type(build):
     app = build('.. cs:function:: void Foo (int a)\n\n   :param a: The value.\n   :type a: <int>\n', nitpicky=False)
     assert len(warnings(app)) == 1

@@ -626,9 +626,13 @@ class CSharpObject(ObjectDescription[str]):
         super().__init__(*args, **kwargs)
         self.parentname_set = False
         self.parentname_saved: str | None = None
-        # The generic parameters this object declares for its content, such as T in class List<T>
+        # The generic parameters the signatures declare for the content, such as T in class List<T>
         self.generic_names: list[str] = []
         self.generic_names_saved: list[str] = []
+
+    def add_generic_names(self, names: list[str]) -> None:
+        """ Declare generic parameters for the content, which every signature of the directive shares """
+        self.generic_names += [name for name in names if name not in self.generic_names]
 
     def add_target_and_index(self, name: str, _: str, signode: addnodes.desc_signature) -> None:
         targetname = self.objtype + '-' + name
@@ -808,7 +812,7 @@ class CSharpObject(ObjectDescription[str]):
             self.append_generics(signode, generics, nolink=True)
         # Variance modifiers such as in T come before the parameter name
         generic_params = [generic.split()[-1] for generic in generics]
-        self.generic_names = generic_params
+        self.add_generic_names(generic_params)
         if params is not None:
             signode += nodes.Text('\xa0')
             self.append_parameters(signode, params, generic_params)
@@ -939,7 +943,7 @@ class CSharpMethod(CSharpObject):
 
         # Variance modifiers such as out T come before the parameter name
         generic_names = [generic.split()[-1] for generic in generic_params]
-        self.generic_names = generic_names
+        self.add_generic_names(generic_names)
 
         # Constructors have no return type
         if return_type is not None:
