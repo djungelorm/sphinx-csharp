@@ -1027,7 +1027,8 @@ class CSharpDomain(Domain):
         'interface': ObjType(_('interface'), 'interface', 'type'),
         'enum': ObjType(_('enum'), 'enum', 'type'),
         'record': ObjType(_('record'), 'record', 'type'),
-        'delegate': ObjType(_('delegate'), 'delegate', 'type'),
+        # Breathe passes delegates to the function directive
+        'delegate': ObjType(_('delegate'), 'delegate', 'type', 'func', 'meth'),
 
         'function': ObjType(_('function'), 'function', 'func', 'meth', 'member'),
 

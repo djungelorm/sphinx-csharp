@@ -431,7 +431,8 @@ def test_enum_signature(build):
     ('function', 'delegate void Handler (object sender, int e)', 'delegate void Handler (object sender, int e)'),
 ])
 def test_delegate_signature(build, directive, sig, text):
-    app = build(f'.. cs:{directive}:: {sig}\n\n:cs:delegate:`Handler` :cs:type:`Handler`\n')
+    app = build(f'.. cs:{directive}:: {sig}\n\n'
+                ':cs:delegate:`Handler` :cs:type:`Handler` :cs:func:`Handler` :cs:meth:`Handler`\n')
     assert warnings(app) == []
     assert signatures(app)['delegate-Handler'] == text
     assert references(app)['Handler'] == 'delegate-Handler'
