@@ -14,6 +14,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
       - run: pip install hatch
       - run: hatch run lint:check
 
@@ -45,9 +48,6 @@ jobs:
           version=${{ matrix.doxygen }}
           curl -sSfL "https://github.com/doxygen/doxygen/releases/download/Release_${version//./_}/doxygen-$version.linux.bin.tar.gz" | tar xz -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/doxygen-$version/bin" >> "$GITHUB_PATH"
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: '10.0.x'
       - run: pip install hatch
       # Every Sphinx and Breathe version on this Python
       - run: hatch run matrix:all --python ${{ matrix.python }}

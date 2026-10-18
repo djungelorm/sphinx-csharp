@@ -4,3 +4,4 @@ _doxygen/
 __pycache__/
 .coverage
 .coverage.*
+build/
