@@ -666,12 +666,12 @@ class CSharpObject(ObjectDescription[str]):
                 else:
                     self.append_type(node, typ, generic_params)
 
-    def append_inherits(self, node: nodes.Element, inherits: list[str]) -> None:
+    def append_inherits(self, node: nodes.Element, inherits: list[str], generic_params: list[str]) -> None:
         """ Adds inherited types, inherits must be a list of string types """
         node += nodes.Text(' : ')
         for (i, typ) in enumerate(inherits):
             match = BASE_ARGS_RE.match(typ)
-            self.append_type(node, match['type'] if match else typ)
+            self.append_type(node, match['type'] if match else typ, generic_params)
             if match:
                 node += nodes.Text(match['args'])
             if i != len(inherits) - 1:
@@ -751,7 +751,7 @@ class CSharpObject(ObjectDescription[str]):
             signode += nodes.Text('\xa0')
             self.append_parameters(signode, params, generic_params)
         if inherits:
-            self.append_inherits(signode, inherits)
+            self.append_inherits(signode, inherits, generic_params)
         self.append_constraints(signode, constraints, generic_params)
         return self.get_fullname(typ)
 

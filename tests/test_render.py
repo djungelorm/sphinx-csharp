@@ -520,6 +520,14 @@ def test_enclosing_type_generic_parameter_is_not_linked(build):
     assert references(app, 'property-MyList.Node.Value') == {}
 
 
+def test_generic_parameter_in_base_type_is_not_linked(build):
+    app = build('.. cs:struct:: Pair<T> : System.IEquatable<Pair<T>>, System.Collections.Generic.IEnumerable<T>\n')
+    assert warnings(app) == []
+    assert references(app, 'struct-Pair') == {
+        'IEquatable': MICROSOFT_DOCS + 'System.IEquatable-1', 'Pair': 'struct-Pair',
+        'IEnumerable': MICROSOFT_DOCS + 'System.Collections.Generic.IEnumerable-1'}
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
