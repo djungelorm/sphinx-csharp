@@ -439,6 +439,19 @@ def test_delegate_signature(build, directive, sig, text):
     assert index_entries(app) == [('Handler (C# delegate)', 'delegate-Handler')]
 
 
+def test_object_type_of_each_signature(build):
+    app = build('.. cs:function:: delegate void A ()\n'
+                '                 void B ()\n'
+                '                 delegate void C ()\n\n'
+                '.. cs:property:: int this[int i] { get; }\n               int P { get; }\n')
+    assert warnings(app) == []
+    assert signatures(app)['delegate-A'] == 'delegate void A ()'
+    assert signatures(app)['function-B'] == 'void B ()'
+    assert signatures(app)['delegate-C'] == 'delegate void C ()'
+    assert signatures(app)['indexer-this[]'] == 'int this[int i] { get; }'
+    assert signatures(app)['property-P'] == 'int P { get; }'
+
+
 def test_generic_delegate_variance(build):
     app = build('.. cs:delegate:: TResult Factory<in T, out TResult> (T arg) where T : class\n')
     assert warnings(app) == []

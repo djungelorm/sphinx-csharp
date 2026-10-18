@@ -755,12 +755,19 @@ class CSharpObject(ObjectDescription[str]):
         self.append_constraints(signode, constraints, generic_params)
         return self.get_fullname(typ)
 
+    def reset_objtype(self) -> None:
+        """ Undo change_objtype for the previous signature of this directive """
+        self.objtype = self.name.rpartition(':')[2]
+
     def change_objtype(self, signode: addnodes.desc_signature, objtype: str) -> None:
-        """ Describe this object as another object type, such as an indexer passed to the property directive """
-        desc = signode.parent
-        desc['classes'].remove(self.objtype)
-        self.objtype = desc['objtype'] = desc['desctype'] = objtype
-        desc['classes'].append(objtype)
+        """ Describe this signature as another object type, such as an indexer passed to the property directive """
+        self.objtype = objtype
+        # The signatures of a directive share one desc node, which takes the object type of the first
+        if not self.names:
+            desc = signode.parent
+            desc['classes'].remove(desc['objtype'])
+            desc['objtype'] = desc['desctype'] = objtype
+            desc['classes'].append(objtype)
 
 
 class CSharpCurrentNamespace(Directive):
@@ -843,6 +850,7 @@ class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        self.reset_objtype()
         match = TYPE_AS_FUNCTION_RE.match(sig.strip())
         if match:
             keyword = ' '.join(match['keyword'].split())
@@ -918,6 +926,7 @@ class CSharpProperty(CSharpObject):
     """ Description of a C# property """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        self.reset_objtype()
         # Doxygen writes indexers as properties named this[...]
         if IDXR_SIG_RE.match(sig.strip()):
             self.change_objtype(signode, 'indexer')
