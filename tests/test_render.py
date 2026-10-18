@@ -570,7 +570,7 @@ def test_doc_field_with_generic_parameter_of_any_signature(build):
 
 
 def test_doc_field_with_invalid_type(build):
-    app = build('.. cs:function:: void Foo (int a)\n\n   :param a: The value.\n   :type a: <int>\n', nitpicky=False)
+    app = build('.. cs:function:: void Foo (int a)\n\n   :param a: The value.\n   :type a: <int>\n')
     assert len(warnings(app)) == 1
     assert 'Type signature invalid: <int>' in warnings(app)[0]
 

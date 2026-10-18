@@ -598,7 +598,8 @@ class CSharpTypeField(Field):
             try:
                 TypeRenderer(env, location).append_type(node, target)
             except ValueError:
-                return super().make_xrefs(rolename, domain, target, innernode, contnode, env, inliner, location)
+                # The parser has already warned about the type
+                return [innernode(target, target)]
             # Unresolved references warn at the field
             source, line = get_source_line(location)
             for ref in node.findall(addnodes.pending_xref):
