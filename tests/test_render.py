@@ -397,6 +397,9 @@ def test_operator_signature(build, sig, node_id, text):
      'readonly record struct Point (int X, int Y)'),
     ('function', 'record class Point< T > (T X)', 'record-Point', 'record class Point<T> (T X)'),
     ('function', 'class Point (int X)', 'class-Point', 'class Point (int X)'),
+    ('function', 'record Point (int X) : System.IDisposable', 'record-Point', 'record Point (int X) : IDisposable'),
+    ('function', 'record Point<T> (T X) : Base(X) where T : struct', 'record-Point',
+     'record Point<T> (T X) : Base(X) where T : struct'),
 ])
 def test_record_signature(build, directive, sig, node_id, text):
     app = build(f'.. cs:class:: Base\n\n.. cs:{directive}:: {sig}\n')

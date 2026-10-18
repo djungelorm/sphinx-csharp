@@ -119,7 +119,8 @@ CLASS_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + PRIMAR
 BASE_ARGS_RE = re.compile(r'^(?P<type>[^(]+?)\s*(?P<args>\(.*\))$')
 # Doxygen writes records, and types with primary constructors, as functions
 TYPE_AS_FUNCTION_RE = re.compile(
-    r'^' + MODIFIERS_RE.pattern + r'(?P<keyword>record(?:\s+(?:class|struct))?|class|struct)\s+(?P<sig>.+\))$')
+    r'^' + MODIFIERS_RE.pattern + r'(?P<keyword>record(?:\s+(?:class|struct))?|class|struct)\s+'
+    r'(?P<sig>[^\s<(]+\s*(?:<[^(]*>)?\s*\(.*)$')
 RECORD_KIND_RE = re.compile(r'^' + MODIFIERS_RE.pattern + r'(?P<kind>class|struct)\s+(?P<sig>.+)$')
 
 ENUM_SIG_RE = re.compile(r'^' + MODIFIERS_RE.pattern + r'(?P<name>[^\s:]+)\s*(?::\s*(?P<base>\S+))?$')
