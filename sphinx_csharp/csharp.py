@@ -591,7 +591,6 @@ class TypeRenderer:
         node += nodes.Text('>')
 
 
-
 class CSharpTypeField(Field):
     """ A doc field whose types, such as List<int> in :type x: List<int>, render like the types in a signature """
 
