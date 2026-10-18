@@ -7,6 +7,7 @@ from typing import Any, NamedTuple
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from docutils.parsers.rst.states import Inliner
+from docutils.utils import get_source_line
 from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.builders import Builder
@@ -591,13 +592,18 @@ class CSharpTypeField(Field):
                    innernode: type[TextlikeNode] = addnodes.literal_emphasis, contnode: nodes.Node | None = None,
                    env: BuildEnvironment | None = None, inliner: Inliner | None = None,
                    location: nodes.Element | None = None) -> list[nodes.Node]:
-        if rolename == 'type' and env is not None and issubclass(innernode, nodes.TextElement):
+        if rolename == 'type' and env is not None and location is not None and \
+                issubclass(innernode, nodes.TextElement):
             node = innernode('', '')
             try:
                 TypeRenderer(env, location).append_type(node, target)
-                return [node]
             except ValueError:
-                pass
+                return super().make_xrefs(rolename, domain, target, innernode, contnode, env, inliner, location)
+            # Unresolved references warn at the field
+            source, line = get_source_line(location)
+            for ref in node.findall(addnodes.pending_xref):
+                ref.source, ref.line = source, line
+            return [node]
         return super().make_xrefs(rolename, domain, target, innernode, contnode, env, inliner, location)
 
 

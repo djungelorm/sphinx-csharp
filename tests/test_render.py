@@ -575,6 +575,13 @@ def test_doc_field_with_invalid_type(build):
     assert 'Type signature invalid: <int>' in warnings(app)[0]
 
 
+def test_doc_field_with_unresolved_type(build):
+    app = build('.. cs:function:: void Foo ()\n\n   :rtype: Missing\n   :throws Unknown: Never.\n')
+    assert len(warnings(app)) == 2
+    assert 'index.rst:3: WARNING: cs:type reference target not found: Missing' in warnings(app)[0]
+    assert 'index.rst:4: WARNING: cs:type reference target not found: Unknown' in warnings(app)[1]
+
+
 def test_generic_parameter_type_is_not_linked(build):
     app = build('.. cs:function:: void Foo<T> (T a)\n')
     assert warnings(app) == []
