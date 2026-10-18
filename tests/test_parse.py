@@ -65,6 +65,9 @@ def test_split_sig(params, expected):
     ('void Foo(string s = "a, b", char c = \',\')',
      ([], 'void', 'Foo', [], [param('string', 's', '"a, b"'), param('char', 'c', "','")])),
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
+    ('void Foo([DefaultValue(new[] {1})] int[] a, [Attr("]", \'[\')] int b)',
+     ([], 'void', 'Foo', [], [param('int[]', 'a', modifiers=['[DefaultValue(new[] {1})]']),
+                              param('int', 'b', modifiers=['[Attr("]", \'[\')]'])])),
 ])
 def test_parse_method(sig, expected):
     assert parse_method_signature(sig, None) == MethodSig(*expected, constraints=[], operator=None)

@@ -30,8 +30,10 @@ MODIFIERS_RE_SIMPLE = '|'.join(['public', 'private', 'internal', 'protected',
 PARAM_MODIFIERS_RE_SIMPLE = '|'.join(['this', 'ref', 'in', 'out', 'params', 'scoped', 'readonly'])
 
 MODIFIERS_RE = re.compile(r'\s*(?:(?P<modifiers>(?:\s*(?:' + MODIFIERS_RE_SIMPLE + r'))*)\s+)?')
+# An attribute such as [Attr(new[] {1})], with brackets nested one level deep or inside string literals
+ATTRIBUTE_RE = re.compile(r'\[(?:[^\[\]"\']|"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'|\[[^\[\]]*\])*\]')
 # MODIFIERS_RE with parameter modifiers, after any attributes such as [NotNull]
-PARAM_MODIFIERS_RE = re.compile(r'\s*(?P<attributes>(?:\[[^\]]*\]\s*)*)'
+PARAM_MODIFIERS_RE = re.compile(r'\s*(?P<attributes>(?:' + ATTRIBUTE_RE.pattern + r'\s*)*)'
                                 r'(?:(?P<modifiers>(?:\s*(?:' + PARAM_MODIFIERS_RE_SIMPLE + r'))*)\s+)?\s*')
 
 
@@ -374,7 +376,7 @@ def parse_variable_signature(sig: str, location: Location, is_param: bool = Fals
         raise invalid_signature('Parameter' if is_param else 'Variable', sig, location)
 
     groups = match.groupdict()
-    modifiers = re.findall(r'\[[^\]]*\]', groups.get('attributes') or '')
+    modifiers = ATTRIBUTE_RE.findall(groups.get('attributes') or '')
     modifiers += groups['modifiers'].split() if groups['modifiers'] else []
     # The templates group is the Doxygen form of the generics
     generics = split_generics(groups['generics'] or groups['templates'])
