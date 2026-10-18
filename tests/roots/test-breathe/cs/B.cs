@@ -1,4 +1,5 @@
 using System;
+using MyNamespace;
 using UnityEngine;
 
 namespace OtherNamespace
@@ -27,7 +28,7 @@ namespace OtherNamespace
         /// </summary>
         public Tuple<MyClass, MyClass> Update(ref B b, int a = 0)
         {
-            
+            return Tuple.Create(new MyClass(default), new MyClass(default));
         }
 
         /// <summary>

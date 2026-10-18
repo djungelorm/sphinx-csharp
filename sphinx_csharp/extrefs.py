@@ -58,6 +58,22 @@ class ExternalRefs:
         return typ
 
     @classmethod
+    def get_nested_external_ref(cls, outer: str, arity: int, nested: str, objtype: str,
+                                contnode: nodes.Node) -> nodes.reference | None:
+        """
+        Link a type nested in an external type, such as Enumerator in List<T>.Enumerator, to the Microsoft docs.
+        arity is the number of generic arguments of the outer type.
+        """
+        ref = cls.get_external_ref(outer, objtype, nodes.Text(''), arity)
+        # The Microsoft docs name a nested type page by appending it to the page of the outer type
+        if ref is None or not ref['refuri'].startswith(cls.external_search_pages['msdn'][0] % ''):
+            return None
+        node = nodes.reference('', '', internal=False, refuri=ref['refuri'] + '.' + nested,
+                               reftitle=ref['reftitle'] + '.' + nested)
+        node += contnode
+        return node
+
+    @classmethod
     def get_external_ref(cls, name: str, objtype: str, contnode: nodes.Node,  # noqa: PLR0912, PLR0915
                          arity: int = 0) -> nodes.reference | None:
         """

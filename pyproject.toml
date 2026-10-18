@@ -37,7 +37,11 @@ include = ["sphinx_csharp", "tests", "CHANGES.txt"]
 dependencies = ["ruff"]
 
 [tool.hatch.envs.lint.scripts]
-check = "ruff check sphinx_csharp tests scripts"
+# Also compiles the C# sources of the Breathe test project
+check = [
+  "ruff check sphinx_csharp tests scripts",
+  "dotnet build -nologo --artifacts-path build/dotnet tests/roots/test-breathe",
+]
 
 [tool.hatch.envs.types]
 dependencies = ["mypy", "types-docutils", "types-requests"]

@@ -267,6 +267,9 @@ def test_no_index_entry(build, option):
     ('string this[int i] { get; set; }', 'string this[int i] { get; set; }'),
     ('string this[int i, MyClass j] { get; }', 'string this[int i, MyClass j] { get; }'),
     ('int this[int i] { set; }', 'int this[int i] { set; }'),
+    ('int this[int i] { get; private init; }', 'int this[int i] { get; private init; }'),
+    ('int this[params int[] i, int j = 0] { get; }', 'int this[params int[] i, int j = 0] { get; }'),
+    ('int this[System.Collections.Generic.List<int> i] => 1', 'int this[List<int> i] { get; }'),
 ])
 def test_indexer_signature(build, sig, text):
     app = build(f'.. cs:class:: MyClass\n\n   .. cs:indexer:: {sig}\n')
@@ -274,7 +277,38 @@ def test_indexer_signature(build, sig, text):
     assert signatures(app)['indexer-MyClass.this[]'] == text
 
 
+def test_explicit_interface_indexer(build):
+    app = build('.. cs:class:: MyClass\n\n   .. cs:indexer:: int IList<int>.this[int i] { get; }\n')
+    assert warnings(app) == []
+    assert signatures(app)['indexer-MyClass.IList<int>.this[]'] == 'int IList<int>.this[int i] { get; }'
+
+
+def test_property_directive_with_indexer(build):
+    # Breathe passes indexers from Doxygen to the property directive
+    app = build('.. cs:class:: MyClass\n\n   .. cs:property:: string this[string s, int j=0] {get;}\n\n'
+                ':cs:idxr:`MyClass.this[]`\n')
+    assert warnings(app) == []
+    assert signatures(app)['indexer-MyClass.this[]'] == 'string this[string s, int j = 0] { get; }'
+    assert references(app)['MyClass.this[]'] == 'indexer-MyClass.this[]'
+    assert ('MyClass.this[] (C# indexer)', 'indexer-MyClass.this[]') in index_entries(app)
+
+
+@pytest.mark.parametrize('sig, text', [
+    ('int P { get; init; }', 'int P { get; init; }'),
+    ('int P {get;private  set;}', 'int P { get; private set; }'),
+    ('int P => 1', 'int P { get; }'),
+    ('int P { get; set; } = 5;', 'int P { get; set; } = 5'),
+    ('int P', 'int P'),
+])
+def test_property_signature(build, sig, text):
+    app = build(f'.. cs:property:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)['property-P'] == text
+
+
 @pytest.mark.parametrize('sig, text, links', [
+    ('System.EventHandler Changed { add; remove; }', 'event EventHandler Changed { add; remove; }',
+     {'EventHandler': 'System.EventHandler'}),
     ('public System.EventHandler Changed', 'event public EventHandler Changed',
      {'EventHandler': 'System.EventHandler'}),
     ('System.Action Done = null', 'event Action Done = null', {'Action': 'System.Action'}),
@@ -285,6 +319,216 @@ def test_event_signature(build, sig, text, links):
     node_id = next(iter(signatures(app)))
     assert signatures(app)[node_id] == text
     assert references(app, node_id) == {name: MICROSOFT_DOCS + url for name, url in links.items()}
+
+
+@pytest.mark.parametrize('sig, text, links', [
+    ('(int, MyClass) Pair ()', '(int, MyClass) Pair ()',
+     {'int': MICROSOFT_DOCS + 'System.Int32', 'MyClass': 'class-MyClass'}),
+    ('(int count, (string a, MyClass b) inner)[] Nested ()', '(int count, (string a, MyClass b) inner)[] Nested ()',
+     {'int': MICROSOFT_DOCS + 'System.Int32', 'string': MICROSOFT_DOCS + 'System.String', 'MyClass': 'class-MyClass'}),
+    ('void Take (System.Collections.Generic.List<(int, MyClass)>? items)', 'void Take (List<(int, MyClass)>? items)',
+     {'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1', 'int': MICROSOFT_DOCS + 'System.Int32',
+      'MyClass': 'class-MyClass'}),
+    ('(T, MyClass) Generic<T> ((T a, int b) t)', '(T, MyClass) Generic<T> ((T a, int b) t)',
+     {'MyClass': 'class-MyClass', 'int': MICROSOFT_DOCS + 'System.Int32'}),
+])
+def test_tuple_signature(build, sig, text, links):
+    app = build(f'.. cs:class:: MyClass\n\n.. cs:function:: {sig}\n')
+    assert warnings(app) == []
+    node_id = next(key for key in signatures(app) if key.startswith('function-'))
+    assert signatures(app)[node_id] == text
+    assert references(app, node_id) == links
+
+
+def test_invalid_tuple_element(build):
+    app = build('.. cs:function:: (int, , string) Foo ()\n')
+    assert len(warnings(app)) == 1
+    assert 'Type signature invalid: (int, , string)' in warnings(app)[0]
+
+
+def test_type_constraints(build):
+    app = build('.. cs:class:: MyClass<T, U> : System.IDisposable where T : class, new() where U : IFoo<T>\n\n'
+                '.. cs:interface:: IFoo<in T> where T : notnull\n')
+    assert warnings(app) == []
+    assert signatures(app)['class-MyClass'] == \
+        'class MyClass<T, U> : IDisposable where T : class, new() where U : IFoo<T>'
+    assert references(app, 'class-MyClass') == {
+        'IDisposable': MICROSOFT_DOCS + 'System.IDisposable', 'IFoo': 'interface-IFoo'}
+    assert signatures(app)['interface-IFoo'] == 'interface IFoo<in T> where T : notnull'
+    assert references(app, 'interface-IFoo') == {}
+
+
+def test_method_constraints(build):
+    app = build('.. cs:class:: MyClass\n\n.. cs:function:: T Make<T, U> (U u) where T : MyClass, U where U : struct\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Make'] == 'T Make<T, U> (U u) where T : MyClass, U where U : struct'
+    assert references(app, 'function-Make') == {'MyClass': 'class-MyClass'}
+
+
+@pytest.mark.parametrize('sig, node_id, text', [
+    ('public static Vector operator + (Vector a, Vector b)', 'function-Vector.op_Addition',
+     'public static Vector operator + (Vector a, Vector b)'),
+    ('static bool operator <(Vector a, Vector b)', 'function-Vector.op_LessThan',
+     'static bool operator < (Vector a, Vector b)'),
+    ('public static implicit operator double (Vector v)', 'function-Vector.op_Implicit',
+     'public static implicit operator double (Vector v)'),
+    ('static operator Vector (double d)', 'function-Vector.op_Explicit',
+     'static explicit operator Vector (double d)'),
+])
+def test_operator_signature(build, sig, node_id, text):
+    app = build(f'.. cs:struct:: Vector\n\n   .. cs:function:: {sig}\n\n'
+                f':cs:meth:`Vector.{node_id.split(".")[-1]}`\n')
+    assert warnings(app) == []
+    assert signatures(app)[node_id] == text
+    assert references(app)[f'Vector.{node_id.split(".")[-1]}'] == node_id
+
+
+@pytest.mark.parametrize('directive, sig, node_id, text', [
+    ('record', 'public Point(int X, int Y)', 'record-Point', 'public record Point (int X, int Y)'),
+    ('record', 'readonly struct Point(int X, int Y)', 'record-Point', 'readonly record struct Point (int X, int Y)'),
+    ('record', 'class Point<T>(T X) : Base(X), System.IDisposable where T : notnull', 'record-Point',
+     'record class Point<T> (T X) : Base(X), IDisposable where T : notnull'),
+    ('class', 'Service(Base logger, int timeout = 30) : Base(logger)', 'class-Service',
+     'class Service (Base logger, int timeout = 30) : Base(logger)'),
+    ('struct', 'Empty()', 'struct-Empty', 'struct Empty ()'),
+    # Doxygen writes records, and types with primary constructors, as functions
+    ('function', 'record Point (int X, int Y)', 'record-Point', 'record Point (int X, int Y)'),
+    ('function', 'readonly record  struct Point (int X, int Y)', 'record-Point',
+     'readonly record struct Point (int X, int Y)'),
+    ('function', 'record class Point< T > (T X)', 'record-Point', 'record class Point<T> (T X)'),
+    ('function', 'class Point (int X)', 'class-Point', 'class Point (int X)'),
+    ('function', 'record Point (int X) : System.IDisposable', 'record-Point', 'record Point (int X) : IDisposable'),
+    ('function', 'record Point<T> (T X) : Base(X) where T : struct', 'record-Point',
+     'record Point<T> (T X) : Base(X) where T : struct'),
+])
+def test_record_signature(build, directive, sig, node_id, text):
+    app = build(f'.. cs:class:: Base\n\n.. cs:{directive}:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)[node_id] == text
+    if 'Base' in text:
+        assert references(app, node_id)['Base'] == 'class-Base'
+
+
+def test_record_role_and_index_entry(build):
+    app = build('.. cs:record:: Point(int X, int Y)\n\n:cs:record:`Point`\n')
+    assert warnings(app) == []
+    assert references(app)['Point'] == 'record-Point'
+    assert index_entries(app) == [('Point (C# record)', 'record-Point')]
+
+
+def test_enum_signature(build):
+    app = build('.. cs:enum:: public Color : byte\n\n   .. cs:enumerator:: Red = 1\n\n   .. cs:enumerator:: Green\n\n'
+                ':cs:enumerator:`Color.Red`\n')
+    assert warnings(app) == []
+    assert signatures(app)['enum-Color'] == 'public enum Color : byte'
+    assert references(app, 'enum-Color') == {'byte': MICROSOFT_DOCS + 'System.Byte'}
+    assert signatures(app)['enumerator-Color.Red'] == 'Red = 1'
+    assert signatures(app)['enumerator-Color.Green'] == 'Green'
+    assert references(app)['Color.Red'] == 'enumerator-Color.Red'
+
+
+@pytest.mark.parametrize('directive, sig, text', [
+    ('delegate', 'public void Handler (object sender, int e)', 'public delegate void Handler (object sender, int e)'),
+    ('delegate', 'delegate void Handler (object sender, int e)', 'delegate void Handler (object sender, int e)'),
+    # Breathe passes delegates from Doxygen to the function directive
+    ('function', 'delegate void Handler (object sender, int e)', 'delegate void Handler (object sender, int e)'),
+])
+def test_delegate_signature(build, directive, sig, text):
+    app = build(f'.. cs:{directive}:: {sig}\n\n'
+                ':cs:delegate:`Handler` :cs:type:`Handler` :cs:func:`Handler` :cs:meth:`Handler`\n')
+    assert warnings(app) == []
+    assert signatures(app)['delegate-Handler'] == text
+    assert references(app)['Handler'] == 'delegate-Handler'
+    assert index_entries(app) == [('Handler (C# delegate)', 'delegate-Handler')]
+
+
+def test_object_type_of_each_signature(build):
+    app = build('.. cs:function:: delegate void A ()\n'
+                '                 void B ()\n'
+                '                 delegate void C ()\n\n'
+                '.. cs:property:: int this[int i] { get; }\n               int P { get; }\n')
+    assert warnings(app) == []
+    assert signatures(app)['delegate-A'] == 'delegate void A ()'
+    assert signatures(app)['function-B'] == 'void B ()'
+    assert signatures(app)['delegate-C'] == 'delegate void C ()'
+    assert signatures(app)['indexer-this[]'] == 'int this[int i] { get; }'
+    assert signatures(app)['property-P'] == 'int P { get; }'
+
+
+def test_generic_delegate_variance(build):
+    app = build('.. cs:delegate:: TResult Factory<in T, out TResult> (T arg) where T : class\n')
+    assert warnings(app) == []
+    assert signatures(app)['delegate-Factory'] == \
+        'delegate TResult Factory<in T, out TResult> (T arg) where T : class'
+    assert references(app, 'delegate-Factory') == {}
+
+
+def test_type_suffixes(build):
+    app = build('.. cs:class:: MyClass\n\n.. cs:function:: MyClass?[] Foo (int** p, string?[]? s)\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Foo'] == 'MyClass?[] Foo (int** p, string?[]? s)'
+    assert references(app, 'function-Foo') == {
+        'MyClass': 'class-MyClass', 'int': MICROSOFT_DOCS + 'System.Int32', 'string': MICROSOFT_DOCS + 'System.String'}
+
+
+def test_parameter_attributes_and_modifiers(build):
+    app = build('.. cs:function:: bool Try ([NotNullWhen(true)] out string? s, scoped ref readonly int i)\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Try'] == \
+        'bool Try ([NotNullWhen(true)] out string? s, scoped ref readonly int i)'
+
+
+def test_default_value_with_comma(build):
+    app = build('.. cs:function:: void Join (string sep = ", ", char quote = \'"\')\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Join'] == 'void Join (string sep = ", ", char quote = \'"\')'
+
+
+def test_nested_type_in_generic_type(build):
+    app = build('.. cs:class:: Outer<T>\n\n   .. cs:class:: Inner\n\n   .. cs:class:: Pair<U>\n\n'
+                '.. cs:function:: Outer<int>.Inner Local ()\n\n'
+                '.. cs:function:: Outer<int>.Pair<string>[] LocalGeneric ()\n\n'
+                '.. cs:function:: System.Collections.Generic.List<int>.Enumerator Qualified ()\n\n'
+                '.. cs:function:: Dictionary<string, int>.KeyCollection Unqualified ()\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Local'] == 'Outer<int>.Inner Local ()'
+    assert references(app, 'function-Local') == {
+        'Outer': 'class-Outer', 'int': MICROSOFT_DOCS + 'System.Int32', 'Inner': 'class-Outer.Inner'}
+    assert signatures(app)['function-LocalGeneric'] == 'Outer<int>.Pair<string>[] LocalGeneric ()'
+    assert references(app, 'function-LocalGeneric')['Pair'] == 'class-Outer.Pair'
+    assert signatures(app)['function-Qualified'] == 'List<int>.Enumerator Qualified ()'
+    assert references(app, 'function-Qualified') == {
+        'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1', 'int': MICROSOFT_DOCS + 'System.Int32',
+        'Enumerator': MICROSOFT_DOCS + 'System.Collections.Generic.List-1.Enumerator'}
+    assert references(app, 'function-Unqualified')['KeyCollection'] == \
+        MICROSOFT_DOCS + 'System.Collections.Generic.Dictionary-2.KeyCollection'
+
+
+def test_nested_type_in_unknown_or_ignored_type(build):
+    app = build('.. cs:function:: Missing<int>.Inner Foo ()\n\n.. cs:function:: Skip<int>.Inner Bar ()\n',
+                sphinx_csharp_ignore_xref=['Skip', 'Skip.Inner'])
+    assert len(warnings(app)) == 2
+    assert 'Missing' in warnings(app)[0] and 'Missing.Inner' in warnings(app)[1]
+    assert signatures(app)['function-Bar'] == 'Skip<int>.Inner Bar ()'
+
+
+def test_enclosing_type_generic_parameter_is_not_linked(build):
+    app = build('.. cs:class:: MyList<T>\n\n   .. cs:function:: T Get (System.Collections.Generic.List<T> items)\n\n'
+                '   .. cs:class:: Node\n\n      .. cs:property:: T Value { get; }\n\n'
+                '.. cs:class:: Other\n\n   .. cs:function:: void Take (T a)\n')
+    # T is only a generic parameter inside MyList
+    assert len(warnings(app)) == 1
+    assert 'reference target not found: T' in warnings(app)[0]
+    assert references(app, 'function-MyList.Get') == {'List': MICROSOFT_DOCS + 'System.Collections.Generic.List-1'}
+    assert references(app, 'property-MyList.Node.Value') == {}
+
+
+def test_generic_parameter_in_base_type_is_not_linked(build):
+    app = build('.. cs:struct:: Pair<T> : System.IEquatable<Pair<T>>, System.Collections.Generic.IEnumerable<T>\n')
+    assert warnings(app) == []
+    assert references(app, 'struct-Pair') == {
+        'IEquatable': MICROSOFT_DOCS + 'System.IEquatable-1', 'Pair': 'struct-Pair',
+        'IEnumerable': MICROSOFT_DOCS + 'System.Collections.Generic.IEnumerable-1'}
 
 
 def test_generic_parameter_type_is_not_linked(build):

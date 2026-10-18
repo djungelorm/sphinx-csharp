@@ -1,8 +1,9 @@
 import shutil
 import subprocess
 
+import breathe
 import pytest
-from conftest import warnings
+from conftest import signatures, warnings
 
 
 @pytest.mark.sphinx('html', testroot='basic', confoverrides={'nitpicky': True})
@@ -18,3 +19,10 @@ def test_breathe(app):
     subprocess.run(['doxygen'], cwd=app.srcdir, check=True)
     app.build()
     assert warnings(app) == []
+    # Note: Breathe 4 writes a set accessor for every property and indexer.
+    accessors = '{ get; set; }' if int(breathe.__version__.split('.')[0]) < 5 else '{ get; }'
+    assert signatures(app)['indexer-OtherNamespace.Indexer.this[]'] == \
+        'string this[Dictionary<string, int> map, int offset = 0] ' + accessors
+    assert signatures(app)['class-OtherNamespace.Box'] == 'class Box<T>'
+    assert 'function-OtherNamespace.Box.First' in signatures(app)
+
