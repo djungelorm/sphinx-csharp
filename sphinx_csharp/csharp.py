@@ -495,6 +495,13 @@ def parse_attr_signature(sig: str, location: Location) -> AttrSig:
     return result
 
 
+def append_modifiers(node: nodes.Element, modifiers: list[str]) -> None:
+    """ Adds modifiers such as public static, each followed by a space """
+    for modifier in modifiers:
+        node += addnodes.desc_annotation(modifier, modifier)
+        node += nodes.Text('\xa0')
+
+
 class TypeRenderer:
     """ Renders types with links, such as List<MyClass>, in signatures and doc fields """
 
@@ -508,7 +515,7 @@ class TypeRenderer:
             input_typ, self.location)
 
         if modifiers:
-            CSharpObject.append_modifiers(node, modifiers)
+            append_modifiers(node, modifiers)
 
         if typ.startswith('('):
             self.append_tuple(node, typ, ignored_types)
@@ -700,13 +707,7 @@ class CSharpObject(ObjectDescription[str]):
             fullname = self.get_parent()+'.'+fullname
         return fullname
 
-    @staticmethod
-    def append_modifiers(signode: nodes.Element, modifiers: list[str]) -> None:
-        if not modifiers:
-            return
-        for modifier in modifiers:
-            signode += addnodes.desc_annotation(modifier, modifier)
-            signode += nodes.Text('\xa0')
+    append_modifiers = staticmethod(append_modifiers)
 
     def type_renderer(self) -> TypeRenderer:
         return TypeRenderer(self.env, (self.env.docname, self.lineno))
