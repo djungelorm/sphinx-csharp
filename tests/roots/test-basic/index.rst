@@ -27,6 +27,18 @@
 
       And a reference back to the containing class :type:`MyClass`
 
+   .. function:: T MyMethodWithFields<T> (System.Collections.Generic.IList<T> items, int index)
+
+      A method with documented parameters.
+
+      :param items: The items.
+      :type items: System.Collections.Generic.IList<T>
+      :param int index: The index of the item.
+      :typeparam T: The item type.
+      :returns: The item at the index.
+      :rtype: T
+      :throws System.ArgumentOutOfRangeException: If the index is out of range.
+
    .. function:: void MyMethodDefaultArg (string arg = "foo")
 
    .. function:: void MyMethodDefaultArgWithComma (string arg = "foo, bar", char sep = ',')
