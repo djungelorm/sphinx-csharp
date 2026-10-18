@@ -78,8 +78,10 @@ PROP_SIG_RE = re.compile(
     r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<name>[^\s<{(=]+)\s*'
     r'(?:' + ACCESSORS_RE.pattern + r'\s*(?:=\s*(?P<value>.+?))?|(?P<expr>=>.+?))\s*;?\s*$')
 
+# The parameters may contain brackets one level deep, such as int[] a
 IDXR_SIG_RE = re.compile(
-    r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<interface>[^\s\[]+\.)?this\s*\[(?P<params>.*)\]\s*'
+    r'^' + MODIFIERS_RE.pattern + TYPE_RE.pattern + r'\s+(?P<interface>[^\s\[]+\.)?this\s*'
+    r'\[(?P<params>(?:[^\[\]]|\[[^\[\]]*\])*)\]\s*'
     r'(?:' + ACCESSORS_RE.pattern + r'|(?P<expr>=>.+?))?\s*;?\s*$')
 
 # Operators, named by their .NET metadata names such as op_Addition
