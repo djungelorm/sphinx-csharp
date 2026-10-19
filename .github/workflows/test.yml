@@ -51,3 +51,28 @@ jobs:
       - run: pip install hatch
       # Every Sphinx and Breathe version on this Python
       - run: hatch run matrix:all --python ${{ matrix.python }}
+
+  corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        doxygen: ['1.15.0', '1.9.8']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Install Doxygen ${{ matrix.doxygen }}
+        run: |
+          version=${{ matrix.doxygen }}
+          curl -sSfL "https://github.com/doxygen/doxygen/releases/download/Release_${version//./_}/doxygen-$version.linux.bin.tar.gz" | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/doxygen-$version/bin" >> "$GITHUB_PATH"
+      # The archives that the corpus test downloads, which its sha256 hashes pin
+      - uses: actions/cache@v6
+        with:
+          path: .cache/corpus
+          key: corpus-${{ hashFiles('tests/test_corpus.py') }}
+      - run: pip install hatch
+      - run: hatch run test.py3.14-9.1-5.1:corpus

@@ -148,6 +148,7 @@ Doxygen and Breathe leave some C# out of the signatures they pass to sphinx-csha
 - Doxygen drops a class with a primary constructor and a base type, and the declarations after it in the same file.
 - Doxygen describes a field with a named tuple type, such as `(int X, int Y) Pos`, as two invalid fields.
 - Doxygen drops C# 14 extension blocks and their members.
+- Doxygen 1.15.0 puts the members of a type nested in a generic type in the generic type. Doxygen 1.9.8 drops a type that has the name of a generic type, such as `JsonConverter` beside `JsonConverter<T>`, and puts its members in the generic type.
 - Breathe shows only the `get` and `set` accessors without access levels, so `{ get; private set; }` and `{ get; init; }` render as `{ get; }`.
 - Breathe drops the accessors of events, the underlying types of enums, and the `ref` of a `ref struct`.
 
@@ -231,10 +232,13 @@ hatch run types:check                  # mypy
 hatch run matrix:all                   # tests and coverage in every environment, in parallel
 hatch run matrix:all --python 3.14     # every environment for one Python
 hatch run test.py3.14-9.1-5.1:all -k parse   # selected tests in one environment
+hatch run test.py3.14-9.1-5.1:corpus  # build large C# libraries through Doxygen and Breathe
 hatch build                            # sdist and wheel in dist/
 ```
 
 The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `tests/test_render.py` checks rendered signatures and cross-references. `tests/test_projects.py` builds the projects in `tests/roots` in nitpicky mode and fails on any warning. `test-breathe` renders C# sources through Doxygen and Breathe, and is skipped if Doxygen is not installed. Each project compares its rendered signatures with the `signatures.txt` in its directory. After a change to the rendering, `pytest tests/test_projects.py --update-snapshots` rewrites those files, with Breathe 5 installed. The test environments cover every supported Python, each Sphinx minor version from 7.2, and Breathe 4.35, 4.36, 5.0 and 5.1. CI runs them with Doxygen 1.15.0, and with Doxygen 1.9.8 from Ubuntu 24.04. Both give the same signatures. The lint check compiles the same sources with `dotnet build`. Warnings fail the tests, except the deprecation warnings that Breathe raises.
+
+`tests/test_corpus.py` builds the documentation of Newtonsoft.Json, NodaTime, Polly, MoreLINQ and the CommunityToolkit high performance library through Doxygen and Breathe in nitpicky mode. Doxygen and Breathe cause some warnings, which the test lists for each library and Doxygen version. It fails on any other warning, and on a listed warning that matches no warning of the build. It downloads the libraries into `.cache/corpus`, or the directory in `SPHINX_CSHARP_CORPUS_CACHE`. The other scripts leave it out, and CI runs it in a separate job.
 
 ### Common Bug Sources
 - Newer C# syntax that is not supported yet, see the `Parser` productions in `parser.py`

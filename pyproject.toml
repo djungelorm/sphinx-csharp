@@ -74,6 +74,8 @@ matrix.breathe.dependencies = ["breathe~={matrix:breathe}.0"]
 
 [tool.hatch.envs.test.scripts]
 all = "pytest --cov=sphinx_csharp --cov-report=term-missing {args}"
+# Builds large C# libraries, which the other scripts leave out
+corpus = "pytest -m corpus {args}"
 
 # Runs the test environments in parallel
 [tool.hatch.envs.matrix]
@@ -85,7 +87,8 @@ all = "python scripts/test_matrix.py {args}"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 xfail_strict = true
-addopts = "-rs"
+addopts = "-rs -m 'not corpus'"
+markers = ["corpus: builds large C# libraries, run with hatch run test.py3.14-9.1-5.1:corpus"]
 # Breathe uses Sphinx and docutils APIs that are deprecated
 filterwarnings = [
     "error",
