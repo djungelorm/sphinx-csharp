@@ -36,13 +36,13 @@ TYPE_SUFFIX_RE = r'(?P<suffix>(?:\s*(?:[*&?]|\[,*\]))*)'
 # The types nested in a generic type, such as .Enumerator in List<int>.Enumerator
 TYPE_NESTED_RE = r'(?P<nested>(?:\s*\.\s*[^\s<\[{*&?(.]+\s*(?:<\s*.+?\s*>)?)*)'
 
-TYPE_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                     r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' + TYPE_NESTED_RE +
-                     TYPE_SUFFIX_RE + r')')
+TEMPLATES_RE = r'(?:template(?P<templates><\s*.+\s*>))?\s*'
+FULLTYPE_RE = (r'(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' + TYPE_NESTED_RE +
+               TYPE_SUFFIX_RE + r')')
 
-TYPE_OPTIONAL_RE = re.compile(r'(?:template(?P<templates><\s*.+\s*>))?\s*'
-                              r'(?:(?P<fulltype>' + TYPE_NAME_RE + r'\s*(?P<generics><\s*.+?\s*>)?' +
-                              TYPE_NESTED_RE + TYPE_SUFFIX_RE + r')\s+)?')
+TYPE_RE = re.compile(TEMPLATES_RE + FULLTYPE_RE)
+
+TYPE_OPTIONAL_RE = re.compile(TEMPLATES_RE + r'(?:' + FULLTYPE_RE + r'\s+)?')
 
 # Generic constraints, such as where T : class, new() where U : IFoo<T>
 CONSTRAINTS_RE = re.compile(r'(?:\s+where\s+(?P<constraints>.+))?')
