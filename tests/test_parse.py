@@ -1,5 +1,6 @@
 import pytest
 
+from sphinx_csharp.lexer import tokenize
 from sphinx_csharp.parser import (
     Constraint,
     MethodSig,
@@ -19,6 +20,18 @@ from sphinx_csharp.parser import (
 
 def param(typ, name, default=None, modifiers=()):
     return ParamTuple(name=name, typ=typ, default=default, modifiers=list(modifiers))
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('List<int>? x', ['List', '<', 'int', '>', '?', 'x']),
+    ('global::N.C a=>b', ['global', '::', 'N', '.', 'C', 'a', '=>', 'b']),
+    ('@class 1.5f', ['@class', '1', '.', '5f']),
+    ('"a\\"b" \'\\\'\' x', ['"a\\"b"', "'\\''", 'x']),
+    ('@"C:\\""x""" y', ['@"C:\\""x"""', 'y']),
+    ('"abc', ['"abc']),
+])
+def test_tokenize(sig, expected):
+    assert [token.text for token in tokenize(sig)] == expected
 
 
 @pytest.mark.parametrize('params, expected', [
