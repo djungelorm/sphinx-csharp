@@ -316,12 +316,27 @@ class Parser:
             name += '.' + self.qualified_name()
         return name
 
+    def function_pointer(self) -> str:
+        """ The start of a function pointer type, such as delegate* unmanaged[Cdecl] before <int, void> """
+        start = self.pos
+        self.pos += 2
+        if (self.accept('managed') or self.accept('unmanaged')) and self.at('['):
+            self.group('[', ']')
+        if not self.at('<'):
+            raise ParseError
+        return self.text(start)
+
     def type(self) -> ParsedType:
-        """ A type such as List<int>.Enumerator[], or a tuple type such as (int a, string b)? """
+        """
+        A type such as List<int>.Enumerator[], a tuple type such as (int a, string b)?, or a function pointer type
+        such as delegate* unmanaged[Cdecl]<int, void>
+        """
         start = self.pos
         if self.at('('):
             self.group('(', ')')
             name = self.text(start)
+        elif self.at('delegate') and self.at('*', offset=1):
+            name = self.function_pointer()
         else:
             name = self.qualified_name()
         generics = self.generic_args()
@@ -756,6 +771,11 @@ def remove_arity(name: str) -> str:
         return head if arity.isdecimal() else part
 
     return '.'.join(without_arity(part) for part in name[:end].split('.')) + name[end:]
+
+
+def is_function_pointer(typ: str) -> bool:
+    """ Whether a type name is a function pointer, such as delegate* unmanaged[Cdecl] """
+    return typ.startswith('delegate') and typ.removeprefix('delegate').lstrip().startswith('*')
 
 
 def generic_type_name(typ: str, arity: int) -> str:

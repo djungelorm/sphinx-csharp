@@ -13,6 +13,7 @@ from .parser import (
     Location,
     generic_type_name,
     invalid_signature,
+    is_function_pointer,
     parse_tuple_element,
     parse_type_signature,
     split_sig,
@@ -45,6 +46,8 @@ class TypeRenderer:
         name = generic_type_name(typ, len(sig.generics))
         if typ.startswith('('):
             self.append_tuple(node, typ, ignored_types)
+        elif is_function_pointer(typ):
+            self.append_function_pointer(node, typ)
         else:
             self.append_type_name(node, typ, name, ExternalRefs.shorten_type(typ), len(sig.generics), ignored_types)
         if sig.generics:
@@ -91,6 +94,17 @@ class TypeRenderer:
         tnode += addnodes.desc_type(text, text)
         node += tnode
         return tnode
+
+    @staticmethod
+    def append_function_pointer(node: nodes.Element, typ: str) -> None:
+        """ Adds the start of a function pointer type, such as delegate* unmanaged[Cdecl], before its types """
+        node += nodes.Text('delegate*')
+        convention = typ.removeprefix('delegate').lstrip().removeprefix('*').strip()
+        if convention:
+            keyword, _, calling_conventions = convention.partition('[')
+            node += nodes.Text(' ' + keyword.strip())
+            if calling_conventions:
+                node += nodes.Text('[' + calling_conventions)
 
     def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
         """ Adds a tuple type, such as (int count, string name), linking the type of each element """

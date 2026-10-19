@@ -227,6 +227,8 @@ def test_split_attributes(sig, expected):
     ('void @class(int @int)', ([], 'void', '@class', [], [param('int', '@int')])),
     ('global::System.String Foo(global::System.Int32 a)',
      ([], 'global::System.String', 'Foo', [], [param('global::System.Int32', 'a')])),
+    ('int Apply(delegate *< int, int > f, delegate* managed<void> g)',
+     ([], 'int', 'Apply', [], [param('delegate *< int, int >', 'f'), param('delegate* managed<void>', 'g')])),
     ('void Foo(string?[] a, int[][,] b)',
      ([], 'void', 'Foo', [], [param('string?[]', 'a'), param('int[][,]', 'b')])),
     ('delegate void Handler<in T, out U>(T a)',
@@ -373,6 +375,10 @@ def test_parse_property(sig, expected):
     ('public volatile int x', (['public', 'volatile'], 'int', 'int', [], 'x', None)),
     ('event EventHandler E', (['event'], 'EventHandler', 'EventHandler', [], 'E', None)),
     ('int x ;', ([], 'int', 'int', [], 'x', None)),
+    ('delegate *< int, int > F', ([], 'delegate *< int, int >', 'delegate *', ['int', 'int'], 'F', None)),
+    ('delegate* unmanaged[Cdecl, SuppressGCTransition]<int, void>[] Fs',
+     ([], 'delegate* unmanaged[Cdecl, SuppressGCTransition]<int, void>[]',
+      'delegate* unmanaged[Cdecl, SuppressGCTransition]', ['int', 'void'], 'Fs', None)),
 ])
 def test_parse_variable(sig, expected):
     assert parse_variable_signature(sig, None) == expected
@@ -513,6 +519,7 @@ def test_parse_attribute(sig, expected):
     (parse_type_signature, 'MyClass<T> : where T : IFoo'),
     (parse_variable_signature, 'int[3] x'),
     (parse_variable_signature, 'int x ='),
+    (parse_variable_signature, 'delegate* F'),
     (parse_property_signature, 'int'),
     (parse_variable_signature, 'int'),
     (parse_indexer_signature, 'string this[] { get; }'),

@@ -429,6 +429,21 @@ def test_tuple_signature(build, sig, text, links):
     assert references(app, node_id) == links
 
 
+@pytest.mark.parametrize('directive, sig, node_id, text, links', [
+    ('function', 'int Apply (delegate *< int, MyClass > f)', 'function-Apply(delegate*<int,MyClass>)',
+     'int Apply (delegate*<int, MyClass> f)',
+     {'int': MICROSOFT_DOCS + 'System.Int32', 'MyClass': 'class-MyClass'}),
+    ('var', 'delegate *unmanaged[Cdecl]< int, void > Callback', 'var-Callback',
+     'delegate* unmanaged[Cdecl]<int, void> Callback', {'int': MICROSOFT_DOCS + 'System.Int32'}),
+    ('var', 'delegate* unmanaged<void> Exit', 'var-Exit', 'delegate* unmanaged<void> Exit', {}),
+])
+def test_unsafe_signature(build, directive, sig, node_id, text, links):
+    app = build(f'.. cs:class:: MyClass\n\n.. cs:{directive}:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)[node_id] == text
+    assert references(app, node_id) == links
+
+
 def test_invalid_tuple_element(build):
     app = build('.. cs:function:: (int, , string) Foo ()\n')
     assert len(warnings(app)) == 1
