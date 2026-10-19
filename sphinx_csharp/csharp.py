@@ -69,7 +69,7 @@ from .render import (
     space,
 )
 
-# The object types of types and namespaces, as opposed to members
+# The object types whose qualified names nest in the TOC, as N.Outer.Inner does
 TYPE_OBJTYPES = {'namespace', 'class', 'struct', 'interface', 'enum', 'record', 'delegate'}
 
 
@@ -189,8 +189,9 @@ class CSharpObject(ObjectDescription[str]):
 
     def describe_name(self, signode: addnodes.desc_signature, name: str) -> str:
         """
-        Finish a signature, and return the full name of the object it describes. Each signature calls this last.
-        Notes the parts of the name for the TOC, and puts each parameter on a line of its own in a long signature.
+        Finish a signature, and return the full name of the object it describes.
+        A signature with a target calls this last. It notes the parts of the name for the TOC,
+        and puts each parameter on a line of its own in a long signature.
         """
         parent = self.get_parent()
         # The TOC nests the entry of a member in the entry of its type, and IFoo.Bar is one member
@@ -373,7 +374,7 @@ class CSharpObject(ObjectDescription[str]):
         if inherits:
             self.append_inherits(signode, inherits, generic_params)
         self.append_constraints(signode, constraints, generic_params)
-        # Set last, as add_target_and_index takes it and does not run for a signature that fails to render
+        # Set after the signature parses, as add_target_and_index takes it and runs only for a signature that renders
         self.dispname = remove_arity(self.get_fullname(display)) + \
             ('<' + ', '.join(generic_params) + '>' if generic_params else '')
         return self.describe_name(signode, generic_type_name(typ, len(generics)))
@@ -752,7 +753,7 @@ class CSharpXRefRole(XRefRole):
     def process_link(self, env: BuildEnvironment, refnode: nodes.Element, has_explicit_title: bool,
                      title: str, target: str) -> tuple[str, str]:
         refnode['cs:parent'] = env.ref_context.get('cs:parent')
-        # Intersphinx shows the title as written, as a local reference does, rather than the name in the inventory
+        # Intersphinx shows the title as written, as a local reference does
         refnode['refexplicit'] = True
         # A target that starts with ~ shows only the last part of its name
         if target.startswith('~'):
