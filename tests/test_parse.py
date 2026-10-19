@@ -1,6 +1,6 @@
 import pytest
 
-from sphinx_csharp.csharp import (
+from sphinx_csharp.parser import (
     Constraint,
     MethodSig,
     ParamTuple,
