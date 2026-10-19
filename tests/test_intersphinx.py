@@ -45,6 +45,10 @@ def library(tmp_path_factory):
     ('.. cs:namespace:: Lib\n\n:cs:type:`Plain` :cs:type:`Box\\<T>`',
      {'Plain': 'class-Lib.Plain', 'Box<T>': 'class-Lib.Box-1'}),
     ('.. cs:namespace:: Lib\n\n:cs:type:`Lib.Box\\<T>`', {'Lib.Box<T>': 'class-Lib.Box-1'}),
+    ('.. cs:namespace:: App\n\n:cs:type:`Lib.Box\\<T>` :cs:meth:`Lib.Box\\<T>.Put`',
+     {'Lib.Box<T>': 'class-Lib.Box-1', 'Lib.Box<T>.Put': 'function-Lib.Box-1.Put'}),
+    ('.. cs:namespace:: App\n\n.. cs:function:: void Foo (Lib.Box<int> box)',
+     {'Lib.Box': 'class-Lib.Box-1', 'int': None}),
     ('.. cs:function:: void Foo (Lib.Box<int> box)', {'Lib.Box': 'class-Lib.Box-1', 'int': None}),
 ])
 def test_intersphinx(build, library, rst, links):

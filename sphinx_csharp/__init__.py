@@ -17,6 +17,8 @@ def setup(app: Sphinx) -> 'ExtensionMetadata':
     # Register domain
     app.add_domain(CSharpDomain)
     app.connect('config-inited', CSharpDomain.apply_config)
+    # Before intersphinx, which resolves a missing reference at the default priority of 500
+    app.connect('missing-reference', CSharpDomain.missing_reference, priority=400)
 
     add_config_values(app)
 

@@ -13,6 +13,7 @@ from sphinx.config import Config
 from sphinx.directives import ObjectDescription
 from sphinx.domains import Domain, ObjType
 from sphinx.environment import BuildEnvironment
+from sphinx.ext.intersphinx import missing_reference as intersphinx_missing_reference
 from sphinx.locale import _
 from sphinx.roles import XRefRole
 from sphinx.util import logging
@@ -853,6 +854,23 @@ class CSharpDomain(Domain):
         super().__init__(env)
         # The keys of the objects by simple name, such as Put for N.Box-1.Put(T), or None until a lookup builds it
         self.object_index: dict[str, list[tuple[str, str]]] | None = None
+
+    @staticmethod
+    def missing_reference(app: Sphinx, env: BuildEnvironment, node: addnodes.pending_xref,
+                          contnode: nodes.TextElement) -> nodes.reference | None:
+        """
+        Look a generic target up in other projects with the arity it has in their inventories, as written.
+        Intersphinx tries the target as written, such as Lib.Box<T>, and then get_full_qualified_name, which
+        qualifies it with the current namespace.
+        """
+        if node.get('refdomain') != 'cs' or 'sphinx.ext.intersphinx' not in app.extensions:
+            return None
+        name = arity_name(normalize_signature(node.get('cs:name', node['reftarget'])))
+        if name == node['reftarget']:
+            return None
+        written = node.deepcopy()
+        written['reftarget'] = name
+        return intersphinx_missing_reference(app, env, written, contnode)
 
     @staticmethod
     def apply_config(_app: "Sphinx", config: Config) -> None:
