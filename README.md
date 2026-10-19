@@ -139,6 +139,18 @@ suppress_warnings = ['cs.ambiguous']
 - `cs.config`: an option has a deprecated name.
 - `cs.namespace`: a `namespace-pop` has no `namespace-push` to undo.
 
+### Breathe Limitations
+
+Doxygen and Breathe leave some C# out of the signatures they pass to sphinx-csharp:
+
+- Doxygen drops generic constraints, such as `where T : class`, and `protected internal` members.
+- Doxygen drops the members of a record or class with a primary constructor, and a record with a base type.
+- Doxygen drops a class with a primary constructor and a base type, and the declarations after it in the same file.
+- Doxygen describes a field with a named tuple type, such as `(int X, int Y) Pos`, as two invalid fields.
+- Doxygen drops C# 14 extension blocks and their members.
+- Breathe shows only the `get` and `set` accessors without access levels, so `{ get; private set; }` and `{ get; init; }` render as `{ get; }`.
+- Breathe drops the accessors of events, the underlying types of enums, and the `ref` of a `ref struct`.
+
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`config.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/config.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 
