@@ -233,7 +233,7 @@
 
    Another attribute.
 
-.. attribute:: MyAttribute4<T> (int param1)
+.. attribute:: MyGenericAttribute<T> (T value)
 
    A generic attribute.
 
@@ -277,6 +277,8 @@ Generic method in generic class ref :func:`MyGenericClass.AGenericMethod`
 Attribute ref :attr:`MyAttribute1`
 
 Attribute ref :attr:`MyAttribute2`
+
+Generic attribute ref :attr:`MyGenericAttribute`
 
 Indexer ref :idxr:`MyClass.this[]`
 

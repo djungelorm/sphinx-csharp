@@ -560,11 +560,14 @@ class CSharpAttribute(CSharpObject):
     """ Description of a C# attribute """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        name, params = parse_attr_signature(sig, (self.env.docname, self.lineno))
+        name, params, generic_params = parse_attr_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
+        if generic_params:
+            self.append_generics(signode, generic_params, nolink=True)
+        self.generic_names = generic_params
         if params:
             signode += nodes.Text('\xa0')
-            self.append_parameters(signode, params)
+            self.append_parameters(signode, params, generic_params)
         return self.get_fullname(name)
 
 

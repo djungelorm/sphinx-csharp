@@ -532,6 +532,13 @@ def test_parameter_attributes_and_modifiers(build):
         'bool Try ([NotNullWhen(true)] out string? s, scoped ref readonly int i)'
 
 
+def test_generic_attribute(build):
+    app = build('.. cs:attribute:: MyAttr<T> (T value, int count)\n\n:cs:attr:`MyAttr`\n')
+    assert warnings(app) == []
+    assert signatures(app)['attribute-MyAttr'] == 'MyAttr<T> (T value, int count)'
+    assert references(app) == {'int': MICROSOFT_DOCS + 'System.Int32', 'MyAttr': 'attribute-MyAttr'}
+
+
 @pytest.mark.parametrize('directive, sig, node_id, text', [
     ('function', '[Obsolete("Use Bar")] void Foo ()', 'function-Foo', '[Obsolete("Use Bar")] void Foo ()'),
     ('function', '[Serializable] record Point (int X)', 'record-Point', '[Serializable] record Point (int X)'),
@@ -581,12 +588,10 @@ def test_nested_tuple(build):
     assert references(app, 'function-Pair') == {'int': MICROSOFT_DOCS + 'System.Int32', 'MyClass': 'class-MyClass'}
 
 
-def test_qualified_enumerator_and_generic_attribute(build):
-    app = build('.. cs:enum:: Color\n\n.. cs:enumerator:: Color.Red = 1\n\n.. cs:attribute:: MyAttr<T> (int a)\n\n'
-                ':cs:enumerator:`Color.Red`\n')
+def test_qualified_enumerator(build):
+    app = build('.. cs:enum:: Color\n\n.. cs:enumerator:: Color.Red = 1\n\n:cs:enumerator:`Color.Red`\n')
     assert warnings(app) == []
     assert signatures(app)['enumerator-Color.Red'] == 'Color.Red = 1'
-    assert signatures(app)['attribute-MyAttr<T>'] == 'MyAttr<T> (int a)'
     assert references(app)['Color.Red'] == 'enumerator-Color.Red'
 
 

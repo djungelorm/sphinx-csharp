@@ -130,6 +130,7 @@ class EnumeratorSig(NamedTuple):
 class AttrSig(NamedTuple):
     name: str
     params: list[ParamTuple]
+    generic_params: list[str]
 
 
 class ParsedType(NamedTuple):
@@ -293,15 +294,13 @@ class Parser:
         return name
 
     def generic_qualified_name(self) -> str:
-        """ A qualified name with generic arguments, such as Outer<T>.Color, without whitespace """
+        """ A qualified name in generic outer types, such as Outer<T>.Color, without whitespace """
         name = self.qualified_name()
         while self.at('<'):
             start = self.pos
             self.group('<', '>')
             name += ''.join(self.text(start).split())
-            if not (self.at('.') and is_name(self.peek(1))):
-                break
-            self.pos += 1
+            self.expect('.')
             name += '.' + self.qualified_name()
         return name
 
@@ -577,9 +576,10 @@ class Parser:
 
     def attribute(self) -> AttrSig:
         """ An attribute class, such as MyAttr<T>(T a) """
-        name = self.generic_qualified_name()
+        name = self.qualified_name()
+        generic_params = self.generic_args()
         params = self.params(')') if self.accept('(') else []
-        return AttrSig(name, params)
+        return AttrSig(name, params, generic_params)
 
 
 def try_parse(sig: str, production: Callable[[Parser], T]) -> T | None:
