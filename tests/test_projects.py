@@ -46,8 +46,9 @@ def test_breathe(make_app, rootdir, tmp_path):
 
 @requires_doxygen
 def test_breathe_parallel(make_app, rootdir, tmp_path):
+    pytest.importorskip('breathe')
     srcdir = breathe_project(rootdir, tmp_path)
-    # Sphinx reads and writes in parallel when a project has more than five documents
+    # Sphinx 8.0 and earlier read in parallel only when a project has more than five documents
     classes = ['MyNamespace::MyClass', 'OtherNamespace::B', 'OtherNamespace::Foo', 'OtherNamespace::Bar',
                'OtherNamespace::Overloads', 'OtherNamespace::Accessors', 'OtherNamespace::Indexer']
     pages = [f'page{i}' for i in range(len(classes))]
