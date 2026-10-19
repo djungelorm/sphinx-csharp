@@ -47,6 +47,7 @@ from .parser import (
     parse_variable_signature,
     remove_arity,
     remove_generic_arguments,
+    simple_name,
     split_attributes,
     split_declarators,
     split_type_keyword,
@@ -715,6 +716,11 @@ class CSharpDomain(Domain):
     # The version of the objects data, which Sphinx compares with a saved environment
     data_version = 1
 
+    def __init__(self, env: BuildEnvironment) -> None:
+        super().__init__(env)
+        # The keys of the objects by simple name, such as Put for N.Box-1.Put(T), or None until a lookup builds it
+        self.object_index: dict[str, list[tuple[str, str]]] | None = None
+
     @staticmethod
     def apply_config(_app: "Sphinx", config: Config) -> None:
         """ Read in the config variables, called once the config is initialized (this is a callback) """
@@ -729,6 +735,7 @@ class CSharpDomain(Domain):
             raise
 
     def clear_doc(self, docname: str) -> None:
+        self.object_index = None
         for key, entries in list(self.duplicates.items()):
             self.duplicates[key] = [entry for entry in entries if entry.docname != docname]
         for key, entry in list(self.objects.items()):
@@ -754,6 +761,7 @@ class CSharpDomain(Domain):
 
     def add_object(self, key: tuple[str, str], entry: ObjectEntry) -> None:
         """ Add a description of an object. References link to the description in the first document by name. """
+        self.object_index = None
         existing = self.objects.get(key)
         if existing is None:
             self.objects[key] = entry
@@ -793,9 +801,14 @@ class CSharpDomain(Domain):
         def refers_to(name: str) -> bool:
             return name == target or name.endswith('.' + target)
 
+        if self.object_index is None:
+            self.object_index = {}
+            for key in self.objects:
+                self.object_index.setdefault(simple_name(key[1]), []).append(key)
+
         # The first overload of each method, by document and then name
         first_overloads: dict[tuple[str, str], tuple[str, str]] = {}
-        for key in self.objects:
+        for key in self.object_index.get(simple_name(target), []):
             if key[0] in objtypes and any(refers_to(name) for name in names(key)):
                 method = (key[0], self.objects[key].name)
                 if method not in first_overloads or self.object_order(key) < self.object_order(first_overloads[method]):

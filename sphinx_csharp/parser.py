@@ -814,6 +814,13 @@ def remove_arity(name: str) -> str:
     return '.'.join(without_arity(part) for part in name[:end].split('.')) + name[end:]
 
 
+@functools.cache
+def simple_name(name: str) -> str:
+    """ The last part of a name without generic arguments, arity or parameters, such as Put for N.Box-1.Put<U>(U) """
+    last = split_sig(name[:parameters_start(name)], '.')[-1] if name else ''
+    return remove_arity(without_generic_arguments(last).strip())
+
+
 def is_function_pointer(typ: str) -> bool:
     """ Whether a type name is a function pointer, such as delegate* unmanaged[Cdecl] """
     return typ.startswith('delegate') and typ.removeprefix('delegate').lstrip().startswith('*')

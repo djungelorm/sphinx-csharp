@@ -25,6 +25,7 @@ from sphinx_csharp.parser import (
     parse_variable_signature,
     remove_arity,
     remove_generic_arguments,
+    simple_name,
     split_attributes,
     split_declarators,
     split_sig,
@@ -77,6 +78,19 @@ def test_split_sig(params, expected):
 def test_arity_name(name, expected):
     assert arity_name(name) == expected
     assert remove_arity(expected) == remove_generic_arguments(name)
+
+
+@pytest.mark.parametrize('name, expected', [
+    ('N.Box-1.Put<U>(U)', 'Put'),
+    ('N.C.IDictionary<string, int>.TryGetValue(string)', 'TryGetValue'),
+    ('Box<T>', 'Box'),
+    ('N.C.this[int]', 'this'),
+    ('N.C.op_Implicit(N.C)~int', 'op_Implicit'),
+    ('N.C.static C()', 'static C'),
+    ('', ''),
+])
+def test_simple_name(name, expected):
+    assert simple_name(name) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [
