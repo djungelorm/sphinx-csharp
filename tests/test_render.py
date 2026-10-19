@@ -6,6 +6,7 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.errors import ExtensionError
 
+from sphinx_csharp.csharp import ObjectEntry
 from sphinx_csharp.extrefs import ExternalRefs
 from sphinx_csharp.extrefs_data import ExternalRefsData
 
@@ -291,9 +292,23 @@ def test_overload_reference_is_stable_across_builds(build, make_app, tmp_path):
     assert references(app)['Foo'] == 'a.html#function-Foo'
 
 
+@pytest.mark.parametrize('subtype, rst, confoverrides', [
+    ('duplicate', '.. cs:class:: Foo\n\n.. cs:class:: Foo\n', {}),
+    ('ambiguous', '.. cs:class:: A.Foo\n\n.. cs:class:: B.Foo\n\n:cs:type:`Foo`\n', {}),
+    ('parse', '.. cs:function:: void Foo (int)\n', {}),
+    ('external', '.. cs:function:: void Foo (Bar a)\n',
+     {'sphinx_csharp_external_type_map': {'msdn': {'A': ['Bar'], 'B': ['Bar']}}}),
+    ('config', '', {'sphinx_csharp_ignore_xref': ['Foo']}),
+])
+@pytest.mark.parametrize('suppressed', [False, True])
+def test_suppress_warnings(build, subtype, rst, confoverrides, suppressed):
+    app = build(rst, suppress_warnings=[f'cs.{subtype}'] if suppressed else [], **confoverrides)
+    assert len(warnings(app)) == (0 if suppressed else 1)
+
+
 def test_config_is_not_merged_twice(build):
-    build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
-    build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
+    build(SOURCE, sphinx_csharp_ignore_types=['Foo'])
+    build(SOURCE, sphinx_csharp_ignore_types=['Foo'])
     assert ExternalRefs.ignore_xref_types.count('Foo') == 1
     assert 'Foo' not in ExternalRefsData.ignore_xref_types
 
@@ -488,8 +503,7 @@ def test_extension_blocks(build):
         'function-Extensions.First()': 'public T First ()',
         'function-Extensions.Empty': 'public static string Empty ()',
         'function-Extensions.Empty()': 'public static string Empty ()'}
-    assert [node.astext().replace('\xa0', ' ') for node in resolved_doctree(app).findall(addnodes.desc_signature)
-            if not node['ids']] == [
+    assert [node.astext() for node in resolved_doctree(app).findall(addnodes.desc_signature) if not node['ids']] == [
         'extension (string s)',
         'extension<T> (IEnumerable<T> source) where T : notnull',
         'extension (string)']
@@ -801,7 +815,7 @@ def test_nested_type_in_generic_type(build):
 
 def test_nested_type_in_unknown_or_ignored_type(build):
     app = build('.. cs:function:: Missing<int>.Inner Foo ()\n\n.. cs:function:: Skip<int>.Inner Bar ()\n',
-                sphinx_csharp_ignore_xref=['Skip', 'Skip.Inner'])
+                sphinx_csharp_ignore_types=['Skip', 'Skip.Inner'])
     assert len(warnings(app)) == 2
     assert 'Missing' in warnings(app)[0] and 'Missing.Inner' in warnings(app)[1]
     assert signatures(app)['function-Bar'] == 'Skip<int>.Inner Bar ()'
@@ -906,6 +920,158 @@ def test_any_reference_prefers_current_namespace(build):
                 '.. cs:namespace:: N2\n\n.. cs:class:: Foo\n\n:any:`Foo`\n')
     assert warnings(app) == []
     assert references(app)['Foo'] == 'class-N2.Foo'
+
+
+NAMESPACES = '''
+.. cs:namespace-push:: N
+
+.. cs:class:: A
+
+.. cs:namespace-push:: Inner
+
+.. cs:class:: B
+
+.. cs:namespace-pop::
+
+.. cs:class:: C
+
+:cs:namespace:`N` :cs:namespace:`N.Inner` :cs:type:`B`
+'''
+
+
+def test_namespace_push_and_pop(build):
+    app = build(NAMESPACES)
+    assert warnings(app) == []
+    assert {'class-N.A', 'class-N.Inner.B', 'class-N.C'} <= set(signatures(app))
+    assert references(app) == {'N': 'namespace-N', 'N.Inner': 'namespace-N.Inner', 'B': 'class-N.Inner.B'}
+
+
+@pytest.mark.parametrize('rst', [
+    '.. cs:namespace-pop::\n',
+    '.. cs:namespace-push:: N\n\n.. cs:namespace:: M\n\n.. cs:namespace-pop::\n',
+])
+def test_namespace_pop_without_push(build, rst):
+    app = build(rst)
+    assert len(warnings(app)) == 1
+    assert 'namespace-pop without a namespace-push' in warnings(app)[0]
+
+
+def test_namespace_on_several_pages(build):
+    pages = {'a': 'A\n=\n\n.. cs:namespace:: N\n', 'b': 'B\n=\n\n.. cs:namespace:: N\n\n.. cs:namespace:: N\n'}
+    app = build('.. toctree::\n\n   a\n   b\n\n:cs:namespace:`N`\n', pages=pages)
+    assert warnings(app) == []
+    assert references(app)['N'] == 'a.html#namespace-N'
+
+
+def test_namespace_plain_in_its_own_namespace(make_app, tmp_path):
+    # Breathe runs CSharpNamespacePlain under the name cs:namespace
+    (tmp_path / 'conf.py').write_text(
+        "from sphinx_csharp.csharp import CSharpNamespacePlain\n"
+        "class Plain(CSharpNamespacePlain):\n"
+        "    def run(self):\n"
+        "        self.name = 'cs:namespace'\n"
+        "        return super().run()\n"
+        "extensions = ['sphinx_csharp']\n"
+        "def setup(app):\n"
+        "    app.add_directive_to_domain('cs', 'namespace-plain', Plain)\n")
+    (tmp_path / 'index.rst').write_text('.. cs:namespace:: N\n\n.. cs:namespace-plain:: N\n\n'
+                                        '   .. cs:class:: C\n\n:cs:namespace:`N` :cs:class:`N.C`\n')
+    app = make_app('html', srcdir=tmp_path, confoverrides={'nitpicky': True})
+    app.build()
+    assert warnings(app) == []
+    assert set(app.env.domaindata['cs']['objects']) == {('namespace', 'N'), ('class', 'N.C')}
+    assert references(app) == {'N': 'namespace-N', 'N.C': 'class-N.C'}
+
+
+def test_namespace_pop_adds_no_target(build):
+    app = build('.. cs:namespace:: N\n   :no-index:\n\n.. cs:namespace-push:: Inner\n\n.. cs:namespace-pop::\n\n'
+                '.. cs:class:: A\n\n:cs:namespace:`N`\n')
+    assert len(warnings(app)) == 1
+    assert 'cs:namespace reference target not found: N' in warnings(app)[0]
+    assert ('namespace', 'N') not in app.env.domaindata['cs']['objects']
+    assert 'class-N.A' in signatures(app)
+
+
+def test_namespace_without_index(build):
+    app = build('.. cs:namespace:: N\n   :no-index:\n\n.. cs:class:: A\n\n:cs:namespace:`N`\n')
+    assert len(warnings(app)) == 1
+    assert 'cs:namespace reference target not found: N' in warnings(app)[0]
+    assert 'class-N.A' in signatures(app)
+
+
+@pytest.mark.parametrize('role, title, target', [
+    (':cs:type:`~N.Foo`', 'Foo', 'class-N.Foo'),
+    (':cs:type:`~N.Box\\<T>`', 'Box<T>', 'class-N.Box-1'),
+    (':cs:meth:`~N.Box\\<T>.Put(int)`', 'Put(int)', 'function-N.Box-1.Put(int)'),
+    (':cs:type:`title <~N.Foo>`', 'title', 'class-N.Foo'),
+])
+def test_tilde_shows_last_name_part(build, role, title, target):
+    app = build('.. cs:class:: N.Foo\n\n.. cs:class:: N.Box<T>\n\n   .. cs:function:: void Put (int a)\n\n'
+                + role + '\n')
+    assert warnings(app) == []
+    assert references(app)[title] == target
+
+
+TOC_SOURCE = '''
+Title
+=====
+
+.. cs:namespace:: N
+
+.. cs:class:: Box<T>
+
+   .. cs:function:: void Put (T item)
+
+   .. cs:property:: int Count { get; }
+
+   .. cs:function:: void IDisposable.Dispose ()
+
+.. cs:class:: Hidden
+   :no-contents-entry:
+
+.. cs:namespace:: None
+
+.. cs:enum:: Other.Color
+'''
+
+
+def toc_lines(node, depth=0):
+    """ The text of each entry in a TOC, indented by its depth """
+    lines = []
+    for item in node.children:
+        lines.append('  ' * depth + item[0].astext())
+        for child in item[1:]:
+            lines += toc_lines(child, depth + 1)
+    return lines
+
+
+@pytest.mark.parametrize('show_parents, entries', [
+    ('domain', ['Box', '  Box.Put()', '  Box.Count', '  Box.IDisposable.Dispose()', 'Other.Color']),
+    ('hide', ['Box', '  Put()', '  Count', '  IDisposable.Dispose()', 'Color']),
+    ('all', ['N.Box', '  N.Box.Put()', '  N.Box.Count', '  N.Box.IDisposable.Dispose()', 'Other.Color']),
+])
+def test_toc_entries(build, show_parents, entries):
+    app = build(TOC_SOURCE, toc_object_entries_show_parents=show_parents)
+    assert warnings(app) == []
+    assert toc_lines(app.env.tocs['index']) == ['Title', *('  ' + entry for entry in entries)]
+
+
+@pytest.mark.parametrize('rst, confoverrides, wrapped', [
+    ('.. cs:function:: void Foo (int first, int second)\n', {'maximum_signature_line_length': 30}, True),
+    ('.. cs:function:: void Foo (int first, int second)\n', {'maximum_signature_line_length': 40}, False),
+    ('.. cs:function:: void Foo (int first, int second)\n', {}, False),
+    ('.. cs:function:: void Foo (int first, int second)\n',
+     {'maximum_signature_line_length': 40, 'sphinx_csharp_maximum_signature_line_length': 30}, True),
+    ('.. cs:function:: void Foo (int first, int second)\n   :single-line-parameter-list:\n',
+     {'maximum_signature_line_length': 30}, False),
+    ('.. cs:class:: Point (int first, int second)\n', {'maximum_signature_line_length': 30}, True),
+])
+def test_long_signature_wraps(build, rst, confoverrides, wrapped):
+    app = build(rst, **confoverrides)
+    assert warnings(app) == []
+    doctree = resolved_doctree(app)
+    assert [bool(node.get('multi_line_parameter_list')) for node in doctree.findall(addnodes.desc_parameterlist)] \
+        == [wrapped]
 
 
 def test_namespace_none_clears_namespace(build):
@@ -1054,6 +1220,38 @@ def test_rebuild_keeps_objects_from_other_pages(build, tmp_path):
     assert references(app)['Page1Class'] == 'page1.html#class-Page1Class'
 
 
+@pytest.mark.parametrize('removed, target', [('a', 'b.html#class-Foo'), ('b', 'a.html#class-Foo')])
+def test_rebuild_keeps_duplicate_description(build, tmp_path, removed, target):
+    pages = {'a': 'A\n=\n\n.. cs:class:: Foo\n', 'b': 'B\n=\n\n.. cs:class:: Foo\n'}
+    app = build('.. toctree::\n\n   a\n   b\n\n:cs:type:`Foo`\n', pages=pages)
+    assert references(app)['Foo'] == 'a.html#class-Foo'
+    (tmp_path / f'{removed}.rst').write_text(f'{removed.upper()}\n=\n')
+    app.build()
+    assert app.env.get_domain('cs').duplicates == {}
+    assert references(app)['Foo'] == target
+
+
+def test_duplicate_description_in_one_parallel_chunk(build):
+    # Sphinx reads the index and pages 0 and 1 in one process
+    pages = {f'page{i}': f'Page {i}\n======\n\n.. cs:class:: Page{i}Class\n' for i in range(6)}
+    for name in ('page0', 'page1'):
+        pages[name] += '\n.. cs:class:: Foo\n'
+    app = build('.. toctree::\n\n' + ''.join(f'   {name}\n' for name in pages) + '\n:cs:type:`Foo`\n',
+                pages=pages, parallel=2)
+    assert len(warnings(app)) == 1
+    assert [entry.docname for entry in app.env.get_domain('cs').duplicates['class', 'Foo']] == ['page1']
+    assert references(app)['Foo'] == 'page0.html#class-Foo'
+
+
+def test_merge_takes_duplicates_from_the_merged_pages(build):
+    app = build('')
+    domain = app.env.get_domain('cs')
+    entries = [ObjectEntry('a', 'Foo', 'Foo'), ObjectEntry('b', 'Foo', 'Foo')]
+    domain.merge_domaindata({'b'}, {'objects': {}, 'duplicates': {('class', 'Foo'): entries}})
+    assert domain.objects == {('class', 'Foo'): entries[1]}
+    assert domain.duplicates == {}
+
+
 def test_reference_without_target(build):
     app = build('.. cs:class:: Foo\n')
     node = addnodes.pending_xref('', refdomain='cs', reftype='type')
@@ -1090,10 +1288,55 @@ def test_debug_logging(build):
         assert text in log
 
 
+@pytest.mark.parametrize('old, new, value', [
+    ('sphinx_csharp_ext_type_map', 'sphinx_csharp_external_type_map', {'msdn': {'N': ['Foo']}}),
+    ('sphinx_csharp_ext_search_pages', 'sphinx_csharp_external_search_pages', {'pkg': ('%s', '%s')}),
+    ('sphinx_csharp_ignore_xref', 'sphinx_csharp_ignore_types', ['Foo']),
+    ('sphinx_csharp_test_links', 'sphinx_csharp_check_external_links', True),
+])
+def test_deprecated_config_name(build, old, new, value):
+    app = build('', **{old: value})
+    assert len(warnings(app)) == 1
+    assert f'{old} is deprecated, use {new}' in warnings(app)[0]
+    assert app.config[new] == value
+
+
+@pytest.mark.parametrize('flags, categories', [
+    ({'sphinx_csharp_debug_parse_func': True, 'sphinx_csharp_debug_ext_links': True}, ['external', 'parse']),
+    ({'sphinx_csharp_debug_xref': False}, False),
+])
+def test_deprecated_debug_flags(build, flags, categories):
+    app = build('', **flags)
+    assert len(warnings(app)) == len(flags)
+    assert all('is deprecated, use sphinx_csharp_debug = [' in warning for warning in warnings(app))
+    debug = app.config.sphinx_csharp_debug
+    assert (list(debug) if debug else debug) == categories
+
+
+@pytest.mark.parametrize('debug, text, logged', [
+    (['parse'], 'parsed func:', True),
+    (['xref'], 'parsed func:', False),
+    (['xref'], 'no C# object found for Missing', True),
+])
+def test_debug_categories(build, debug, text, logged):
+    app = build(DEBUG_SOURCE, nitpicky=False, sphinx_csharp_debug=debug)
+    assert (text in status(app)) == logged
+
+
+def test_unknown_debug_category(make_app, tmp_path):
+    (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
+    (tmp_path / 'index.rst').write_text('')
+    warning = StringIO()
+    with pytest.raises(ExtensionError):
+        make_app('html', srcdir=tmp_path, warning=warning, confoverrides={'sphinx_csharp_debug': ['parsing']})
+    assert "unknown sphinx_csharp_debug categories ['parsing']" in warning.getvalue()
+
+
 def test_invalid_config(make_app, tmp_path):
     (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
     (tmp_path / 'index.rst').write_text('')
     warning = StringIO()
     with pytest.raises(ExtensionError):
-        make_app('html', srcdir=tmp_path, warning=warning, confoverrides={'sphinx_csharp_ext_type_map': {'pkg': ['A']}})
+        make_app('html', srcdir=tmp_path, warning=warning,
+                 confoverrides={'sphinx_csharp_external_type_map': {'pkg': ['A']}})
     assert 'Error in CSharpDomain.apply_config()' in warning.getvalue()

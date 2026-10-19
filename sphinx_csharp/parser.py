@@ -814,6 +814,19 @@ def remove_arity(name: str) -> str:
     return '.'.join(without_arity(part) for part in name[:end].split('.')) + name[end:]
 
 
+def last_name_part(name: str) -> str:
+    """ The last part of a name, with its generic arguments and parameters, such as Put(T) for N.Box<T>.Put(T) """
+    end = parameters_start(name)
+    return split_sig(name[:end], '.')[-1] + name[end:]
+
+
+@functools.cache
+def simple_name(name: str) -> str:
+    """ The last part of a name without generic arguments, arity or parameters, such as Put for N.Box-1.Put<U>(U) """
+    last = split_sig(name[:parameters_start(name)], '.')[-1] if name else ''
+    return remove_arity(without_generic_arguments(last).strip())
+
+
 def is_function_pointer(typ: str) -> bool:
     """ Whether a type name is a function pointer, such as delegate* unmanaged[Cdecl] """
     return typ.startswith('delegate') and typ.removeprefix('delegate').lstrip().startswith('*')
@@ -883,7 +896,7 @@ def strip_semicolon(sig: str) -> str:
 
 def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
     """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
-    logger.warning(f'{kind} signature invalid: {sig}', location=location)
+    logger.warning(f'{kind} signature invalid: {sig}', location=location, type='cs', subtype='parse')
     return ValueError(f'{kind} signature invalid: {sig}')
 
 
@@ -891,7 +904,7 @@ def parse_method_signature(sig: str, location: Location) -> MethodSig:
     """ Parse a method signature of the form: modifier* type name (params),
         or an operator signature such as: modifier* type operator + (params) """
     result = parse('Method', sig, location, Parser.method)
-    if CSDebug.parse_func:
+    if CSDebug.parse:
         logger.info(f"parsed func: {tuple(result)}")
     return result
 
@@ -899,7 +912,7 @@ def parse_method_signature(sig: str, location: Location) -> MethodSig:
 def parse_variable_signature(sig: str, location: Location) -> VariableSig:
     """ Parse a variable signature of the form: modifier* type name = value """
     result = parse('Variable', sig, location, Parser.variable)
-    if CSDebug.parse_var:
+    if CSDebug.parse:
         logger.info(f"parsed var: {tuple(result)}")
     return result
 
@@ -909,11 +922,11 @@ def parse_property_signature(sig: str, location: Location) -> PropertySig:
         modifier* type name { accessor* } (= value)? or modifier* type name => expression """
     result = try_parse(strip_semicolon(sig), Parser.property)
     if result is None:
-        if CSDebug.parse_prop:
+        if CSDebug.parse:
             logger.info(f'Property signature not valid, falling back to variable: {sig}', location=location)
         var = parse_variable_signature(sig, location)
         return PropertySig(var.modifiers, var.fulltype, var.name, [], var.default)
-    if CSDebug.parse_prop:
+    if CSDebug.parse:
         logger.info(f"parsed prop: {tuple(result)}")
     return result
 
@@ -927,7 +940,7 @@ def parse_indexer_signature(sig: str, location: Location) -> IndexerSig:
     """ Parse a indexer signature of the form:
         modifier* type (interface.)?this[params] ({ accessor* } | => expression)? """
     result = parse('Indexer', sig, location, Parser.indexer)
-    if CSDebug.parse_idxr:
+    if CSDebug.parse:
         logger.info(f"parsed idxr: {tuple(result)}")
     return result
 
@@ -935,7 +948,7 @@ def parse_indexer_signature(sig: str, location: Location) -> IndexerSig:
 def parse_type_signature(sig: str | None, location: Location) -> TypeSig:
     """ Parse a type declaration or usage signature """
     result = parse('Type', sig or '', location, Parser.type_signature)
-    if CSDebug.parse_type:
+    if CSDebug.parse:
         logger.info(f"parsed type: {tuple(result)}")
     return result
 
@@ -1044,6 +1057,6 @@ def parse_extension_signature(sig: str, location: Location) -> ExtensionSig:
 def parse_attr_signature(sig: str, location: Location) -> AttrSig:
     """ Parse an attribute signature """
     result = parse('Attribute', sig, location, Parser.attribute)
-    if CSDebug.parse_attr:
+    if CSDebug.parse:
         logger.info(f"parsed attr: {tuple(result)}")
     return result

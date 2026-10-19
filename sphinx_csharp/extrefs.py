@@ -1,6 +1,8 @@
+import http.client
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 
-import requests
 from docutils import nodes
 from sphinx.config import Config
 from sphinx.util import logging
@@ -16,7 +18,9 @@ class ExternalRefs:
     All data is stored in a separate file in the class ExternalRefsData """
 
     extlink_cache: dict[tuple[str, int], tuple[str, str]] = {}
-    test_links = False
+    check_links = False
+    # Whether the build has logged that the links are checked
+    check_links_logged = False
     multi_lang = False
     unqualified_namespaces: list[str] = []
     ignore_xref_types: list[str] = []
@@ -28,21 +32,22 @@ class ExternalRefs:
     def apply_config(cls, config: Config) -> None:
         """ Merge the config values with the defaults in ExternalRefsData """
         cls.extlink_cache = {}
-        cls.test_links = config['sphinx_csharp_test_links']
+        cls.check_links = config['sphinx_csharp_check_external_links']
+        cls.check_links_logged = False
         cls.multi_lang = config['sphinx_csharp_multi_language']
 
         # Start from copies so that the defaults are never modified
         cls.unqualified_namespaces = ExternalRefsData.unqualified_namespaces + \
             (config['sphinx_csharp_unqualified_namespaces'] or [])
-        cls.ignore_xref_types = ExternalRefsData.ignore_xref_types + (config['sphinx_csharp_ignore_xref'] or [])
+        cls.ignore_xref_types = ExternalRefsData.ignore_xref_types + (config['sphinx_csharp_ignore_types'] or [])
         cls.external_type_rename = {**ExternalRefsData.external_type_rename,
                                     **(config['sphinx_csharp_external_type_rename'] or {})}
         cls.external_search_pages = {**ExternalRefsData.external_search_pages,
-                                     **(config['sphinx_csharp_ext_search_pages'] or {})}
+                                     **(config['sphinx_csharp_external_search_pages'] or {})}
 
         cls.external_type_map = {pkg: {ns: list(types) for ns, types in namespaces.items()}
                                  for pkg, namespaces in ExternalRefsData.external_type_map.items()}
-        for pkg, namespaces in (config['sphinx_csharp_ext_type_map'] or {}).items():
+        for pkg, namespaces in (config['sphinx_csharp_external_type_map'] or {}).items():
             for ns, types in namespaces.items():
                 cls.external_type_map.setdefault(pkg, {}).setdefault(ns, []).extend(types)
 
@@ -60,13 +65,13 @@ class ExternalRefs:
         return typ
 
     @classmethod
-    def get_nested_external_ref(cls, outer: str, arity: int, nested: str, objtype: str,
-                                contnode: nodes.Node) -> nodes.reference | None:
+    def get_nested_external_ref(cls, outer: str, arity: int, nested: str, objtype: str, contnode: nodes.Node,
+                                location: nodes.Node | None = None) -> nodes.reference | None:
         """
         Link a type nested in an external type, such as Enumerator in List<T>.Enumerator, to the Microsoft docs.
         arity is the number of generic arguments of the outer type.
         """
-        ref = cls.get_external_ref(outer, objtype, nodes.Text(''), arity)
+        ref = cls.get_external_ref(outer, objtype, nodes.Text(''), arity, location)
         # The Microsoft docs name a nested type page by appending it to the page of the outer type
         if ref is None or not ref['refuri'].startswith(cls.external_search_pages['msdn'][0] % ''):
             return None
@@ -77,10 +82,11 @@ class ExternalRefs:
 
     @classmethod
     def get_external_ref(cls, name: str, objtype: str, contnode: nodes.Node,  # noqa: PLR0912, PLR0915
-                         arity: int = 0) -> nodes.reference | None:
+                         arity: int = 0, location: nodes.Node | None = None) -> nodes.reference | None:
         """
         Link a type to external documentation, such as the Microsoft docs for System types.
-        arity is the number of generic arguments. Returns None if the type is not recognized.
+        arity is the number of generic arguments, and location is the reference for warnings.
+        Returns None if the type is not recognized.
         """
         cache_key = (name, arity)
 
@@ -92,7 +98,7 @@ class ExternalRefs:
 
         # Use existing link if we have already determined it, for performance
         if cache_key in cls.extlink_cache:
-            if CSDebug.ext_links:
+            if CSDebug.external:
                 logger.info(f"found in extlink_cache for {name}")
             return create_node(*cls.extlink_cache[cache_key])
 
@@ -128,7 +134,7 @@ class ExternalRefs:
 
         if len(matches) > 1:
             logger.warning(f"ambiguous external reference for '{fullname}' using first, "
-                           f"found matches: {matches}")
+                           f"found matches: {matches}", location=location, type='cs', subtype='external')
 
         pkg, parent, member = matches[0]
 
@@ -152,28 +158,44 @@ class ExternalRefs:
         except KeyError:
             logger.warning(
                 f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
-                f"target fullname: {fullname}")
+                f"target fullname: {fullname}", location=location, type='cs', subtype='external')
             return None
 
         apilink_status_code = 0
-        if cls.test_links:
-            if not CSDebug.has_printed_test_links:
-                CSDebug.has_printed_test_links = True
+        if cls.check_links:
+            if not cls.check_links_logged:
+                cls.check_links_logged = True
                 logger.info("csharp: external link testing is enabled")
-            try:
-                apilink_status_code = requests.get(apilink, timeout=3).status_code
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                cls.test_links = False
+            status = link_status(apilink)
+            if status is None:
+                cls.check_links = False
+            else:
+                apilink_status_code = status
 
-        if not cls.test_links or apilink_status_code < 400:
+        if not cls.check_links or apilink_status_code < 400:
             url = apilink
         else:
             # Use search link or homepage instead
             logger.warning(f"invalid API link, using fallback, "
-                           f"status_code={apilink_status_code}, apilink={apilink}")
+                           f"status_code={apilink_status_code}, apilink={apilink}",
+                           location=location, type='cs', subtype='external')
             url = cls.external_search_pages[pkg][1] % link_name
 
         cls.extlink_cache[cache_key] = fullname, url
-        if CSDebug.ext_links:
+        if CSDebug.external:
             logger.info(f"found external link: {cache_key, fullname, url}")
         return create_node(fullname, url)
+
+
+def link_status(url: str) -> int | None:
+    """ The HTTP status of a link, or None if the server cannot be reached or the request fails """
+    try:
+        with urllib.request.urlopen(url, timeout=3) as response:
+            status: int = response.status
+            return status
+    except urllib.error.HTTPError as error:
+        error.close()
+        return error.code
+    # Note: urllib raises the connection and protocol errors of http.client as they are, outside URLError.
+    except (OSError, ValueError, http.client.HTTPException):
+        return None

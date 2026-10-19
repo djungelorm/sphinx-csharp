@@ -28,6 +28,26 @@ Each object gets an entry in the general index, such as `MyNamespace.MyClass (C#
    :no-index-entry:
 ```
 
+A signature longer than `maximum_signature_line_length` puts each parameter on a line of its own, unless the directive has the `:single-line-parameter-list:` option.
+
+Each object in a section also gets an entry in the table of contents, with members nested in their types. The `toc_object_entries_show_parents` option sets how much of the name it shows, and the `:no-contents-entry:` option leaves an object out.
+
+### Namespaces
+
+Set the namespace of the objects that follow with `namespace`, and nest a namespace in it with `namespace-push`:
+
+```rst
+.. cs:namespace:: MyNamespace
+
+.. cs:namespace-push:: Inner
+
+.. cs:class:: MyClass
+
+.. cs:namespace-pop::
+```
+
+MyClass is then `MyNamespace.Inner.MyClass`. `namespace-pop` restores the namespace from before the last `namespace-push`, and `.. cs:namespace:: None` clears the namespace. Each namespace is a target for the `:cs:namespace:` role, unless the directive has the `:no-index:` option.
+
 ### Extension Blocks
 
 Describe the members of a C# 14 extension block in an `extension` directive:
@@ -60,6 +80,14 @@ Describe parameters, type parameters, return values and exceptions with field li
 
 The types in the `type`, `rtype` and `throws` fields link like the types in a signature.
 
+### References
+
+A reference links to the object whose name ends with the target, preferring the object in the closest enclosing namespace. Start the target with `~` to show only the last part of the name:
+
+```rst
+:cs:meth:`~MyNamespace.MyClass.MyMethod` shows MyMethod.
+```
+
 ### Overloads
 
 Reference an overload by its parameter types:
@@ -85,8 +113,34 @@ A role splits a target that ends in `>` into a title and a target, so `` :cs:typ
 
 The target of a generic type has its number of generic parameters, as in the Microsoft docs, such as `class-Box-1` for Box<T> and `function-Box-1.Put` for its method Put. You can document Box and Box<T> side by side, and `` :cs:type:`Box` `` then links to Box.
 
+### Intersphinx
+
+Link to the C# objects of another project with [intersphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html):
+
+```py
+extensions = ['sphinx_csharp', 'sphinx.ext.intersphinx']
+intersphinx_mapping = {'library': ('https://example.com/library/', None)}
+```
+
+A reference to an object that the project does not describe then links to the other project, in roles and in signatures. Qualify the target with its namespace, or put the reference inside that namespace. Every role, including `:cs:obj:`, works across projects.
+
+### Warnings
+
+Each warning has a type, so you can silence it with `suppress_warnings` in `conf.py`:
+
+```py
+suppress_warnings = ['cs.ambiguous']
+```
+
+- `cs.parse`: a signature is invalid, and is shown as written.
+- `cs.duplicate`: an object is described more than once.
+- `cs.ambiguous`: a reference matches more than one object, and links to the first.
+- `cs.external`: an external link is ambiguous, fails the link check, or has no search page for its package.
+- `cs.config`: an option has a deprecated name.
+- `cs.namespace`: a `namespace-pop` has no `namespace-push` to undo.
+
 ### `conf.py` Options
-The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
+The options below can be set in `conf.py`. They are registered in [`config.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/config.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 
 Here are all the options. The lists and dictionaries hold example values, which are added to the defaults:
 
@@ -94,8 +148,8 @@ Here are all the options. The lists and dictionaries hold example values, which 
 # Are other languages used in the sphinx project, if yes add language (domain) prefix to reference labels
 sphinx_csharp_multi_language = False
 
-# Should generated external links be tested for validity
-sphinx_csharp_test_links = False
+# Check that each external link exists, and use the search page of its package if it does not
+sphinx_csharp_check_external_links = False
 
 # Show types in these namespaces, and in namespaces nested inside them, without their namespace
 sphinx_csharp_unqualified_namespaces = [
@@ -103,14 +157,14 @@ sphinx_csharp_unqualified_namespaces = [
 ]
 
 # Never link these types
-sphinx_csharp_ignore_xref = [
+sphinx_csharp_ignore_types = [
     'Vector2',
     ...
 ]
 
 # How to generate external doc links, replace %s with type. Use the format
 #    'package name': ('direct link to %s', 'alternate backup link or search page')
-sphinx_csharp_ext_search_pages = {
+sphinx_csharp_external_search_pages = {
     'upm.xrit': ('https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/%s.html',
                  'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/?%s'),
     ...
@@ -120,7 +174,7 @@ sphinx_csharp_ext_search_pages = {
 #   'package name': {
 #      'Namespace1': ['Type1', 'Type2'],
 # A generic type named with its arity, such as IComparer-1, takes precedence over a non-generic type
-sphinx_csharp_ext_type_map = {
+sphinx_csharp_external_type_map = {
     'unity': {
         '': ['MonoBehaviour', 'ScriptableObject'],
         'XR': ['InputDevice', 'InputDeviceCharacteristics'],
@@ -136,18 +190,24 @@ sphinx_csharp_external_type_rename = {
     ...
 }
 
-# Debug options, these enable various verbose logging features.
-sphinx_csharp_debug = False # enables all debug options
-sphinx_csharp_debug_parse = False # enables all parsing options
-sphinx_csharp_debug_parse_func = False
-sphinx_csharp_debug_parse_var = False
-sphinx_csharp_debug_parse_prop = False
-sphinx_csharp_debug_parse_attr = False
-sphinx_csharp_debug_parse_idxr = False
-sphinx_csharp_debug_parse_type = False
-sphinx_csharp_debug_xref = False
-sphinx_csharp_debug_ext_links = False
+# Put each parameter on a line of its own in a signature longer than this, in place of maximum_signature_line_length
+sphinx_csharp_maximum_signature_line_length = None
+
+# Log verbose debug output, for every category with True, or for a list of 'parse', 'xref' and 'external'
+sphinx_csharp_debug = False
 ```
+
+Earlier versions named some of these options differently. The old names still work, with a `cs.config` warning:
+
+| Old name | New name |
+|---|---|
+| `sphinx_csharp_test_links` | `sphinx_csharp_check_external_links` |
+| `sphinx_csharp_ignore_xref` | `sphinx_csharp_ignore_types` |
+| `sphinx_csharp_ext_type_map` | `sphinx_csharp_external_type_map` |
+| `sphinx_csharp_ext_search_pages` | `sphinx_csharp_external_search_pages` |
+| `sphinx_csharp_debug_parse` and `sphinx_csharp_debug_parse_*` | `sphinx_csharp_debug = ['parse']` |
+| `sphinx_csharp_debug_xref` | `sphinx_csharp_debug = ['xref']` |
+| `sphinx_csharp_debug_ext_links` | `sphinx_csharp_debug = ['external']` |
 
 ## Development
 

@@ -54,6 +54,7 @@
       A method with a default argument value.
 
    .. function:: void MyMethodDefaultArgs (int x, bool y = true, List<string> arg = [ "foo", "bar", "baz" ], bool z = false)
+      :single-line-parameter-list:
 
       A method with default argument values.
 
@@ -314,6 +315,10 @@ Indexer ref :idxr:`MyClass.this[]`
 
 Any object ref :obj:`MyClass.MyMethod`
 
+Namespace ref :obj:`MyNamespace`
+
+Short ref :type:`~MyNamespace.MyClass`
+
 Section ref :ref:`references`
 
 
@@ -373,6 +378,16 @@ More Tests
 .. namespace:: OtherNamespace.Subspace
 
 .. function:: void CompileExpression (Expression<Func<int>> e)
+
+.. namespace-push:: Pushed
+
+.. class:: PushedClass
+
+   See :namespace:`OtherNamespace.Subspace.Pushed`.
+
+.. namespace-pop::
+
+.. function:: void AfterPop (PushedClass a)
 
 .. class:: public static class Extensions
 

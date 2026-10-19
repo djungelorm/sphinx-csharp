@@ -20,11 +20,43 @@ from .parser import (
 )
 
 
+def space() -> addnodes.desc_sig_space:
+    return addnodes.desc_sig_space()
+
+
+def punctuation(text: str) -> addnodes.desc_sig_punctuation:
+    return addnodes.desc_sig_punctuation(text, text)
+
+
+def keywords(text: str) -> addnodes.desc_annotation:
+    """ Keywords such as record struct, each followed by a space """
+    node = addnodes.desc_annotation()
+    for word in text.split():
+        node += addnodes.desc_sig_keyword(word, word)
+        node += space()
+    return node
+
+
+def append_default_value(node: nodes.Element, value: str) -> None:
+    """ Adds a default value, such as = 1 """
+    node += space()
+    node += addnodes.desc_sig_operator('=', '=')
+    node += space()
+    node += nodes.inline(value, value, classes=['default_value'])
+
+
 def append_modifiers(node: nodes.Element, modifiers: list[str]) -> None:
-    """ Adds modifiers such as public static, each followed by a space """
+    """ Adds modifiers such as public static, and attributes such as [Obsolete], each followed by a space """
+    if not modifiers:
+        return
+    annotation = addnodes.desc_annotation()
     for modifier in modifiers:
-        node += addnodes.desc_annotation(modifier, modifier)
-        node += nodes.Text('\xa0')
+        if modifier.startswith('['):
+            annotation += nodes.Text(modifier)
+        else:
+            annotation += addnodes.desc_sig_keyword(modifier, modifier)
+        annotation += space()
+    node += annotation
 
 
 class TypeRenderer:
@@ -59,7 +91,7 @@ class TypeRenderer:
             inner = parse_type_signature(segment, self.location)
             typ += '.' + inner.typ
             name += '.' + generic_type_name(inner.typ, len(inner.generics))
-            node += nodes.Text('.')
+            node += punctuation('.')
             tnode = self.append_type_name(node, typ, name, inner.typ, len(inner.generics))
             if tnode is not None:
                 tnode['cs:outer'] = outer
@@ -68,7 +100,7 @@ class TypeRenderer:
                 self.append_generics(node, inner.generics, ignored_types=ignored_types)
 
         if sig.suffix:
-            node += nodes.Text(sig.suffix)
+            node += punctuation(sig.suffix)
 
     def append_type_name(self, node: nodes.Element, typ: str, name: str, text: str, arity: int,
                          ignored_types: list[str] | None = None) -> addnodes.pending_xref | None:
@@ -82,9 +114,10 @@ class TypeRenderer:
             node += addnodes.desc_type(text, text)
             return None
 
+        # Note: An explicit title keeps the text as written when intersphinx resolves the reference.
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
-            reftarget=typ, modname=None, classname=None)
+            reftarget=typ, modname=None, classname=None, refexplicit=True)
 
         # Note: this may not be the correct parent namespace
         tnode['cs:parent'] = self.env.ref_context.get('cs:parent')
@@ -98,20 +131,23 @@ class TypeRenderer:
     @staticmethod
     def append_function_pointer(node: nodes.Element, typ: str) -> None:
         """ Adds the start of a function pointer type, such as delegate* unmanaged[Cdecl], before its types """
-        node += nodes.Text('delegate*')
+        node += addnodes.desc_sig_keyword('delegate', 'delegate')
+        node += punctuation('*')
         convention = typ.removeprefix('delegate').lstrip().removeprefix('*').strip()
         if convention:
             keyword, _, calling_conventions = convention.partition('[')
-            node += nodes.Text(' ' + keyword.strip())
+            node += space()
+            node += addnodes.desc_sig_keyword(keyword.strip(), keyword.strip())
             if calling_conventions:
                 node += nodes.Text('[' + calling_conventions)
 
     def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
         """ Adds a tuple type, such as (int count, string name), linking the type of each element """
-        node += nodes.Text('(')
+        node += punctuation('(')
         for i, element in enumerate(split_sig(tuple_typ[1:-1])):
             if i:
-                node += nodes.Text(', ')
+                node += punctuation(',')
+                node += space()
             parsed = parse_tuple_element(element)
             if parsed is None:
                 raise invalid_signature('Type', tuple_typ, self.location)
@@ -121,22 +157,24 @@ class TypeRenderer:
             else:
                 self.append_type(node, typ, ignored_types)
             if name:
-                node += nodes.Text('\xa0' + name)
-        node += nodes.Text(')')
+                node += space()
+                node += addnodes.desc_sig_name(name, name)
+        node += punctuation(')')
 
     def append_generics(self, node: nodes.Element, generics: list[str], nolink: bool = False,
                         ignored_types: list[str] | None = None) -> None:
         """ nolink will disable xref's, use for newly declared generics in a class declaration,
          ignore_types is similar, but a list of types to disable xrefs for """
-        node += nodes.Text('<')
+        node += punctuation('<')
         for i, typ in enumerate(generics):
+            if i:
+                node += punctuation(',')
+                node += space()
             if nolink or ignored_types and typ in ignored_types:
                 node += addnodes.desc_type(typ, typ)
             else:
                 self.append_type(node, typ, ignored_types=ignored_types)
-            if i != len(generics) - 1:
-                node += nodes.Text(', ')
-        node += nodes.Text('>')
+        node += punctuation('>')
 
 
 class CSharpTypeField(Field):
