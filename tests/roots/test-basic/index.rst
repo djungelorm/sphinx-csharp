@@ -92,6 +92,8 @@
 
       A method with pointer types written next to the names.
 
+   .. function:: unsafe int MyMethodFunctionPointer (delegate* unmanaged[Cdecl]<int, MyClass> callback)
+
    .. function:: MyClass MyMethodClass (MyClass arg)
 
       A method with a class as the parameter and return types.
@@ -183,6 +185,8 @@
    .. property:: string PrivateSetProperty { get; private set; }
 
    .. property:: int ExpressionProperty => 1
+
+   .. property:: int BodyProperty { get => field; set { field = value; } }
 
    .. indexer:: string this[int i] { get; set; }
 
@@ -352,6 +356,8 @@ More Tests
 
    .. var:: private int c, d = 2
 
+   .. var:: private fixed byte Buffer[16]
+
    .. var:: private static const List < MyInterface > GenericVar
 
    .. var:: private static const List < MyInterface > TwoGenericBrackets = new List < MyInterface > ()
@@ -368,8 +374,12 @@ More Tests
 
 .. function:: void CompileExpression (Expression<Func<int>> e)
 
-.. class:: public static Extensions
+.. class:: public static class Extensions
 
    .. extension:: (string s)
 
       .. property:: bool IsEmpty { get; }
+
+   .. extension:: (string)
+
+      .. function:: static string Empty ()
