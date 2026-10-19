@@ -23,18 +23,26 @@ def test_basic_builders(make_app, rootdir, tmp_path, buildername):
     assert warnings(app) == []
 
 
-def breathe_project(rootdir, tmp_path):
+@pytest.fixture(scope='module')
+def doxygen_project(rootdir, tmp_path_factory):
     """ A copy of the Breathe project, with the XML that Doxygen generates from its sources """
-    srcdir = tmp_path / 'breathe'
+    srcdir = tmp_path_factory.mktemp('doxygen') / 'breathe'
     shutil.copytree(rootdir / 'test-breathe', srcdir)
     subprocess.run(['doxygen'], cwd=srcdir, check=True)
     return srcdir
 
 
+def breathe_project(doxygen_project, tmp_path):
+    """ A copy of the Breathe project and its XML for one build """
+    srcdir = tmp_path / 'breathe'
+    shutil.copytree(doxygen_project, srcdir)
+    return srcdir
+
+
 @requires_doxygen
-def test_breathe(make_app, rootdir, tmp_path):
+def test_breathe(make_app, doxygen_project, tmp_path):
     breathe = pytest.importorskip('breathe')
-    app = make_app('html', srcdir=breathe_project(rootdir, tmp_path), confoverrides={'nitpicky': True})
+    app = make_app('html', srcdir=breathe_project(doxygen_project, tmp_path), confoverrides={'nitpicky': True})
     app.build()
     assert warnings(app) == []
     expected = (app.srcdir / 'signatures.txt').read_text().splitlines()
@@ -45,9 +53,9 @@ def test_breathe(make_app, rootdir, tmp_path):
 
 
 @requires_doxygen
-def test_breathe_parallel(make_app, rootdir, tmp_path):
+def test_breathe_parallel(make_app, doxygen_project, tmp_path):
     pytest.importorskip('breathe')
-    srcdir = breathe_project(rootdir, tmp_path)
+    srcdir = breathe_project(doxygen_project, tmp_path)
     # Sphinx 8.0 and earlier read in parallel only when a project has more than five documents
     classes = ['MyNamespace::MyClass', 'OtherNamespace::B', 'OtherNamespace::Foo', 'OtherNamespace::Bar',
                'OtherNamespace::Overloads', 'OtherNamespace::Accessors', 'OtherNamespace::Indexer']
