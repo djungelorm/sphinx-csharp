@@ -148,6 +148,7 @@ Doxygen and Breathe leave some C# out of the signatures they pass to sphinx-csha
 - Doxygen drops a class with a primary constructor and a base type, and the declarations after it in the same file.
 - Doxygen describes a field with a named tuple type, such as `(int X, int Y) Pos`, as two invalid fields.
 - Doxygen drops C# 14 extension blocks and their members.
+- Doxygen 1.15.0 puts the members of a type nested in a generic type in the generic type. Doxygen 1.9.8 drops a type that has the name of a generic type, such as `JsonConverter` beside `JsonConverter<T>`, and puts its members in the generic type.
 - Breathe shows only the `get` and `set` accessors without access levels, so `{ get; private set; }` and `{ get; init; }` render as `{ get; }`.
 - Breathe drops the accessors of events, the underlying types of enums, and the `ref` of a `ref struct`.
 
