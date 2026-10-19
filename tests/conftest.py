@@ -7,6 +7,7 @@ from sphinx import addnodes, version_info
 pytest_plugins = ['sphinx.testing.fixtures']
 
 
+
 @pytest.fixture(scope='session')
 def rootdir():
     return Path(__file__).parent / 'roots'
@@ -42,19 +43,20 @@ def warnings(app):
     return [line for line in app._warning.getvalue().splitlines() if line.strip()]
 
 
+def signature_texts(app):
+    """ The ids and rendered text of each signature on the index page """
+    return [(node['ids'], node.astext().replace('\xa0', ' '))
+            for node in resolved_doctree(app).findall(addnodes.desc_signature)]
+
+
 def signature_lines(app):
     """ Each signature on the index page as its ids and text, in the sorted order of the signatures.txt files """
-    doctree = resolved_doctree(app)
-    return sorted(' '.join(node['ids']) + ' | ' + node.astext().replace('\xa0', ' ')
-                  for node in doctree.findall(addnodes.desc_signature))
+    return sorted(' '.join(ids) + ' | ' + text for ids, text in signature_texts(app))
 
 
 def signatures(app):
     """ Map each object id on the index page to its rendered signature text """
-    doctree = resolved_doctree(app)
-    return {node_id: node.astext().replace('\xa0', ' ')
-            for node in doctree.findall(addnodes.desc_signature)
-            for node_id in node['ids']}
+    return {node_id: text for ids, text in signature_texts(app) for node_id in ids}
 
 
 def references(app, node_id=None):
