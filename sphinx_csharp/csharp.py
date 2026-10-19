@@ -1,7 +1,7 @@
 """ C# sphinx domain """
 
 from collections import Counter
-from collections.abc import Iterable, Iterator, Set
+from collections.abc import Callable, Iterable, Iterator, Set
 from typing import Any, NamedTuple
 
 from docutils import nodes
@@ -26,6 +26,8 @@ from .parser import (
     CONVERSION_OPERATORS,
     Constraint,
     ParamTuple,
+    arity_name,
+    generic_type_name,
     is_indexer_signature,
     normalize_signature,
     overload_type,
@@ -39,8 +41,11 @@ from .parser import (
     parse_property_signature,
     parse_record_kind,
     parse_type_as_function,
+    parse_type_reference,
     parse_type_signature,
     parse_variable_signature,
+    remove_arity,
+    remove_generic_arguments,
     target_id,
 )
 from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
@@ -48,8 +53,10 @@ from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeR
 
 class ObjectEntry(NamedTuple):
     docname: str
-    # The full name, without the parameters of an overload
+    # The full name, without the parameters of an overload, and with the arity of each generic type as in N.Box-1
     name: str
+    # The full name in the index and search results, such as N.Box<T>
+    dispname: str
 
 
 class ObjectMatch(NamedTuple):
@@ -84,6 +91,8 @@ class CSharpObject(ObjectDescription[str]):
         self.generic_names_saved: list[str] = []
         # The full name of the overload being described, such as N.C.M(int,string)
         self.overload_name: str | None = None
+        # The display name of the type being described, such as N.Box<T>
+        self.dispname: str | None = None
 
     def add_generic_names(self, names: list[str]) -> None:
         """ Declare generic parameters for the content, which every signature of the directive shares """
@@ -92,6 +101,7 @@ class CSharpObject(ObjectDescription[str]):
     def add_target_and_index(self, name: str, _: str, signode: addnodes.desc_signature) -> None:
         overload_name = self.overload_name or name
         self.overload_name = None
+        dispname, self.dispname = self.dispname or remove_arity(name), None
         overload_targetname = targetname = target_id(self.objtype, overload_name)
         document = self.state.document
         if overload_targetname not in document.ids:
@@ -112,13 +122,13 @@ class CSharpObject(ObjectDescription[str]):
                 logger.warning(f'duplicate description of {self.objtype} {overload_name}, ' +
                                f'other instance in {self.env.doc2path(objects[key].docname)}',
                                location=(self.env.docname, self.lineno))
-            objects[key] = ObjectEntry(self.env.docname, name)
+            objects[key] = ObjectEntry(self.env.docname, name, dispname)
 
         # Sphinx 7 and 8 keep noindexentry as a separate option
         indexed = 'no-index-entry' not in self.options and 'noindexentry' not in self.options
         # The index has one entry for the overloads of a method in a document, at the target without parameters
         if indexed and targetname == target_id(self.objtype, name):
-            indextext = self.get_index_text(name)
+            indextext = self.get_index_text(dispname)
             if indextext:
                 self.indexnode['entries'].append(('single', indextext, targetname, '', None))
 
@@ -268,12 +278,16 @@ class CSharpObject(ObjectDescription[str]):
 
         prefix = keyword + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
-        signode += addnodes.desc_name(typ, typ)
+        # Doxygen names generic types with their arity, such as Box-1
+        display = remove_arity(typ)
+        signode += addnodes.desc_name(display, display)
 
         if generics:
             self.append_generics(signode, generics, nolink=True)
         # Variance modifiers such as in T come before the parameter name
         generic_params = [generic.split()[-1] for generic in generics]
+        self.dispname = remove_arity(self.get_fullname(display)) + \
+            ('<' + ', '.join(generic_params) + '>' if generic_params else '')
         self.add_generic_names(generic_params)
         if params is not None:
             signode += nodes.Text('\xa0')
@@ -281,7 +295,7 @@ class CSharpObject(ObjectDescription[str]):
         if inherits:
             self.append_inherits(signode, inherits, generic_params)
         self.append_constraints(signode, constraints, generic_params)
-        return self.get_fullname(typ)
+        return self.get_fullname(generic_type_name(typ, len(generics)))
 
     def reset_objtype(self) -> None:
         """ Undo change_objtype for the previous signature of this directive """
@@ -663,11 +677,25 @@ class CSharpDomain(Domain):
         Find the objects of the given types that a target refers to from within a parent namespace.
         Without loose, only the target qualified by the parent or an enclosing namespace matches.
         A target without parameters refers to the first overload of a method.
+        A generic type has its arity in its name, such as N.Box-1, which generic arguments in a target match.
+        A target matches without generic arguments and arity when nothing else does.
         """
         target = normalize_signature(target)
+        return self.find_named_objects(target, parent, objtypes, loose, lambda name: name) or \
+            self.find_named_objects(arity_name(target), parent, objtypes, loose, lambda name: name) or \
+            self.find_named_objects(remove_arity(remove_generic_arguments(target)), parent, objtypes, loose,
+                                    lambda name: remove_arity(remove_generic_arguments(name)))
+
+    def object_order(self, key: tuple[str, str]) -> tuple[str, tuple[str, str]]:
+        """ The order of objects that is the same in every build, by document and then key """
+        return self.objects[key].docname, key
+
+    def find_named_objects(self, target: str, parent: str | None, objtypes: Iterable[str], loose: bool,
+                           transform: Callable[[str], str]) -> list[ObjectMatch]:
+        """ Find the objects whose names, after a transform, the target refers to """
 
         def names(key: tuple[str, str]) -> set[str]:
-            return {key[1], self.objects[key].name}
+            return {transform(key[1]), transform(self.objects[key].name)}
 
         def refers_to(name: str) -> bool:
             return name == target or name.endswith('.' + target)
@@ -680,14 +708,14 @@ class CSharpDomain(Domain):
                 if method not in first_overloads or self.object_order(key) < self.object_order(first_overloads[method]):
                     first_overloads[method] = key
         # A target with the parameters of an overload links to that overload
-        matches = [ObjectMatch(key, key[1] if refers_to(key[1]) else self.objects[key].name)
+        matches = [ObjectMatch(key, key[1] if refers_to(transform(key[1])) else self.objects[key].name)
                    for key in sorted(first_overloads.values(), key=self.object_order)]
 
-        # The parent and each of its enclosing namespaces, innermost first
+        # The parent and each of its enclosing namespaces, innermost first, with the transform of the names
         scopes = []
         if parent:
             parts = parent.split('.')
-            scopes = ['.'.join(parts[:i]) for i in range(len(parts), 0, -1)]
+            scopes = [transform('.'.join(parts[:i])) for i in range(len(parts), 0, -1)]
 
         # Prefer the target qualified by the closest scope, then an object anywhere inside that scope
         for scope in scopes + ['']:
@@ -699,14 +727,10 @@ class CSharpDomain(Domain):
         if len(matches) <= 1:
             return matches
         for scope in scopes:
-            inside = [match for match in matches if match.key[1].startswith(scope + '.')]
+            inside = [match for match in matches if transform(match.key[1]).startswith(scope + '.')]
             if inside:
                 return inside
         return matches
-
-    def object_order(self, key: tuple[str, str]) -> tuple[str, tuple[str, str]]:
-        """ The order of objects that is the same in every build, by document and then key """
-        return self.objects[key].docname, key
 
     def resolve_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, typ: str, target: str,
                      node: addnodes.pending_xref, contnode: nodes.Element) -> nodes.reference | None:
@@ -717,17 +741,16 @@ class CSharpDomain(Domain):
         objtypes = list(self.object_types) if typ == 'obj' else self.objtypes_for_role(typ) or []
         parent = node.get('cs:parent')
 
+        # The name of a type in a signature, with the arity of each generic type
+        name = node.get('cs:name', target)
+
         # A known external type takes precedence over a local object in an unrelated namespace
-        matches = self.find_objects(target, parent, objtypes, loose=False)
+        matches = self.find_objects(name, parent, objtypes, loose=False)
         if not matches and not ExternalRefs.check_ignored_ref(target):
-            if 'cs:outer' in node:
-                ref = ExternalRefs.get_nested_external_ref(node['cs:outer'], node['cs:outer_arity'],
-                                                           target[len(node['cs:outer']) + 1:], typ, contnode)
-            else:
-                ref = ExternalRefs.get_external_ref(target, typ, contnode, node.get('cs:arity', 0))
+            ref = self.resolve_external_xref(typ, target, node, contnode)
             if ref is not None:
                 return ref
-            matches = self.find_objects(target, parent, objtypes)
+            matches = self.find_objects(name, parent, objtypes)
 
         if len(matches) > 1:
             logger.warning(f'ambiguous reference to {target}, matches: {[match.key[1] for match in matches]}',
@@ -737,6 +760,23 @@ class CSharpDomain(Domain):
         if CSDebug.xref:
             logger.info(f'no C# object found for {target}, searched object types {objtypes}', location=node)
         return None
+
+    @staticmethod
+    def resolve_external_xref(typ: str, target: str, node: addnodes.pending_xref,
+                              contnode: nodes.Element) -> nodes.reference | None:
+        """ Link to external documentation, such as the Microsoft docs, or return None if the target is unknown """
+        if 'cs:outer' in node:
+            return ExternalRefs.get_nested_external_ref(node['cs:outer'], node['cs:outer_arity'],
+                                                        target[len(node['cs:outer']) + 1:], typ, contnode)
+        # The generic arguments of a type in a role, as in :cs:type:`List\<int>.Enumerator`, give its arity
+        sig = parse_type_reference(target)
+        if sig is None or sig.suffix:
+            return None
+        arity = node.get('cs:arity') or len(sig.generics)
+        if sig.nested:
+            nested = remove_generic_arguments(''.join('.'.join(sig.nested).split()))
+            return ExternalRefs.get_nested_external_ref(sig.typ, arity, nested, typ, contnode)
+        return ExternalRefs.get_external_ref(sig.typ, typ, contnode, arity)
 
     def resolve_any_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, target: str,
                          node: addnodes.pending_xref,
@@ -751,7 +791,8 @@ class CSharpDomain(Domain):
         """ Link to an object, or to one overload of it """
         objtype, name = match.key[0], match.name
         entry = self.objects[match.key]
-        title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {name}'
+        dispname = entry.dispname if name == entry.name else remove_arity(name)
+        title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {dispname}'
         return make_refnode(builder, fromdocname, entry.docname, target_id(objtype, name), contnode, title)
 
     def get_objects(self) -> Iterator[tuple[str, str, str, str, str, int]]:
@@ -764,10 +805,10 @@ class CSharpDomain(Domain):
             overloaded = overloads[method] > 1
             if method not in methods:
                 methods.add(method)
-                yield entry.name, entry.name, objtype, entry.docname, target_id(objtype, entry.name), \
+                yield entry.name, entry.dispname, objtype, entry.docname, target_id(objtype, entry.name), \
                     -1 if overloaded else 1
             if overload_name != entry.name:
-                yield overload_name, overload_name, objtype, entry.docname, \
+                yield overload_name, remove_arity(overload_name), objtype, entry.docname, \
                     target_id(objtype, overload_name), 1 if overloaded else -1
 
     def merge_domaindata(self, docnames: Set[str], otherdata: dict[str, Any]) -> None:

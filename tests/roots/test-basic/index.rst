@@ -260,6 +260,10 @@ Enum value ref :enumerator:`MyEnum.Foo`
 
 Generic class ref :type:`MyGenericClass`
 
+Generic class ref with arguments :type:`MyGenericClass\<T>`
+
+Generic method ref with arguments :func:`MyGenericClass\<int>.AGenericMethod\<T>`
+
 Generic method ref :func:`MyClass.AGenericMethod`
 
 Generic method in generic class ref :func:`MyGenericClass.AGenericMethod`

@@ -6,6 +6,7 @@ from sphinx_csharp.parser import (
     MethodSig,
     ParamTuple,
     TypeSig,
+    arity_name,
     normalize_signature,
     overload_type,
     parse_attr_signature,
@@ -18,8 +19,11 @@ from sphinx_csharp.parser import (
     parse_record_kind,
     parse_tuple_element,
     parse_type_as_function,
+    parse_type_reference,
     parse_type_signature,
     parse_variable_signature,
+    remove_arity,
+    remove_generic_arguments,
     split_sig,
 )
 
@@ -52,6 +56,17 @@ def test_tokenize(sig, expected):
 ])
 def test_split_sig(params, expected):
     assert split_sig(params) == expected
+
+
+@pytest.mark.parametrize('name, expected', [
+    ('Box<T>.Put', 'Box-1.Put'),
+    ('N.A<int, List<int>>.B<T>', 'N.A-2.B-1'),
+    ('Box<T>.Put<U>(U)', 'Box-1.Put<U>(U)'),
+    ('C.M(List<int>)', 'C.M(List<int>)'),
+])
+def test_arity_name(name, expected):
+    assert arity_name(name) == expected
+    assert remove_arity(expected) == remove_generic_arguments(name)
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -110,6 +125,15 @@ def test_parse_record_kind(sig, expected):
 ])
 def test_parse_type_as_function(sig, expected):
     assert parse_type_as_function(sig) == expected
+
+
+@pytest.mark.parametrize('target, expected', [
+    ('List<int>.Enumerator', TypeSig('List', [], ['int'], [], '', [], None, ['Enumerator'])),
+    ('int[]', TypeSig('int', [], [], [], '[]', [], None, [])),
+    ('Foo.Bar(int)', None),
+])
+def test_parse_type_reference(target, expected):
+    assert parse_type_reference(target) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -262,8 +286,9 @@ def test_parse_variable(sig, expected):
     ('string?[]?', ('string', [], [], [], '?[]?')),
     ('List<int> [] []', ('List', [], ['int'], [], '[][]')),
     ('template<T> Bar', ('Bar', [], ['T'], [], '')),
-    ('template<T> Box-1-g', ('Box', [], ['T'], [], '')),
-    ('Outer-2-g.Inner-1-g<U>', ('Outer.Inner', [], ['U'], [], '')),
+    ('template<T> Box-1-g', ('Box-1', [], ['T'], [], '')),
+    ('Box-1', ('Box-1', [], [], [], '')),
+    ('Outer-2-g.Inner-1-g<U>', ('Outer-2.Inner-1', [], ['U'], [], '')),
     ('(int, (int, (int, int)))?', ('(int, (int, (int, int)))', [], [], [], '?')),
 ])
 def test_parse_type(sig, expected):

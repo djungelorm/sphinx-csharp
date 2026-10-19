@@ -59,6 +59,18 @@ Reference an overload by its parameter types:
 
 Each overload has a target with its parameter types, such as `function-Add(ref-int,string)`. The first overload in a page also has the target `function-Add`. Indexers use brackets, as in `this[string]`. Conversion operators add their return type, as in `op_Implicit(MyType)~int`.
 
+### Generic Types
+
+Reference a generic type or method with or without its generic arguments:
+
+```rst
+:cs:type:`Box` and :cs:type:`Box\<T>` link to Box<T>, and :cs:meth:`Box<T>.Put` to its method Put.
+```
+
+A role splits a target that ends in `>` into a title and a target, so `` :cs:type:`Box<T>` `` links to `T` with the title `Box`. In a target that ends in `>`, escape each `<` with a backslash.
+
+The target of a generic type has its number of generic parameters, as in the Microsoft docs, such as `class-Box-1` for Box<T> and `function-Box-1.Put` for its method Put. You can document Box and Box<T> side by side, and `` :cs:type:`Box` `` then links to Box.
+
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 

@@ -1,5 +1,6 @@
 """ C# signature parser """
 
+import functools
 from collections.abc import Callable
 from typing import NamedTuple, TypeVar
 
@@ -271,12 +272,15 @@ class Parser:
         return []
 
     def name_part(self) -> str:
-        """ A name in a qualified name, without the arity that Doxygen writes, such as Box for Box-1-g """
+        """ A name in a qualified name, without the -g in the arity that Doxygen writes, such as Box-1 for Box-1-g """
         name = self.name()
+        # The arity of a generic type, such as -1 in Box-1
         arity = self.peek(1)
-        if self.at('-') and self.adjacent() and self.adjacent(1) and arity and arity.text.isdecimal() and \
-                self.at('-', offset=2) and self.adjacent(2) and self.adjacent(3) and self.at('g', offset=3):
-            self.pos += 4
+        if self.at('-') and self.adjacent() and self.adjacent(1) and arity and arity.text.isdecimal():
+            name += '-' + arity.text
+            self.pos += 2
+            if self.at('-') and self.adjacent() and self.adjacent(1) and self.at('g', offset=1):
+                self.pos += 2
         return name
 
     def qualified_name(self) -> str:
@@ -628,6 +632,12 @@ def split_sig(params: str, separator: str = ',') -> list[str]:
     return result
 
 
+def split_generics(generics: str) -> list[str]:
+    """ Split a <...> generic argument list """
+    # Remove outermost < > brackets
+    return split_sig(generics[1:-1])
+
+
 def normalize_signature(sig: str) -> str:
     """ Remove optional whitespace from a name or signature, such as M(int, string) to M(int,string) """
     result = ''
@@ -639,6 +649,35 @@ def normalize_signature(sig: str) -> str:
         result += token.text
         previous = token
     return result
+
+
+def parameters_start(name: str) -> int:
+    """ The index of the parameters in an overload name, such as the ( in Box<int[]>.Put(int), or the name length """
+    depth = 0
+    for i, char in enumerate(name):
+        if char == '<':
+            depth += 1
+        elif char == '>':
+            depth -= 1
+        elif char in '([' and depth == 0:
+            return i
+    return len(name)
+
+
+def without_generic_arguments(part: str) -> str:
+    """ Remove the generic arguments from one part of a name, such as <T> from Box<T> """
+    start, end = part.find('<'), part.rfind('>')
+    return part if start < 0 or end < start else part[:start] + part[end + 1:]
+
+
+# Reference resolution calls this on every object name for each target that misses
+@functools.cache
+def remove_generic_arguments(name: str) -> str:
+    """ Remove the generic arguments from a name, except an overload's, as in Box<T>.Put<U>(U) to Box.Put<U>(U) """
+    end = parameters_start(name)
+    parts = split_sig(name[:end], '.')
+    return '.'.join(part if i == len(parts) - 1 and end < len(name) else without_generic_arguments(part)
+                    for i, part in enumerate(parts)) + name[end:]
 
 
 def parameter_types(params: list[ParamTuple]) -> str:
@@ -658,6 +697,37 @@ def overload_type(typ: str) -> str:
             result += typ[start:previous.end]
             start = token.end
     return result + typ[start:]
+
+
+@functools.cache
+def arity_name(name: str) -> str:
+    """ Write generic arguments as arity, except an overload's, such as Box-1.Put<U>(U) for Box<T>.Put<U>(U) """
+    end = parameters_start(name)
+    parts = split_sig(name[:end], '.')
+
+    def part_name(part: str) -> str:
+        start = part.find('<')
+        return part if start < 0 else part[:start].rstrip() + f'-{len(split_generics(part[start:]))}'
+
+    return '.'.join(part if i == len(parts) - 1 and end < len(name) else part_name(part)
+                    for i, part in enumerate(parts)) + name[end:]
+
+
+@functools.cache
+def remove_arity(name: str) -> str:
+    """ Remove the arity of the generic types in a name, as in Box-1.Put(T) to Box.Put(T) """
+    end = parameters_start(name)
+
+    def without_arity(part: str) -> str:
+        head, _, arity = part.rpartition('-')
+        return head if arity.isdecimal() else part
+
+    return '.'.join(without_arity(part) for part in name[:end].split('.')) + name[end:]
+
+
+def generic_type_name(typ: str, arity: int) -> str:
+    """ The name of a type with its arity, such as Box-1 for Box<T>, unless Doxygen has given the arity """
+    return typ if not arity or typ.endswith(f'-{arity}') else f'{typ}-{arity}'
 
 
 def target_id(objtype: str, name: str) -> str:
@@ -727,6 +797,12 @@ def parse_type_signature(sig: str | None, location: Location) -> TypeSig:
     if CSDebug.parse_type:
         logger.info(f"parsed type: {tuple(result)}")
     return result
+
+
+def parse_type_reference(target: str) -> TypeSig | None:
+    """ Parse the type in a reference target, such as List<int>.Enumerator, or return None if it is not a type """
+    typ = try_parse(target, Parser.type)
+    return None if typ is None else TypeSig(typ.name, [], typ.generics, [], typ.suffix, [], None, typ.nested)
 
 
 def parse_tuple_element(element: str) -> tuple[str, str | None] | None:
