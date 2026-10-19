@@ -333,24 +333,6 @@ def parse_named_method_signature(sig: str, location: Location) -> MethodSig:
     constraints = parse_constraints(groups['constraints'], location)
     return MethodSig(modifiers, return_type, groups['fname'], generic_params, params, constraints, None)
 
-    match = METH_SIG_RE.match(sig.strip())
-    if not match:
-        raise invalid_signature('Method', sig, location)
-
-    groups = match.groupdict()
-    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
-    return_type = groups['fulltype'].strip() if groups['fulltype'] else None
-    # Doxygen writes generic parameters as a C++ template prefix
-    generic_params = split_generics(groups['genericparams'] or groups['templates'])
-    params = parse_params(groups['params'], location)
-
-    constraints = parse_constraints(groups['constraints'], location)
-
-    result = MethodSig(modifiers, return_type, groups['fname'], generic_params, params, constraints, None)
-    if CSDebug.parse_func:
-        logger.info(f"parsed func: {tuple(result)}")
-    return result
-
 
 def parse_variable_signature(sig: str, location: Location, is_param: bool = False) -> VariableSig:
     """
