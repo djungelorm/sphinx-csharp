@@ -11,6 +11,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LOGS = ROOT / 'test-output'
+# The tests that depend on the Breathe and Doxygen versions, without the coverage that the whole suite checks
+BREATHE_TESTS = ['tests/test_projects.py', '-k', 'breathe', '--no-cov']
 
 
 def environments(python: str | None) -> list[str]:
@@ -42,6 +44,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--python', help='only the environments for this Python, such as 3.12')
     parser.add_argument('--jobs', type=int, default=os.cpu_count(), help='the number of environments to run at once')
+    parser.add_argument('--full-breathe', metavar='VERSION',
+                        help='run every test with this Breathe version, such as 5.1, and the Breathe tests with others')
+    parser.add_argument('--breathe-only', action='store_true', help='run only the Breathe tests')
     parser.add_argument('args', nargs='*', help='arguments for pytest')
     options = parser.parse_args()
 
@@ -50,9 +55,17 @@ def main() -> int:
         print(f'no test environments for Python {options.python}')
         return 1
     LOGS.mkdir(exist_ok=True)
+
+    def args(name: str) -> list[str]:
+        """ The pytest arguments for an environment, such as test.py3.12-9.1-5.1 for Breathe 5.1 """
+        breathe = name.rsplit('-', 1)[1]
+        if options.breathe_only or options.full_breathe and breathe != options.full_breathe:
+            return BREATHE_TESTS + options.args
+        return options.args
+
     failed = []
     with ThreadPoolExecutor(options.jobs) as executor:
-        for name, passed, summary, seconds in executor.map(lambda name: run(name, options.args), names):
+        for name, passed, summary, seconds in executor.map(lambda name: run(name, args(name)), names):
             print(f'{"PASS" if passed else "FAIL"} {name} ({seconds:.0f}s): {summary}', flush=True)
             if not passed:
                 failed.append(name)

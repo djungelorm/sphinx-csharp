@@ -62,8 +62,11 @@ jobs:
         with:
           version: ${{ matrix.doxygen }}
       - run: pip install -r .github/requirements.txt
-      # Every Sphinx and Breathe version on this Python
-      - run: hatch run matrix:all --python ${{ matrix.python }}
+      # Every Sphinx and Breathe version on this Python. Only the Breathe tests depend on the Breathe and Doxygen
+      # versions, so the other tests run with Breathe 5.1 and Doxygen 1.15.0.
+      - run: >-
+          hatch run matrix:all --python ${{ matrix.python }}
+          ${{ matrix.doxygen == '1.15.0' && '--full-breathe 5.1' || '--breathe-only' }}
 
   corpus:
     runs-on: ubuntu-latest
