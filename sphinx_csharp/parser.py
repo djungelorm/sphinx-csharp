@@ -248,7 +248,7 @@ class Parser:
         return result
 
     def attributes(self) -> list[str]:
-        """ The attributes, such as [NotNull], before a parameter """
+        """ The attributes, such as [NotNull], before a declaration or a parameter """
         result = []
         while self.at('['):
             start = self.pos
@@ -733,6 +733,22 @@ def generic_type_name(typ: str, arity: int) -> str:
 def target_id(objtype: str, name: str) -> str:
     """ The node id of an object, such as function-N.C.M(ref-int,string) """
     return objtype + '-' + name.replace(' ', '-')
+
+
+def split_attributes(sig: str) -> tuple[list[str], str]:
+    """ Split the attributes from the start of a declaration, such as [Obsolete] in [Obsolete] void Foo() """
+    parser = Parser(sig)
+    attributes = []
+    while parser.at('['):
+        start = parser.pos
+        try:
+            parser.group('[', ']')
+        except ParseError:
+            # The parser reports the unclosed bracket
+            break
+        attributes.append(parser.text(start))
+    token = parser.peek()
+    return attributes, sig[token.start:].strip() if token else ''
 
 
 def strip_semicolon(sig: str) -> str:

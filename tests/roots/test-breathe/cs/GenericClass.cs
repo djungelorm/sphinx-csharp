@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace OtherNamespace
 {
@@ -18,6 +19,15 @@ namespace OtherNamespace
         public T First(IEnumerable<T> fallback)
         {
             return Values[0];
+        }
+
+        /// <summary>
+        /// Creates a value of a type with an attribute on its generic parameter.
+        /// </summary>
+        public static U Create<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] U>()
+            where U : new()
+        {
+            return new U();
         }
     }
 }

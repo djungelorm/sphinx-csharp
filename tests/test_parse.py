@@ -24,6 +24,7 @@ from sphinx_csharp.parser import (
     parse_variable_signature,
     remove_arity,
     remove_generic_arguments,
+    split_attributes,
     split_sig,
 )
 
@@ -137,11 +138,24 @@ def test_parse_type_reference(target, expected):
 
 
 @pytest.mark.parametrize('sig, expected', [
+    ('[Obsolete] void Foo()', (['[Obsolete]'], 'void Foo()')),
+    (' [Obsolete("a ] b")] [return: NotNull]string Foo()',
+     (['[Obsolete("a ] b")]', '[return: NotNull]'], 'string Foo()')),
+    ('[A(new[] { 1 })] int x', (['[A(new[] { 1 })]'], 'int x')),
+    ('void Foo([In] int a)', ([], 'void Foo([In] int a)')),
+    ('[Obsolete void Foo()', ([], '[Obsolete void Foo()')),
+])
+def test_split_attributes(sig, expected):
+    assert split_attributes(sig) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
     ('void Foo()', ([], 'void', 'Foo', [], [])),
     ('public static int Foo(int a, string b = "x")',
      (['public', 'static'], 'int', 'Foo', [], [param('int', 'a'), param('string', 'b', '"x"')])),
     ('MyClass(string a, int b = 1)', ([], None, 'MyClass', [], [param('string', 'a'), param('int', 'b', '1')])),
     ('T Get<T>(int x)', ([], 'T', 'Get', ['T'], [param('int', 'x')])),
+    ('T Get<[Attr(A.B)] T, [C] in U>()', ([], 'T', 'Get', ['[Attr(A.B)] T', '[C] in U'], [])),
     ('List<Dictionary<string, int>> Foo(ref List<T> a = default)',
      ([], 'List<Dictionary<string, int>>', 'Foo', [], [param('List<T>', 'a', 'default', ['ref'])])),
     ('int? Foo(MyClass? b)', ([], 'int?', 'Foo', [], [param('MyClass?', 'b')])),

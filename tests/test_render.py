@@ -532,6 +532,35 @@ def test_parameter_attributes_and_modifiers(build):
         'bool Try ([NotNullWhen(true)] out string? s, scoped ref readonly int i)'
 
 
+@pytest.mark.parametrize('directive, sig, node_id, text', [
+    ('function', '[Obsolete("Use Bar")] void Foo ()', 'function-Foo', '[Obsolete("Use Bar")] void Foo ()'),
+    ('function', '[Serializable] record Point (int X)', 'record-Point', '[Serializable] record Point (int X)'),
+    ('class', '[Serializable][Obsolete] public MyClass', 'class-MyClass',
+     '[Serializable] [Obsolete] public class MyClass'),
+    ('record', '[Serializable] Point(int X)', 'record-Point', '[Serializable] record Point (int X)'),
+    ('var', '[NonSerialized] int x', 'var-x', '[NonSerialized] int x'),
+    ('property', '[JsonIgnore] int P { get; }', 'property-P', '[JsonIgnore] int P { get; }'),
+    ('property', '[IndexerName("Item")] int this[int i] { get; }', 'indexer-this[]',
+     '[IndexerName("Item")] int this[int i] { get; }'),
+    ('indexer', '[IndexerName("Item")] int this[int i] { get; }', 'indexer-this[]',
+     '[IndexerName("Item")] int this[int i] { get; }'),
+    ('event', '[field: NonSerialized] System.EventHandler Changed', 'event-Changed',
+     '[field: NonSerialized] event EventHandler Changed'),
+    ('enum', '[Flags] Color', 'enum-Color', '[Flags] enum Color'),
+    ('enumerator', '[Obsolete] Red', 'enumerator-Red', '[Obsolete] Red'),
+])
+def test_declaration_attributes(build, directive, sig, node_id, text):
+    app = build(f'.. cs:{directive}:: {sig}\n')
+    assert warnings(app) == []
+    assert signatures(app)[node_id] == text
+
+
+def test_unclosed_attribute(build):
+    app = build('.. cs:function:: [Obsolete void Foo ()\n')
+    assert len(warnings(app)) == 1
+    assert 'Method signature invalid: [Obsolete void Foo ()' in warnings(app)[0]
+
+
 def test_default_value_with_comma(build):
     app = build('.. cs:function:: void Join (string sep = ", ", char quote = \'"\')\n')
     assert warnings(app) == []

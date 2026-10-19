@@ -46,6 +46,7 @@ from .parser import (
     parse_variable_signature,
     remove_arity,
     remove_generic_arguments,
+    split_attributes,
     target_id,
 )
 from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
@@ -171,6 +172,12 @@ class CSharpObject(ObjectDescription[str]):
         if fullname in self.names and 'no-index' not in self.options and 'noindex' not in self.options:
             self.add_target_and_index(fullname, sig, signode)
         return fullname
+
+    def append_attributes(self, signode: addnodes.desc_signature, sig: str) -> str:
+        """ Adds the attributes at the start of a declaration, and returns the rest of the signature """
+        attributes, sig = split_attributes(sig)
+        self.append_modifiers(signode, attributes)
+        return sig
 
     append_modifiers = staticmethod(append_modifiers)
 
@@ -347,6 +354,7 @@ class CSharpType(CSharpObject):
     keyword = ''
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         return self.handle_type_signature(sig, signode, self.keyword)
 
 
@@ -369,6 +377,7 @@ class CSharpRecord(CSharpType):
     """ Description of a C# record, or a record class or record struct if the signature starts with class or struct """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         record = parse_record_kind(sig)
         if record is None:
             return self.handle_type_signature(sig, signode, 'record')
@@ -390,6 +399,7 @@ class CSharpMethod(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         self.reset_objtype()
+        sig = self.append_attributes(signode, sig)
         declaration = parse_type_as_function(sig)
         if declaration is not None:
             modifiers, keyword, rest = declaration
@@ -447,6 +457,7 @@ class CSharpVariable(CSharpObject):
     """ Description of a C# variable """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
 
         self.append_modifiers(signode, modifiers)
@@ -466,6 +477,7 @@ class CSharpProperty(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         self.reset_objtype()
+        sig = self.append_attributes(signode, sig)
         # Doxygen writes indexers as properties named this[...]
         if is_indexer_signature(sig):
             self.change_objtype(signode, 'indexer')
@@ -488,6 +500,7 @@ class CSharpEvent(CSharpObject):
     """ Description of a C# event """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         modifiers, fulltype, name, accessors, default_value = parse_property_signature(
             sig, (self.env.docname, self.lineno))
 
@@ -511,6 +524,7 @@ class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         return self.handle_indexer_signature(sig, signode)
 
 
@@ -518,6 +532,7 @@ class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         modifiers, name, base = parse_enum_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
         prefix = 'enum' + ' '
@@ -533,6 +548,7 @@ class CSharpEnumValue(CSharpObject):
     """ Description of a C# enum value """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         name, value = parse_enumerator_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
         if value:

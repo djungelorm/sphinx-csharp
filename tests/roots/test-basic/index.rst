@@ -92,6 +92,10 @@
 
       A method with an enum as the parameter and return types.
 
+   .. function:: [System.Obsolete("Use MyMethod")] void MyObsoleteMethod ()
+
+      A method with an attribute.
+
    .. function:: static int MyStaticMethod (int arg)
 
       A static method.
@@ -195,7 +199,7 @@
    .. enumerator:: Bar
    .. enumerator:: Baz
 
-.. enum:: public MyFlags : byte
+.. enum:: [System.Flags] public MyFlags : byte
 
    .. enumerator:: None = 0
 
