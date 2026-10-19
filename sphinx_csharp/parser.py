@@ -388,9 +388,13 @@ class Parser:
 
     def value(self, close: str) -> str:
         """ A default value, up to the comma or the bracket close that ends it """
+        return self.expression((',', close))
+
+    def expression(self, ends: tuple[str, ...]) -> str:
+        """ An expression, up to one of the tokens that ends it outside brackets """
         start = self.pos
         depth = 0
-        while (token := self.peek()) is not None and not (depth == 0 and token.text in (',', close)):
+        while (token := self.peek()) is not None and not (depth == 0 and token.text in ends):
             # Generic arguments, as in new KeyValuePair<int, int>(), as opposed to a comparison such as 1 < 2
             if token.text == '<' and (end := generic_arguments_end(self.tokens, self.pos)) is not None:
                 self.pos = end
@@ -439,7 +443,7 @@ class Parser:
         return result
 
     def accessors(self) -> list[str]:
-        """ The accessors in braces, such as get and private set in { get; private set; } """
+        """ The accessors in braces, such as get and private set in { get; private set; }, without their bodies """
         self.expect('{')
         result = []
         while not self.accept('}'):
@@ -450,6 +454,12 @@ class Parser:
                 raise ParseError
             self.pos += 1
             result.append(' '.join(token.text for token in self.tokens[start:self.pos]))
+            # A body, as in get { return x; } or get => x;
+            if self.at('{'):
+                self.group('{', '}')
+                continue
+            if self.accept('=>'):
+                self.expression((';',))
             self.expect(';')
         return result
 

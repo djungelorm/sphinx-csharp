@@ -385,6 +385,7 @@ def test_property_directive_with_indexer(build):
     ('int P {get;private  set;}', 'int P { get; private set; }'),
     ('int P => 1', 'int P { get; }'),
     ('int P { get; set; } = 5;', 'int P { get; set; } = 5'),
+    ('int P { get => field; set { field = value; } }', 'int P { get; set; }'),
     ('int P', 'int P'),
 ])
 def test_property_signature(build, sig, text):
