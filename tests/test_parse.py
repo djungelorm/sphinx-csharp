@@ -6,6 +6,7 @@ from sphinx_csharp.parser import (
     MethodSig,
     ParamTuple,
     TypeSig,
+    VariableSig,
     arity_name,
     normalize_signature,
     overload_type,
@@ -375,13 +376,14 @@ def test_parse_property(sig, expected):
     ('public volatile int x', (['public', 'volatile'], 'int', 'int', [], 'x', None)),
     ('event EventHandler E', (['event'], 'EventHandler', 'EventHandler', [], 'E', None)),
     ('int x ;', ([], 'int', 'int', [], 'x', None)),
+    ('public fixed byte Data [16]', (['public', 'fixed'], 'byte', 'byte', [], 'Data', None, '16')),
     ('delegate *< int, int > F', ([], 'delegate *< int, int >', 'delegate *', ['int', 'int'], 'F', None)),
     ('delegate* unmanaged[Cdecl, SuppressGCTransition]<int, void>[] Fs',
      ([], 'delegate* unmanaged[Cdecl, SuppressGCTransition]<int, void>[]',
       'delegate* unmanaged[Cdecl, SuppressGCTransition]', ['int', 'void'], 'Fs', None)),
 ])
 def test_parse_variable(sig, expected):
-    assert parse_variable_signature(sig, None) == expected
+    assert parse_variable_signature(sig, None) == VariableSig(*expected)
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -519,6 +521,7 @@ def test_parse_attribute(sig, expected):
     (parse_type_signature, 'MyClass<T> : where T : IFoo'),
     (parse_variable_signature, 'int[3] x'),
     (parse_variable_signature, 'int x ='),
+    (parse_variable_signature, 'fixed byte Data'),
     (parse_variable_signature, 'delegate* F'),
     (parse_property_signature, 'int'),
     (parse_variable_signature, 'int'),

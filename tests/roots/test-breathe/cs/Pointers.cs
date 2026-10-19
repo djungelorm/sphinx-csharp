@@ -3,6 +3,11 @@ namespace OtherNamespace
     public unsafe struct Pointers
     {
         /// <summary>
+        /// A fixed size buffer.
+        /// </summary>
+        public fixed byte Data[16];
+
+        /// <summary>
         /// A function pointer.
         /// </summary>
         public delegate*<int, int, int> Add;

@@ -12,7 +12,7 @@ from .lexer import Token, tokenize
 
 MODIFIERS = {'public', 'private', 'internal', 'protected', 'abstract', 'async', 'const', 'event', 'delegate', 'extern',
              'new', 'override', 'partial', 'readonly', 'required', 'sealed', 'static', 'unsafe', 'virtual', 'volatile',
-             'ref', 'implicit', 'explicit', 'file'}
+             'ref', 'implicit', 'explicit', 'file', 'fixed'}
 PARAM_MODIFIERS = {'this', 'ref', 'in', 'out', 'params', 'scoped', 'readonly'}
 ACCESSOR_MODIFIERS = {'public', 'private', 'protected', 'internal', 'readonly'}
 ACCESSORS = {'get', 'set', 'init', 'add', 'remove'}
@@ -91,6 +91,8 @@ class VariableSig(NamedTuple):
     generics: list[str]
     name: str
     default: str | None
+    # The size of a fixed buffer, such as 16 in fixed byte Data[16]
+    size: str | None = None
 
 
 class PropertySig(NamedTuple):
@@ -237,6 +239,8 @@ class Parser:
 
     def group(self, open_text: str, close_text: str) -> None:
         """ Skip a group such as [Attr(1)] that starts at the next token, with the groups nested in it """
+        if not self.at(open_text):
+            raise ParseError
         depth = 0
         for index in range(self.pos, len(self.tokens)):
             text = self.tokens[index].text
@@ -546,9 +550,14 @@ class Parser:
         templates = self.templates()
         typ = self.type()
         interface, name = self.member_name()
+        size = None
+        if 'fixed' in modifiers:
+            start = self.pos
+            self.group('[', ']')
+            size = self.text(start + 1, self.pos - 1)
         default = self.rest() if self.accept('=') else None
         return VariableSig(modifiers, typ.fulltype + nullable, typ.name, typ.generics or templates, interface + name,
-                           default)
+                           default, size)
 
     def property(self) -> PropertySig:
         """ A property or event with accessors, or a property with an expression body """

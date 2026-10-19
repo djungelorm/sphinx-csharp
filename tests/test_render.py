@@ -436,6 +436,8 @@ def test_tuple_signature(build, sig, text, links):
     ('var', 'delegate *unmanaged[Cdecl]< int, void > Callback', 'var-Callback',
      'delegate* unmanaged[Cdecl]<int, void> Callback', {'int': MICROSOFT_DOCS + 'System.Int32'}),
     ('var', 'delegate* unmanaged<void> Exit', 'var-Exit', 'delegate* unmanaged<void> Exit', {}),
+    ('var', 'public fixed byte Data [16]', 'var-Data', 'public fixed byte Data[16]',
+     {'byte': MICROSOFT_DOCS + 'System.Byte'}),
 ])
 def test_unsafe_signature(build, directive, sig, node_id, text, links):
     app = build(f'.. cs:class:: MyClass\n\n.. cs:{directive}:: {sig}\n')

@@ -465,18 +465,17 @@ class CSharpVariable(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         sig = self.append_attributes(signode, sig)
-        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
-
-        self.append_modifiers(signode, modifiers)
-        self.append_type(signode, fulltype)
+        var = parse_variable_signature(sig, (self.env.docname, self.lineno))
+        self.append_modifiers(signode, var.modifiers)
+        self.append_type(signode, var.fulltype)
         signode += nodes.Text('\xa0')
-        signode += addnodes.desc_name(name, name)
-
-        if default_value:
+        signode += addnodes.desc_name(var.name, var.name)
+        if var.size is not None:
+            signode += nodes.Text('[' + var.size + ']')
+        if var.default:
             signode += nodes.Text(' = ')
-            signode += nodes.Text(default_value)
-
-        return self.get_fullname(name)
+            signode += nodes.Text(var.default)
+        return self.get_fullname(var.name)
 
 
 class CSharpProperty(CSharpObject):
