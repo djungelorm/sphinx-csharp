@@ -29,6 +29,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/djungelorm/sphinx-csharp"
+Documentation = "https://djungelorm.github.io/sphinx-csharp"
 
 [tool.hatch.build.targets.sdist]
 include = ["sphinx_csharp", "tests", "CHANGES.txt"]

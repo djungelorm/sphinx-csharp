@@ -1,0 +1,55 @@
+name: Docs
+
+# Publishes the docs to the gh-pages branch, which GitHub Pages serves. A push to main replaces dev/, and a release tag
+# writes the x.y.z/ of its release. Each run leaves the folders of the other versions as they are.
+on:
+  push:
+    branches: [main]
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: write
+
+# Every run pushes to gh-pages, so the runs queue
+concurrency:
+  group: docs-gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: '3.14'
+      - run: pip install -r .github/requirements.txt
+      - name: Choose the folder
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "DOCS_FOLDER=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo 'DOCS_FOLDER=dev' >> "$GITHUB_ENV"
+          fi
+      - run: hatch run docs:build
+      - name: Publish
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          if git fetch --no-tags --depth=1 origin gh-pages; then
+            git worktree add site FETCH_HEAD
+          else
+            git worktree add --orphan -b gh-pages site
+          fi
+          rm -rf "site/$DOCS_FOLDER"
+          cp -r docs/_build/html "site/$DOCS_FOLDER"
+          rm -rf "site/$DOCS_FOLDER/.doctrees" "site/$DOCS_FOLDER/.buildinfo"
+          python scripts/docs_index.py site
+          cd site
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to publish'
+          else
+            git commit -m "Publish the docs for $DOCS_FOLDER from $GITHUB_SHA"
+            git push origin HEAD:gh-pages
+          fi
