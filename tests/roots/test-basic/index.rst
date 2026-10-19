@@ -174,6 +174,8 @@
 
    .. property:: (int count, MyClass item) AValueTupleProperty { get; }
 
+   .. function:: ((int, (int, MyClass)), int) ANestedTupleMethod ()
+
    .. function:: (int, string)[] ATupleMethod ((MyClass a, (int b, int c) d) arg, System.Collections.Generic.List<(int, MyEnum)> items)
 
 .. enum:: MyEnum

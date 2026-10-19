@@ -491,6 +491,13 @@ def test_default_values_and_attributes_with_brackets(build):
         'void Foo (int a = 1 << 2, bool b = x < y, string s = @"C:\\", [A(X[Y[0]])] int c)'
 
 
+def test_nested_tuple(build):
+    app = build('.. cs:class:: MyClass\n\n.. cs:function:: ((int, (int, MyClass)), int) Pair ()\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Pair'] == '((int, (int, MyClass)), int) Pair ()'
+    assert references(app, 'function-Pair') == {'int': MICROSOFT_DOCS + 'System.Int32', 'MyClass': 'class-MyClass'}
+
+
 def test_qualified_enumerator_and_generic_attribute(build):
     app = build('.. cs:enum:: Color\n\n.. cs:enumerator:: Color.Red = 1\n\n.. cs:attribute:: MyAttr<T> (int a)\n\n'
                 ':cs:enumerator:`Color.Red`\n')
