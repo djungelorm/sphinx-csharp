@@ -36,7 +36,7 @@ class TypeRenderer:
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
         sig = parse_type_signature(input_typ, self.location)
-        typ = sig.typ
+        typ = sig.typ.removeprefix('global::')
 
         if sig.modifiers:
             append_modifiers(node, sig.modifiers)

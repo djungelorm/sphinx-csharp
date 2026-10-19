@@ -168,6 +168,8 @@
 
    .. property:: System.Collections.Generic.IList<System.Collections.Generic.IDictionary<string,System.Collections.Generic.IList<string>>> IListProperty { get; set; }
 
+   .. property:: global::System.String GlobalProperty { get; }
+
    .. property:: byte ByteProperty { get; set; }
 
    .. property:: byte[] ByteArrayProperty { get; set; }

@@ -97,6 +97,8 @@ def test_external_reference(app):
       'decimal': 'System.Decimal'}),
     ('void Foo (System.Collections.Generic.IList a)', {'IList': 'System.Collections.Generic.IList-1'}),
     ('void Foo (System.Collections.Generic.ISet a)', {'ISet': 'System.Collections.Generic.ISet-1'}),
+    ('void Foo (global::System.String a, global::System.Collections.Generic.List<int> b)',
+     {'String': 'System.String', 'List': 'System.Collections.Generic.List-1', 'int': 'System.Int32'}),
     ('void Foo (Type a)', {'Type': 'System.Type'}),
     ('void Foo (Exception a)', {'Exception': 'System.Exception'}),
     ('void Foo (HashSet<int> a)', {'HashSet': 'System.Collections.Generic.HashSet-1', 'int': 'System.Int32'}),
