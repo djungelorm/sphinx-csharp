@@ -395,12 +395,12 @@ class Parser:
         result = []
         while self.accept('where'):
             start = self.pos
-            while self.peek() is not None and not self.at('where', ':'):
+            while self.peek() is not None and not self.at('where', ':', '=>'):
                 self.pos += 1
             param = self.text(start)
             self.expect(':')
             types = self.pos
-            while self.peek() is not None and not self.at('where'):
+            while self.peek() is not None and not self.at('where', '=>'):
                 self.pos += 1
             if not param or types == self.pos:
                 raise ParseError
@@ -424,8 +424,8 @@ class Parser:
 
     def expression_body(self) -> None:
         """ Skip an expression body, such as => x * 2 """
-        self.expect('=>')
-        self.rest()
+        if self.accept('=>'):
+            self.rest()
 
     def operator_symbol(self) -> str | None:
         """ An operator symbol such as + or >>=, or None if the next token does not start one """
@@ -468,6 +468,7 @@ class Parser:
             name = INSTANCE_OPERATOR_NAMES[op]
         else:
             name = OPERATOR_NAMES[op]
+        self.expression_body()
         return MethodSig(modifiers, return_type, 'op_' + ('Checked' if checked else '') + name, [], params, [],
                          operator)
 
@@ -504,6 +505,7 @@ class Parser:
             self.group('(', ')')
             initializer = self.text(initializer_start)
         constraints = self.constraints()
+        self.expression_body()
         return MethodSig(modifiers, return_type, interface + name, generic_params or templates, params, constraints,
                          None, initializer)
 

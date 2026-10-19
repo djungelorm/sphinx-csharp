@@ -545,6 +545,12 @@ def test_constructor_initializer(build):
     assert signatures(app)['function-C.C'] == 'public C (int a) : base(a, "x")'
 
 
+def test_expression_body(build):
+    app = build('.. cs:function:: int Twice (int x) => x * 2;\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Twice'] == 'int Twice (int x)'
+
+
 @pytest.mark.parametrize('directive, sig, node_id, text', [
     ('function', '[Obsolete("Use Bar")] void Foo ()', 'function-Foo', '[Obsolete("Use Bar")] void Foo ()'),
     ('function', '[Serializable] record Point (int X)', 'record-Point', '[Serializable] record Point (int X)'),
@@ -572,6 +578,14 @@ def test_unclosed_attribute(build):
     app = build('.. cs:function:: [Obsolete void Foo ()\n')
     assert len(warnings(app)) == 1
     assert 'Method signature invalid: [Obsolete void Foo ()' in warnings(app)[0]
+
+
+def test_trailing_semicolon(build):
+    app = build('.. cs:function:: partial void Foo ();\n\n.. cs:var:: const int X = 1;\n\n'
+                '.. cs:event:: System.EventHandler Changed;\n')
+    assert warnings(app) == []
+    assert signatures(app) == {'function-Foo': 'partial void Foo ()', 'function-Foo()': 'partial void Foo ()',
+                               'var-X': 'const int X = 1', 'event-Changed': 'event EventHandler Changed'}
 
 
 def test_default_value_with_comma(build):

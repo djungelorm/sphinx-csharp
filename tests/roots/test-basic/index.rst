@@ -100,6 +100,14 @@
 
       A method with an attribute.
 
+   .. function:: int MyExpressionMethod (int arg) => arg * 2;
+
+      A method with an expression body, which is not shown.
+
+   .. function:: static extern int MyExternMethod (int arg);
+
+      A method copied from source, with a trailing semicolon.
+
    .. function:: static int MyStaticMethod (int arg)
 
       A static method.

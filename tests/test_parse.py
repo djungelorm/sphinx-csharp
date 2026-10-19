@@ -177,6 +177,7 @@ def test_split_attributes(sig, expected):
                                param('int', 'b', modifiers=['ref', 'readonly']),
                                param('Span< int >', 'c', modifiers=['scoped'])])),
     ('file void Foo()', (['file'], 'void', 'Foo', [], [])),
+    ('static extern int Foo(int a);', (['static', 'extern'], 'int', 'Foo', [], [param('int', 'a')])),
     ('void Foo(string s = "a, b", char c = \',\')',
      ([], 'void', 'Foo', [], [param('string', 's', '"a, b"'), param('char', 'c', "','")])),
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
@@ -225,6 +226,20 @@ def test_parse_method(sig, expected):
 def test_parse_operator(sig, expected):
     result = parse_method_signature(sig, None)
     assert (result.modifiers, result.return_type, result.name, result.operator, len(result.params)) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('int Twice(int x) => x * 2;', ([], 'int', 'Twice', [], [param('int', 'x')])),
+    ('string F(string s = "=>") => s', ([], 'string', 'F', [], [param('string', 's', '"=>"')])),
+    ("char F(char c = '\\'') => c", ([], 'char', 'F', [], [param('char', 'c', "'\\''")])),
+    ('static V operator +(V a, V b) => new(a.X + b.X);',
+     (['static'], 'V', 'op_Addition', [], [param('V', 'a'), param('V', 'b')])),
+    ('static bool operator >=(V a, V b) => a.X >= b.X', (['static'], 'bool', 'op_GreaterThanOrEqual', [],
+                                                         [param('V', 'a'), param('V', 'b')])),
+])
+def test_parse_expression_body(sig, expected):
+    result = parse_method_signature(sig, None)
+    assert result[:5] == expected
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -290,7 +305,8 @@ def test_parse_property(sig, expected):
     ('int[,] grid', ([], 'int[,]', 'int', [], 'grid', None)),
     ('static readonly (int, int) T', (['static', 'readonly'], '(int, int)', '(int, int)', [], 'T', None)),
     ('template<T> T x', ([], 'T', 'T', ['T'], 'x', None)),
-    ('int x;', ([], 'int', 'int', [], 'x', None)),
+    ('public const int X = 1;', (['public', 'const'], 'int', 'int', [], 'X', '1')),
+    ('int x ;', ([], 'int', 'int', [], 'x', None)),
 ])
 def test_parse_variable(sig, expected):
     assert parse_variable_signature(sig, None) == expected
