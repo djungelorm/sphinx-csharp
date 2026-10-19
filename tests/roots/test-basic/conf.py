@@ -6,5 +6,6 @@ copyright = '2015-2016, djungelorm'
 master_doc = 'index'
 source_suffix = '.rst'
 extensions = ['sphinx_csharp']
+sphinx_csharp_maximum_signature_line_length = 100
 
 pygments_style = 'sphinx'

@@ -54,6 +54,7 @@
       A method with a default argument value.
 
    .. function:: void MyMethodDefaultArgs (int x, bool y = true, List<string> arg = [ "foo", "bar", "baz" ], bool z = false)
+      :single-line-parameter-list:
 
       A method with default argument values.
 
@@ -313,6 +314,10 @@ Generic attribute ref :attr:`MyGenericAttribute`
 Indexer ref :idxr:`MyClass.this[]`
 
 Any object ref :obj:`MyClass.MyMethod`
+
+Namespace ref :obj:`MyNamespace`
+
+Short ref :type:`~MyNamespace.MyClass`
 
 Section ref :ref:`references`
 
