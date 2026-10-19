@@ -983,6 +983,15 @@ def test_namespace_plain_in_its_own_namespace(make_app, tmp_path):
     assert references(app) == {'N': 'namespace-N', 'N.C': 'class-N.C'}
 
 
+def test_namespace_pop_adds_no_target(build):
+    app = build('.. cs:namespace:: N\n   :no-index:\n\n.. cs:namespace-push:: Inner\n\n.. cs:namespace-pop::\n\n'
+                '.. cs:class:: A\n\n:cs:namespace:`N`\n')
+    assert len(warnings(app)) == 1
+    assert 'cs:namespace reference target not found: N' in warnings(app)[0]
+    assert ('namespace', 'N') not in app.env.domaindata['cs']['objects']
+    assert 'class-N.A' in signatures(app)
+
+
 def test_namespace_without_index(build):
     app = build('.. cs:namespace:: N\n   :no-index:\n\n.. cs:class:: A\n\n:cs:namespace:`N`\n')
     assert len(warnings(app)) == 1

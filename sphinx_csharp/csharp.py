@@ -401,13 +401,19 @@ class CSharpNamespaceDirective(SphinxDirective):
     final_argument_whitespace = False
     option_spec = {}
 
-    def set_namespace(self, namespace: str | None) -> list[nodes.Node]:
-        """ Make a namespace current, and add a target for it to the document, or clear it if it is None """
+    def make_current(self, namespace: str | None) -> None:
+        """ Make a namespace current, or clear it if it is None """
         if namespace is None:
             self.env.ref_context.pop('cs:parent', None)
             self.env.ref_context.pop('cs:namespace', None)
+        else:
+            self.env.ref_context['cs:parent'] = self.env.ref_context['cs:namespace'] = namespace
+
+    def set_namespace(self, namespace: str | None) -> list[nodes.Node]:
+        """ Make a namespace current, and add a target for it to the document, or clear it if it is None """
+        self.make_current(namespace)
+        if namespace is None:
             return []
-        self.env.ref_context['cs:parent'] = self.env.ref_context['cs:namespace'] = namespace
         targetid = target_id('namespace', namespace)
         document = self.state.document
         if 'no-index' in self.options or 'noindex' in self.options or targetid in document.ids:
@@ -454,7 +460,7 @@ class CSharpNamespacePop(CSharpNamespaceDirective):
                            type='cs', subtype='namespace')
             return []
         self.env.ref_context['cs:namespaces'] = namespaces[:-1]
-        self.set_namespace(namespaces[-1])
+        self.make_current(namespaces[-1])
         return []
 
 
