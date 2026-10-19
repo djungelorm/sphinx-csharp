@@ -36,6 +36,7 @@ from .parser import (
     parse_base_type,
     parse_enum_signature,
     parse_enumerator_signature,
+    parse_extension_signature,
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
@@ -402,6 +403,27 @@ class CSharpInherits(CSharpObject):
         """ A base type is part of the description of its type, so it has no target or index entry of its own """
 
 
+class CSharpExtension(CSharpObject):
+    """ Description of a C# extension block, such as extension(string s), whose members belong to its static class """
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        generic_params, receiver, constraints = parse_extension_signature(sig, (self.env.docname, self.lineno))
+        signode += addnodes.desc_annotation('extension', 'extension')
+        if generic_params:
+            self.append_generics(signode, generic_params, nolink=True)
+        generic_names = [generic.split()[-1] for generic in generic_params]
+        self.add_generic_names(generic_names)
+        signode += nodes.Text('\xa0')
+        self.append_parameters(signode, [receiver], generic_names)
+        self.append_constraints(signode, constraints, generic_names)
+        # The name of the enclosing type, which stays the parent of the members
+        parent: str = self.env.ref_context.get('cs:parent') or ''
+        return parent
+
+    def add_target_and_index(self, name: str, sig: str, signode: addnodes.desc_signature) -> None:
+        """ An extension block has no name, so it has no target or index entry """
+
+
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
@@ -639,6 +661,7 @@ class CSharpDomain(Domain):
         'interface': CSharpInterface,
         'record': CSharpRecord,
         'inherits': CSharpInherits,
+        'extension': CSharpExtension,
 
         'function': CSharpMethod,
         'delegate': CSharpDelegate,

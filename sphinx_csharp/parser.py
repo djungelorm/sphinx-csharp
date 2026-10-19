@@ -134,6 +134,13 @@ class EnumeratorSig(NamedTuple):
     value: str | None
 
 
+class ExtensionSig(NamedTuple):
+    generic_params: list[str]
+    # The parameter of the type that the members extend, such as string s
+    receiver: ParamTuple
+    constraints: list[Constraint]
+
+
 class AttrSig(NamedTuple):
     name: str
     params: list[ParamTuple]
@@ -641,6 +648,15 @@ class Parser:
         name = self.generic_qualified_name()
         return EnumeratorSig(name, self.rest() if self.accept('=') else None)
 
+    def extension(self) -> ExtensionSig:
+        """ An extension block, such as extension<T>(IEnumerable<T> source) where T : notnull """
+        self.accept('extension')
+        generic_params = self.generic_args()
+        self.expect('(')
+        receiver = self.param(')')
+        self.expect(')')
+        return ExtensionSig(generic_params, receiver, self.constraints())
+
     def attribute(self) -> AttrSig:
         """ An attribute class, such as MyAttr<T>(T a) """
         name = self.qualified_name()
@@ -1007,6 +1023,11 @@ def parse_enum_signature(sig: str, location: Location) -> EnumSig:
 def parse_enumerator_signature(sig: str, location: Location) -> EnumeratorSig:
     """ Parse an enum value signature of the form: name (= value)? """
     return parse('Enumerator', sig, location, Parser.enumerator)
+
+
+def parse_extension_signature(sig: str, location: Location) -> ExtensionSig:
+    """ Parse an extension block signature of the form: extension? (<generics>)? (param) constraints? """
+    return parse('Extension', sig, location, Parser.extension)
 
 
 def parse_attr_signature(sig: str, location: Location) -> AttrSig:

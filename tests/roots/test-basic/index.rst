@@ -367,3 +367,9 @@ More Tests
 .. namespace:: OtherNamespace.Subspace
 
 .. function:: void CompileExpression (Expression<Func<int>> e)
+
+.. class:: public static Extensions
+
+   .. extension:: (string s)
+
+      .. property:: bool IsEmpty { get; }

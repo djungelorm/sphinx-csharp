@@ -14,6 +14,7 @@ from sphinx_csharp.parser import (
     parse_base_type,
     parse_enum_signature,
     parse_enumerator_signature,
+    parse_extension_signature,
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
@@ -518,6 +519,16 @@ def test_parse_enumerator(sig, expected):
 
 
 @pytest.mark.parametrize('sig, expected', [
+    ('extension(string s)', ([], param('string', 's'), [])),
+    ('<T>(IEnumerable<T> source) where T : notnull',
+     (['T'], param('IEnumerable<T>', 'source'), [Constraint('T', ['notnull'])])),
+    ('extension<T>(ref T x)', (['T'], param('T', 'x', modifiers=['ref']), [])),
+])
+def test_parse_extension(sig, expected):
+    assert parse_extension_signature(sig, None) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
     ('MyAttr', ('MyAttr', [], [])),
     ('MyAttr (string a, int b)', ('MyAttr', [param('string', 'a'), param('int', 'b')], [])),
     ('Obsolete(string message, bool error = false)',
@@ -561,6 +572,8 @@ def test_parse_attribute(sig, expected):
     (parse_attr_signature, 'A B C'),
     (parse_enum_signature, 'Color Shade'),
     (parse_enumerator_signature, '= 1'),
+    (parse_extension_signature, 'extension()'),
+    (parse_extension_signature, 'extension(string a, int b)'),
 ])
 def test_parse_invalid(parse, sig):
     with pytest.raises(ValueError, match='signature invalid'):

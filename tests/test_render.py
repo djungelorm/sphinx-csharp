@@ -457,6 +457,37 @@ def test_multiple_declarators(build):
     assert references(app).items() >= {'C.Y': 'var-C.Y', 'C.B': 'event-C.B'}.items()
 
 
+EXTENSIONS = '''
+.. cs:class:: public static Extensions
+
+   .. cs:extension:: extension(string s)
+
+      .. cs:property:: public bool IsEmpty { get; }
+
+   .. cs:extension:: <T>(System.Collections.Generic.IEnumerable<T> source) where T : notnull
+
+      .. cs:function:: public T First ()
+
+:cs:prop:`Extensions.IsEmpty` :cs:meth:`Extensions.First`
+'''
+
+
+def test_extension_blocks(build):
+    app = build(EXTENSIONS)
+    assert warnings(app) == []
+    assert signatures(app) == {
+        'class-Extensions': 'public static class Extensions',
+        'property-Extensions.IsEmpty': 'public bool IsEmpty { get; }',
+        'function-Extensions.First': 'public T First ()',
+        'function-Extensions.First()': 'public T First ()'}
+    assert [node.astext().replace('\xa0', ' ') for node in resolved_doctree(app).findall(addnodes.desc_signature)
+            if not node['ids']] == [
+        'extension (string s)',
+        'extension<T> (IEnumerable<T> source) where T : notnull']
+    assert references(app).items() >= {'Extensions.IsEmpty': 'property-Extensions.IsEmpty',
+                                       'Extensions.First': 'function-Extensions.First'}.items()
+
+
 def test_invalid_tuple_element(build):
     app = build('.. cs:function:: (int, , string) Foo ()\n')
     assert len(warnings(app)) == 1

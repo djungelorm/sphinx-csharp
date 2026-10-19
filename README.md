@@ -28,6 +28,20 @@ Each object gets an entry in the general index, such as `MyNamespace.MyClass (C#
    :no-index-entry:
 ```
 
+### Extension Blocks
+
+Describe the members of a C# 14 extension block in an `extension` directive:
+
+```rst
+.. cs:class:: public static StringExtensions
+
+   .. cs:extension:: (string s)
+
+      .. cs:property:: bool IsEmpty { get; }
+```
+
+The members belong to the enclosing class, as in `StringExtensions.IsEmpty`. The generic parameters of the block, as in `.. cs:extension:: <T>(IEnumerable<T> source)`, are not linked in its members.
+
 ### Doc Fields
 
 Describe parameters, type parameters, return values and exceptions with field lists:
