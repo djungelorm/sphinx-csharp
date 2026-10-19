@@ -136,7 +136,7 @@ suppress_warnings = ['cs.ambiguous']
 - `cs.duplicate`: an object is described more than once.
 - `cs.ambiguous`: a reference matches more than one object, and links to the first.
 - `cs.external`: an external link is ambiguous, fails the link check, or has no search page for its package.
-- `cs.config`: an option has a deprecated name.
+- `cs.config`: an option has an old name, which still works.
 - `cs.namespace`: a `namespace-pop` has no `namespace-push` to undo.
 
 ### Breathe Limitations
@@ -209,18 +209,6 @@ sphinx_csharp_maximum_signature_line_length = None
 # Log verbose debug output, for every category with True, or for a list of 'parse', 'xref' and 'external'
 sphinx_csharp_debug = False
 ```
-
-Earlier versions named some of these options differently. The old names still work, with a `cs.config` warning:
-
-| Old name | New name |
-|---|---|
-| `sphinx_csharp_test_links` | `sphinx_csharp_check_external_links` |
-| `sphinx_csharp_ignore_xref` | `sphinx_csharp_ignore_types` |
-| `sphinx_csharp_ext_type_map` | `sphinx_csharp_external_type_map` |
-| `sphinx_csharp_ext_search_pages` | `sphinx_csharp_external_search_pages` |
-| `sphinx_csharp_debug_parse` and `sphinx_csharp_debug_parse_*` | `sphinx_csharp_debug = ['parse']` |
-| `sphinx_csharp_debug_xref` | `sphinx_csharp_debug = ['xref']` |
-| `sphinx_csharp_debug_ext_links` | `sphinx_csharp_debug = ['external']` |
 
 ## Development
 
