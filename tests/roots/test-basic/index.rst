@@ -88,6 +88,10 @@
 
       A method with nullable parameter and return types.
 
+   .. function:: unsafe int *MyMethodPointers (int **table, int *start)
+
+      A method with pointer types written next to the names.
+
    .. function:: MyClass MyMethodClass (MyClass arg)
 
       A method with a class as the parameter and return types.
@@ -121,6 +125,12 @@
    .. function:: public static MyMethodHasMultiModifiers()
 
       A method with multiple method modifiers.
+
+   .. function:: void System.IDisposable.Dispose ()
+
+      An explicit interface implementation.
+
+   .. function:: System.Collections.Generic.IEnumerator<string> System.Collections.Generic.IEnumerable<string>.GetEnumerator ()
 
    .. property:: string MyProperty { get; set; }
 

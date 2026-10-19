@@ -337,6 +337,29 @@ def test_explicit_interface_indexer(build):
     assert signatures(app)['indexer-MyClass.IList<int>.this[]'] == 'int IList<int>.this[int i] { get; }'
 
 
+def test_explicit_interface_members(build):
+    # Doxygen writes a space after the interface of an explicit implementation
+    app = build('.. cs:class:: MyClass\n\n'
+                '   .. cs:function:: System.Collections.Generic.IEnumerator< int > '
+                'System.Collections.Generic.IEnumerable< int >. GetEnumerator ()\n\n'
+                '   .. cs:property:: int IShape. Sides {get;}\n\n'
+                '   .. cs:property:: int IShape. this[int i] {get;}\n\n'
+                ':cs:meth:`MyClass.System.Collections.Generic.IEnumerable<int>.GetEnumerator`\n')
+    assert warnings(app) == []
+    assert signatures(app) == {
+        'class-MyClass': 'class MyClass',
+        'function-MyClass.System.Collections.Generic.IEnumerable<int>.GetEnumerator':
+            'IEnumerator<int> System.Collections.Generic.IEnumerable<int>.GetEnumerator ()',
+        'function-MyClass.System.Collections.Generic.IEnumerable<int>.GetEnumerator()':
+            'IEnumerator<int> System.Collections.Generic.IEnumerable<int>.GetEnumerator ()',
+        'property-MyClass.IShape.Sides': 'int IShape.Sides { get; }',
+        'indexer-MyClass.IShape.this[]': 'int IShape.this[int i] { get; }',
+        'indexer-MyClass.IShape.this[int]': 'int IShape.this[int i] { get; }',
+    }
+    assert references(app)['MyClass.System.Collections.Generic.IEnumerable<int>.GetEnumerator'] == \
+        'function-MyClass.System.Collections.Generic.IEnumerable<int>.GetEnumerator'
+
+
 def test_property_directive_with_indexer(build):
     # Breathe passes indexers from Doxygen to the property directive
     app = build('.. cs:class:: MyClass\n\n   .. cs:property:: string this[string s, int j=0] {get;}\n\n'
@@ -523,6 +546,13 @@ def test_type_suffixes(build):
     assert signatures(app)['function-Foo'] == 'MyClass?[] Foo (int** p, string?[]? s)'
     assert references(app, 'function-Foo') == {
         'MyClass': 'class-MyClass', 'int': MICROSOFT_DOCS + 'System.Int32', 'string': MICROSOFT_DOCS + 'System.String'}
+
+
+def test_pointer_next_to_name(build):
+    # Doxygen writes pointer parameters as int **p
+    app = build('.. cs:function:: int *Foo (int **p, int * q)\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Foo(int**,int*)'] == 'int* Foo (int** p, int* q)'
 
 
 def test_parameter_attributes_and_modifiers(build):
