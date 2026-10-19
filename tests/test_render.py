@@ -6,6 +6,7 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.errors import ExtensionError
 
+from sphinx_csharp.csharp import ObjectEntry
 from sphinx_csharp.extrefs import ExternalRefs
 from sphinx_csharp.extrefs_data import ExternalRefsData
 
@@ -1066,6 +1067,38 @@ def test_rebuild_keeps_objects_from_other_pages(build, tmp_path):
     assert warnings(app) == []
     assert set(app.env.get_domain('cs').objects) == {('class', 'Page1Class'), ('class', 'OtherClass')}
     assert references(app)['Page1Class'] == 'page1.html#class-Page1Class'
+
+
+@pytest.mark.parametrize('removed, target', [('a', 'b.html#class-Foo'), ('b', 'a.html#class-Foo')])
+def test_rebuild_keeps_duplicate_description(build, tmp_path, removed, target):
+    pages = {'a': 'A\n=\n\n.. cs:class:: Foo\n', 'b': 'B\n=\n\n.. cs:class:: Foo\n'}
+    app = build('.. toctree::\n\n   a\n   b\n\n:cs:type:`Foo`\n', pages=pages)
+    assert references(app)['Foo'] == 'a.html#class-Foo'
+    (tmp_path / f'{removed}.rst').write_text(f'{removed.upper()}\n=\n')
+    app.build()
+    assert app.env.get_domain('cs').duplicates == {}
+    assert references(app)['Foo'] == target
+
+
+def test_duplicate_description_in_one_parallel_chunk(build):
+    # Sphinx reads the index and pages 0 and 1 in one process
+    pages = {f'page{i}': f'Page {i}\n======\n\n.. cs:class:: Page{i}Class\n' for i in range(6)}
+    for name in ('page0', 'page1'):
+        pages[name] += '\n.. cs:class:: Foo\n'
+    app = build('.. toctree::\n\n' + ''.join(f'   {name}\n' for name in pages) + '\n:cs:type:`Foo`\n',
+                pages=pages, parallel=2)
+    assert len(warnings(app)) == 1
+    assert [entry.docname for entry in app.env.get_domain('cs').duplicates['class', 'Foo']] == ['page1']
+    assert references(app)['Foo'] == 'page0.html#class-Foo'
+
+
+def test_merge_takes_duplicates_from_the_merged_pages(build):
+    app = build('')
+    domain = app.env.get_domain('cs')
+    entries = [ObjectEntry('a', 'Foo', 'Foo'), ObjectEntry('b', 'Foo', 'Foo')]
+    domain.merge_domaindata({'b'}, {'objects': {}, 'duplicates': {('class', 'Foo'): entries}})
+    assert domain.objects == {('class', 'Foo'): entries[1]}
+    assert domain.duplicates == {}
 
 
 def test_reference_without_target(build):

@@ -126,7 +126,8 @@ class CSharpObject(ObjectDescription[str]):
         signode['ids'].append(overload_targetname)
         signode['first'] = not self.names
         document.note_explicit_target(signode)
-        objects[key] = ObjectEntry(self.env.docname, name, dispname)
+        domain: CSharpDomain = self.env.get_domain('cs')  # type: ignore[assignment]
+        domain.add_object(key, ObjectEntry(self.env.docname, name, dispname))
 
         # Sphinx 7 and 8 keep noindexentry as a separate option
         indexed = 'no-index-entry' not in self.options and 'noindexentry' not in self.options
@@ -708,6 +709,8 @@ class CSharpDomain(Domain):
     }
     initial_data = {
         'objects': {},  # (objtype, full name with any overload parameters) -> ObjectEntry
+        # The other descriptions of the objects that more than one document describes
+        'duplicates': {},  # (objtype, full name with any overload parameters) -> list[ObjectEntry]
     }
     # The version of the objects data, which Sphinx compares with a saved environment
     data_version = 1
@@ -726,15 +729,38 @@ class CSharpDomain(Domain):
             raise
 
     def clear_doc(self, docname: str) -> None:
-        for key, entry in dict(self.objects).items():
+        for key, entries in list(self.duplicates.items()):
+            self.duplicates[key] = [entry for entry in entries if entry.docname != docname]
+        for key, entry in list(self.objects.items()):
             if entry.docname == docname:
                 del self.objects[key]
+                # Another document's description of the object takes its place
+                for other in self.duplicates.pop(key, []):
+                    self.add_object(key, other)
+        for key in [key for key, entries in self.duplicates.items() if not entries]:
+            del self.duplicates[key]
 
     @property
     def objects(self) -> dict[tuple[str, str], ObjectEntry]:
         """ The documented objects, keyed by object type and full name, with the document they are in """
         objects: dict[tuple[str, str], ObjectEntry] = self.data['objects']
         return objects
+
+    @property
+    def duplicates(self) -> dict[tuple[str, str], list[ObjectEntry]]:
+        """ The descriptions of objects that another document also describes, other than those in objects """
+        duplicates: dict[tuple[str, str], list[ObjectEntry]] = self.data['duplicates']
+        return duplicates
+
+    def add_object(self, key: tuple[str, str], entry: ObjectEntry) -> None:
+        """ Add a description of an object. References link to the description in the first document by name. """
+        existing = self.objects.get(key)
+        if existing is None:
+            self.objects[key] = entry
+            return
+        first, other = sorted([existing, entry], key=lambda description: description.docname)
+        self.objects[key] = first
+        self.duplicates.setdefault(key, []).append(other)
 
     def find_objects(self, target: str, parent: str | None, objtypes: Iterable[str],
                      loose: bool = True) -> list[ObjectMatch]:
@@ -897,4 +923,8 @@ class CSharpDomain(Domain):
                     logger.warning(f'duplicate description of {key[0]} {key[1]}, '
                                    f'other instance in {self.env.doc2path(self.objects[key].docname)}',
                                    location=entry.docname, type='cs', subtype='duplicate')
-                self.objects[key] = entry
+                self.add_object(key, entry)
+        for key, entries in otherdata['duplicates'].items():
+            for entry in entries:
+                if entry.docname in docnames:
+                    self.add_object(key, entry)
