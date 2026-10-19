@@ -320,6 +320,13 @@ def test_no_index_entry(build, option):
     assert index_entries(app) == [('Shown (C# class)', 'class-Shown'), ('Derived (C# class)', 'class-Derived')]
 
 
+def test_inherits_is_not_an_object(build):
+    app = build('.. cs:class:: Derived\n\n   .. cs:inherits:: System.IDisposable\n')
+    assert warnings(app) == []
+    assert set(signatures(app)) == {'class-Derived'}
+    assert [name for name, *_ in app.env.get_domain('cs').get_objects()] == ['Derived']
+
+
 @pytest.mark.parametrize('sig, text', [
     ('string this[int i] { get; set; }', 'string this[int i] { get; set; }'),
     ('string this[int i, MyClass j] { get; }', 'string this[int i, MyClass j] { get; }'),
@@ -426,6 +433,12 @@ def test_invalid_tuple_element(build):
     app = build('.. cs:function:: (int, , string) Foo ()\n')
     assert len(warnings(app)) == 1
     assert 'Type signature invalid: (int, , string)' in warnings(app)[0]
+
+
+def test_invalid_signature_leaves_no_name_for_the_next(build):
+    app = build('.. cs:function:: record Point(int X) : (int, , string)\n                 void Foo ()\n')
+    assert len(warnings(app)) == 1
+    assert ('Foo', 'Foo', 'function', 'index', 'function-Foo', 1) in app.env.get_domain('cs').get_objects()
 
 
 def test_type_constraints(build):
@@ -791,6 +804,13 @@ def test_generic_parameter_type_is_not_linked(build, sig):
     assert set(references(app, 'function-Foo')) <= {'int'}
 
 
+def test_any_reference_prefers_current_namespace(build):
+    app = build('.. cs:namespace:: N1\n\n.. cs:class:: Foo\n\n'
+                '.. cs:namespace:: N2\n\n.. cs:class:: Foo\n\n:any:`Foo`\n')
+    assert warnings(app) == []
+    assert references(app)['Foo'] == 'class-N2.Foo'
+
+
 def test_namespace_none_clears_namespace(build):
     app = build('.. cs:namespace:: MyNamespace\n\n.. cs:namespace:: None\n\n.. cs:class:: Bar\n')
     assert 'class-Bar' in signatures(app)
@@ -798,6 +818,28 @@ def test_namespace_none_clears_namespace(build):
 
 def test_duplicate_description(build):
     app = build('.. toctree::\n\n   page\n\n.. cs:class:: Foo\n', pages={'page': 'Page\n====\n\n.. cs:class:: Foo\n'})
+    assert len(warnings(app)) == 1
+    assert 'duplicate description of class Foo' in warnings(app)[0]
+
+
+@pytest.mark.parametrize('rst, message', [
+    ('.. cs:class:: Foo\n\n.. cs:class:: Foo\n', 'duplicate description of class Foo'),
+    ('.. cs:function:: void Foo (int a)\n                 void Foo (int b)\n',
+     'duplicate description of function Foo(int)'),
+])
+def test_duplicate_description_in_one_page(build, rst, message):
+    app = build(rst)
+    assert len(warnings(app)) == 1
+    assert message in warnings(app)[0]
+    assert len(index_entries(app)) == 1
+
+
+def test_duplicate_description_in_parallel_build(build):
+    # Sphinx reads the index and pages 0 and 1 in one process, and pages 2 to 4 in another at the same time
+    pages = {f'page{i}': f'Page {i}\n======\n\n.. cs:class:: Page{i}Class\n' for i in range(6)}
+    for name in ('page0', 'page3'):
+        pages[name] += '\n.. cs:class:: Foo\n'
+    app = build('.. toctree::\n\n' + ''.join(f'   {name}\n' for name in pages), pages=pages, parallel=2)
     assert len(warnings(app)) == 1
     assert 'duplicate description of class Foo' in warnings(app)[0]
 
@@ -845,6 +887,17 @@ def test_overloads(build):
         'string': 'function-C.op_Implicit(C)~string', 'indexer': 'indexer-C.this[]',
         'key': 'indexer-C.this[string]', 'any': 'function-C.Foo', 'tuple': 'function-C.Foo((int,string))',
         'pair': 'function-C.op_Implicit(C)~(int,int)'}.items()
+
+
+def test_static_constructor(build):
+    app = build('.. cs:class:: C<T>\n\n   .. cs:function:: static C ()\n\n   .. cs:function:: C ()\n\n'
+                '   .. cs:function:: static Make ()\n\n'
+                ':cs:meth:`C.C` and :cs:meth:`static <C.static C>`\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-C-1.static-C()'] == 'static C ()'
+    assert signatures(app)['function-C-1.C()'] == 'C ()'
+    assert signatures(app)['function-C-1.Make()'] == 'static Make ()'
+    assert references(app).items() >= {'C.C': 'function-C-1.C', 'static': 'function-C-1.static-C'}.items()
 
 
 def test_overloads_in_one_directive(build):

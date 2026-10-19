@@ -104,41 +104,38 @@ class CSharpObject(ObjectDescription[str]):
         self.overload_name = None
         dispname, self.dispname = self.dispname or remove_arity(name), None
         overload_targetname = targetname = target_id(self.objtype, overload_name)
+        objects = self.env.domaindata['cs']['objects']
+        key = (self.objtype, overload_name)
+        if key in objects:
+            logger.warning(f'duplicate description of {self.objtype} {overload_name}, ' +
+                           f'other instance in {self.env.doc2path(objects[key].docname)}',
+                           location=(self.env.docname, self.lineno))
         document = self.state.document
-        if overload_targetname not in document.ids:
-            # The first overload in a document also gets the target without parameters, which the index uses
-            plain_targetname = target_id(self.objtype, name)
-            if plain_targetname != overload_targetname and plain_targetname not in document.ids:
-                signode['names'].append(plain_targetname)
-                signode['ids'].append(plain_targetname)
-                targetname = plain_targetname
-            signode['names'].append(overload_targetname)
-            signode['ids'].append(overload_targetname)
-            signode['first'] = not self.names
-            document.note_explicit_target(signode)
-
-            objects = self.env.domaindata['cs']['objects']
-            key = (self.objtype, overload_name)
-            if key in objects:
-                logger.warning(f'duplicate description of {self.objtype} {overload_name}, ' +
-                               f'other instance in {self.env.doc2path(objects[key].docname)}',
-                               location=(self.env.docname, self.lineno))
-            objects[key] = ObjectEntry(self.env.docname, name, dispname)
+        if overload_targetname in document.ids:
+            return
+        # The first overload in a document also gets the target without parameters, which the index uses
+        plain_targetname = target_id(self.objtype, name)
+        if plain_targetname != overload_targetname and plain_targetname not in document.ids:
+            signode['names'].append(plain_targetname)
+            signode['ids'].append(plain_targetname)
+            targetname = plain_targetname
+        signode['names'].append(overload_targetname)
+        signode['ids'].append(overload_targetname)
+        signode['first'] = not self.names
+        document.note_explicit_target(signode)
+        objects[key] = ObjectEntry(self.env.docname, name, dispname)
 
         # Sphinx 7 and 8 keep noindexentry as a separate option
         indexed = 'no-index-entry' not in self.options and 'noindexentry' not in self.options
         # The index has one entry for the overloads of a method in a document, at the target without parameters
         if indexed and targetname == target_id(self.objtype, name):
-            indextext = self.get_index_text(dispname)
-            if indextext:
-                self.indexnode['entries'].append(('single', indextext, targetname, '', None))
+            self.indexnode['entries'].append(('single', self.get_index_text(dispname), targetname, '', None))
 
     def get_index_text(self, name: str) -> str:
         """ The general index entry for an object, such as "MyNamespace.MyClass (C# class)" """
+        # Note: Breathe can describe an object as a method, which is not an object type of the domain.
         objtype = CSharpDomain.object_types.get(self.objtype)
-        if objtype is None:
-            return ''
-        return _('%s (C# %s)') % (name, objtype.lname)
+        return _('%s (C# %s)') % (name, objtype.lname if objtype else self.objtype)
 
     def before_content(self) -> None:
         lastname = self.names and self.names[-1]
@@ -290,8 +287,6 @@ class CSharpObject(ObjectDescription[str]):
             self.append_generics(signode, generics, nolink=True)
         # Variance modifiers such as in T come before the parameter name
         generic_params = [generic.split()[-1] for generic in generics]
-        self.dispname = remove_arity(self.get_fullname(display)) + \
-            ('<' + ', '.join(generic_params) + '>' if generic_params else '')
         self.add_generic_names(generic_params)
         if params is not None:
             signode += nodes.Text('\xa0')
@@ -299,6 +294,9 @@ class CSharpObject(ObjectDescription[str]):
         if inherits:
             self.append_inherits(signode, inherits, generic_params)
         self.append_constraints(signode, constraints, generic_params)
+        # Set last, as add_target_and_index takes it and does not run for a signature that fails to render
+        self.dispname = remove_arity(self.get_fullname(display)) + \
+            ('<' + ', '.join(generic_params) + '>' if generic_params else '')
         return self.get_fullname(generic_type_name(typ, len(generics)))
 
     def reset_objtype(self) -> None:
@@ -393,6 +391,9 @@ class CSharpInherits(CSharpObject):
         self.append_type(signode, sig)
         return self.get_fullname(sig)
 
+    def add_target_and_index(self, name: str, sig: str, signode: addnodes.desc_signature) -> None:
+        """ A base type is part of the description of its type, so it has no target or index entry of its own """
+
 
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
@@ -447,6 +448,10 @@ class CSharpMethod(CSharpObject):
             signode += nodes.Text(' : ' + initializer)
         self.append_constraints(signode, constraints, generic_names)
 
+        # A static constructor is not an overload of the instance constructors, so its name has the modifier
+        parent = self.env.ref_context.get('cs:parent') or ''
+        if return_type is None and 'static' in modifiers and name == remove_arity(parent.rpartition('.')[2]):
+            name = 'static ' + name
         generics = '<' + ','.join(generic_names) + '>' if generic_names else ''
         return self.get_overload_fullname(name, f'{name}{generics}({parameter_types(params)})', sig, signode)
 
@@ -828,4 +833,8 @@ class CSharpDomain(Domain):
     def merge_domaindata(self, docnames: Set[str], otherdata: dict[str, Any]) -> None:
         for key, entry in otherdata['objects'].items():
             if entry.docname in docnames:
+                if key in self.objects:
+                    logger.warning(f'duplicate description of {key[0]} {key[1]}, '
+                                   f'other instance in {self.env.doc2path(self.objects[key].docname)}',
+                                   location=entry.docname)
                 self.objects[key] = entry

@@ -105,7 +105,8 @@ class ExternalRefs:
 
         def find(is_member: Callable[[str], object]) -> list[tuple[str, str, str]]:
             return [(pkg, namespace, member) for pkg, namespaces in cls.external_type_map.items()
-                    for namespace, members in namespaces.items() if namespace.endswith(parent)
+                    for namespace, members in namespaces.items()
+                    if not parent or namespace == parent or namespace.endswith('.' + parent)
                     for member in members if is_member(member)]
 
         # A generic type can have an entry with its arity, such as IEqualityComparer-1, in another namespace

@@ -160,13 +160,13 @@
 
    .. property:: System.Collections.Generic.IList<string> IListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.List<System.Collections.Generic.List<string>> ListProperty { get; set; }
+   .. property:: System.Collections.Generic.List<System.Collections.Generic.List<string>> NestedListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IList<string>> IListProperty { get; set; }
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IList<string>> NestedIListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.Dictionary<string,System.Collections.Generic.List<string>>> ListProperty { get; set; }
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.Dictionary<string,System.Collections.Generic.List<string>>> DictionaryListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IDictionary<string,System.Collections.Generic.IList<string>>> IListProperty { get; set; }
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IDictionary<string,System.Collections.Generic.IList<string>>> DictionaryIListProperty { get; set; }
 
    .. property:: global::System.String GlobalProperty { get; }
 
@@ -186,9 +186,9 @@
 
    .. indexer:: string this[int i] { get; set; }
 
-   .. indexer:: string this[int i] { get; }
+   .. indexer:: string this[string s] { get; }
 
-   .. indexer:: virtual string this[int i] { get; set; }
+   .. indexer:: virtual string this[long i] { get; set; }
 
    .. indexer:: string this[int i, MyClass j] { get; set; }
 
@@ -348,7 +348,7 @@ More Tests
 
    .. var:: private int a = 0
 
-   .. var:: private MyEnum a = MyEnum.Bar
+   .. var:: private MyEnum b = MyEnum.Bar
 
    .. var:: private static const List < MyInterface > GenericVar
 

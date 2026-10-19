@@ -5,6 +5,16 @@ namespace OtherNamespace
     public class Overloads
     {
         /// <summary>
+        /// A static constructor, which has the parameters of the instance constructor.
+        /// </summary>
+        static Overloads() { }
+
+        /// <summary>
+        /// An instance constructor.
+        /// </summary>
+        public Overloads() { }
+
+        /// <summary>
         /// An overload with one parameter.
         /// </summary>
         public void Add(int value) { }

@@ -27,6 +27,12 @@ def test_qualified_name_prefers_exact_namespace(build):
     assert refs == {'Foo.Bar': MICROSOFT_DOCS + 'Foo.Bar'}
 
 
+def test_namespace_matches_whole_names(build):
+    app = build('.. cs:function:: void Foo (O.Stream a)\n')
+    assert len(warnings(app)) == 1
+    assert 'reference target not found: O.Stream' in warnings(app)[0]
+
+
 @pytest.mark.parametrize('typ, namespaces, url', [
     ('Foo.Bar', {'A.Foo': ['Bar'], 'B.Foo': ['Bar']}, 'A.Foo.Bar'),
     ('Bar', {'A': ['Bar'], 'B': ['Bar']}, 'A.Bar'),
