@@ -246,9 +246,16 @@ class Parser:
     def modifiers(self, keywords: set[str]) -> list[str]:
         """ The modifiers, such as public static, that come before a type or a name """
         result = []
-        while self.at(*keywords) and (is_name(self.peek(1)) or self.at('(', offset=1)):
+        while self.at(*keywords) and (is_name(self.peek(1)) or self.at('(', '?', offset=1)):
             result.append(self.name())
         return result
+
+    def misplaced_nullable(self) -> str:
+        """ The nullable marker that Doxygen writes after the modifiers of some types, as in override? object """
+        if self.at('?') and self.peek(1) and not self.adjacent(1):
+            self.pos += 1
+            return '?'
+        return ''
 
     def attributes(self) -> list[str]:
         """ The attributes, such as [NotNull], before a declaration or a parameter """
@@ -441,9 +448,9 @@ class Parser:
         self.pos = end
         return symbol
 
-    def operator(self, modifiers: list[str]) -> MethodSig:
+    def operator(self, modifiers: list[str], nullable: str) -> MethodSig:
         """ An operator, such as V operator +(V a, V b), or a conversion operator, after the modifiers """
-        return_type = None if self.at('operator') else self.type().fulltype
+        return_type = None if self.at('operator') else self.type().fulltype + nullable
         self.expect('operator')
         checked = 'checked ' if self.accept('checked') else ''
         op = self.operator_symbol()
@@ -475,14 +482,15 @@ class Parser:
     def method(self) -> MethodSig:
         """ A method, constructor, delegate or operator """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         templates = self.templates()
         start = self.pos
         try:
-            return self.operator(list(modifiers))
+            return self.operator(list(modifiers), nullable)
         except ParseError:
             self.pos = start
         try:
-            return_type: str | None = self.type().fulltype
+            return_type: str | None = self.type().fulltype + nullable
             interface, name = self.member_name()
             generic_params = self.generic_args()
             self.expect('(')
@@ -512,15 +520,18 @@ class Parser:
     def variable(self) -> VariableSig:
         """ A field, constant or event, such as public const int X = 1 """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         templates = self.templates()
         typ = self.type()
         interface, name = self.member_name()
         default = self.rest() if self.accept('=') else None
-        return VariableSig(modifiers, typ.fulltype, typ.name, typ.generics or templates, interface + name, default)
+        return VariableSig(modifiers, typ.fulltype + nullable, typ.name, typ.generics or templates, interface + name,
+                           default)
 
     def property(self) -> PropertySig:
         """ A property or event with accessors, or a property with an expression body """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         self.templates()
         typ = self.type()
         interface, name = self.member_name()
@@ -532,11 +543,12 @@ class Parser:
             accessors = self.accessors()
             if self.accept('='):
                 default = self.rest()
-        return PropertySig(modifiers, typ.fulltype, interface + name, accessors, default)
+        return PropertySig(modifiers, typ.fulltype + nullable, interface + name, accessors, default)
 
     def indexer(self, parse_params: bool = True) -> IndexerSig:
         """ An indexer, such as int this[int i] { get; }, optionally without parsing the parameters """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         self.templates()
         typ = self.type()
         interface, name = self.member_name()
@@ -556,7 +568,7 @@ class Parser:
             self.expression_body()
         elif self.at('{'):
             accessors = self.accessors()
-        return IndexerSig(modifiers, typ.fulltype, interface[:-1] or None, params, accessors)
+        return IndexerSig(modifiers, typ.fulltype + nullable, interface[:-1] or None, params, accessors)
 
     def type_signature(self) -> TypeSig:
         """ A type declaration, such as public Box<T>(T x) : IFoo where T : struct, or a type such as int[] """
