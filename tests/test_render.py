@@ -468,6 +468,10 @@ EXTENSIONS = '''
 
       .. cs:function:: public T First ()
 
+   .. cs:extension:: (string)
+
+      .. cs:function:: public static string Empty ()
+
 :cs:prop:`Extensions.IsEmpty` :cs:meth:`Extensions.First`
 '''
 
@@ -479,11 +483,14 @@ def test_extension_blocks(build):
         'class-Extensions': 'public static class Extensions',
         'property-Extensions.IsEmpty': 'public bool IsEmpty { get; }',
         'function-Extensions.First': 'public T First ()',
-        'function-Extensions.First()': 'public T First ()'}
+        'function-Extensions.First()': 'public T First ()',
+        'function-Extensions.Empty': 'public static string Empty ()',
+        'function-Extensions.Empty()': 'public static string Empty ()'}
     assert [node.astext().replace('\xa0', ' ') for node in resolved_doctree(app).findall(addnodes.desc_signature)
             if not node['ids']] == [
         'extension (string s)',
-        'extension<T> (IEnumerable<T> source) where T : notnull']
+        'extension<T> (IEnumerable<T> source) where T : notnull',
+        'extension (string)']
     assert references(app).items() >= {'Extensions.IsEmpty': 'property-Extensions.IsEmpty',
                                        'Extensions.First': 'function-Extensions.First'}.items()
 

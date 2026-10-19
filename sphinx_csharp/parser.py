@@ -136,7 +136,7 @@ class EnumeratorSig(NamedTuple):
 
 class ExtensionSig(NamedTuple):
     generic_params: list[str]
-    # The parameter of the type that the members extend, such as string s
+    # The parameter of the type that the members extend, such as string s, with an empty name if it has none
     receiver: ParamTuple
     constraints: list[Constraint]
 
@@ -415,11 +415,14 @@ class Parser:
             raise ParseError
         return self.text(start)
 
-    def param(self, close: str) -> ParamTuple:
-        """ A parameter, such as [NotNull] ref int x = 0, up to the comma or the bracket close that ends it """
+    def param(self, close: str, unnamed: bool = False) -> ParamTuple:
+        """
+        A parameter, such as [NotNull] ref int x = 0, up to the comma or the bracket close that ends it.
+        With unnamed, the parameter name is optional, as in the receiver of extension(string).
+        """
         modifiers = self.attributes() + self.modifiers(PARAM_MODIFIERS)
         typ = self.type()
-        name = self.name()
+        name = '' if unnamed and self.at(close) else self.name()
         default = self.value(close) if self.accept('=') else None
         return ParamTuple(name, typ.fulltype, default, modifiers)
 
@@ -649,11 +652,11 @@ class Parser:
         return EnumeratorSig(name, self.rest() if self.accept('=') else None)
 
     def extension(self) -> ExtensionSig:
-        """ An extension block, such as extension<T>(IEnumerable<T> source) where T : notnull """
+        """ An extension block, such as extension<T>(IEnumerable<T> source) where T : notnull, or extension(string) """
         self.accept('extension')
         generic_params = self.generic_args()
         self.expect('(')
-        receiver = self.param(')')
+        receiver = self.param(')', unnamed=True)
         self.expect(')')
         return ExtensionSig(generic_params, receiver, self.constraints())
 

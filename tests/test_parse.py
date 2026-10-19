@@ -523,6 +523,7 @@ def test_parse_enumerator(sig, expected):
     ('<T>(IEnumerable<T> source) where T : notnull',
      (['T'], param('IEnumerable<T>', 'source'), [Constraint('T', ['notnull'])])),
     ('extension<T>(ref T x)', (['T'], param('T', 'x', modifiers=['ref']), [])),
+    ('extension(string)', ([], param('string', ''), [])),
 ])
 def test_parse_extension(sig, expected):
     assert parse_extension_signature(sig, None) == expected

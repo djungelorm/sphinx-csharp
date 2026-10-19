@@ -236,8 +236,9 @@ class CSharpObject(ObjectDescription[str]):
     def append_parameter(self, node: nodes.Element, param: ParamTuple, ignore_types: list[str]) -> None:
         self.append_modifiers(node, param.modifiers)
         self.append_type(node, param.typ, ignore_types)
-        node += nodes.Text('\xa0')
-        node += nodes.emphasis(param.name, param.name)
+        if param.name:
+            node += nodes.Text('\xa0')
+            node += nodes.emphasis(param.name, param.name)
         if param.default is not None:
             default = ' = ' + param.default
             node += nodes.emphasis(default, default)
