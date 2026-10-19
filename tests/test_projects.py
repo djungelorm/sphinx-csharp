@@ -1,7 +1,6 @@
 import shutil
 import subprocess
 
-import breathe
 import pytest
 from conftest import references, signature_lines, warnings
 
@@ -34,6 +33,7 @@ def breathe_project(rootdir, tmp_path):
 
 @requires_doxygen
 def test_breathe(make_app, rootdir, tmp_path):
+    breathe = pytest.importorskip('breathe')
     app = make_app('html', srcdir=breathe_project(rootdir, tmp_path), confoverrides={'nitpicky': True})
     app.build()
     assert warnings(app) == []
