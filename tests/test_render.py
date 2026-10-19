@@ -386,7 +386,9 @@ def test_property_signature(build, sig, text):
 @pytest.mark.parametrize('sig, text, links', [
     ('System.EventHandler Changed { add; remove; }', 'event EventHandler Changed { add; remove; }',
      {'EventHandler': 'System.EventHandler'}),
-    ('public System.EventHandler Changed', 'event public EventHandler Changed',
+    ('public System.EventHandler Changed', 'public event EventHandler Changed',
+     {'EventHandler': 'System.EventHandler'}),
+    ('public event System.EventHandler? Changed', 'public event EventHandler? Changed',
      {'EventHandler': 'System.EventHandler'}),
     ('System.Action Done = null', 'event Action Done = null', {'Action': 'System.Action'}),
 ])

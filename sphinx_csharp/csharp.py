@@ -506,10 +506,9 @@ class CSharpEvent(CSharpObject):
         modifiers, fulltype, name, accessors, default_value = parse_property_signature(
             sig, (self.env.docname, self.lineno))
 
+        self.append_modifiers(signode, [modifier for modifier in modifiers if modifier != 'event'])
         prefix = 'event' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
-
-        self.append_modifiers(signode, modifiers)
         self.append_type(signode, fulltype)
         signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)

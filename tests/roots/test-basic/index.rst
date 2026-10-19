@@ -198,6 +198,8 @@
 
    .. event:: public System.EventHandler Closed { add; remove; }
 
+   .. event:: public event System.EventHandler? Opened
+
    .. function:: T AGenericMethod<T> (int x)
 
    .. function:: T? AGenericNullableMethod<T> (T[] items)
