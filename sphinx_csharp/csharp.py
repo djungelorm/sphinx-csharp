@@ -93,6 +93,8 @@ logger = logging.getLogger(__name__)
 class CSharpObject(ObjectDescription[str]):
     """ Description of generic C# objects """
 
+    option_spec = {**ObjectDescription.option_spec, 'single-line-parameter-list': directives.flag}
+
     doc_field_types = [
         CSharpTypedField('parameter', label=_('Parameters'), names=('param', 'parameter', 'arg', 'argument'),
                          typerolename='type', typenames=('type',), can_collapse=True),
@@ -179,11 +181,19 @@ class CSharpObject(ObjectDescription[str]):
         return parent + '.' + name if parent else name
 
     def describe_name(self, signode: addnodes.desc_signature, name: str) -> str:
-        """ Return the full name of the object a signature describes, and note the parts of it for the TOC """
+        """
+        Finish a signature, and return the full name of the object it describes. Each signature calls this last.
+        Notes the parts of the name for the TOC, and puts each parameter on a line of its own in a long signature.
+        """
         parent = self.env.ref_context.get('cs:parent')
         # The TOC nests the entry of a member in the entry of its type, and IFoo.Bar is one member
         parts = split_sig(name, '.') if self.objtype in TYPE_OBJTYPES else [name]
         signode['cs:toc_parts'] = (*(split_sig(parent, '.') if parent else []), *parts)
+        max_length = self.config.sphinx_csharp_maximum_signature_line_length or \
+            self.config.maximum_signature_line_length or 0
+        if 'single-line-parameter-list' not in self.options and len(signode.astext()) > max_length > 0:
+            for parameters in signode.findall(addnodes.desc_parameterlist):
+                parameters['multi_line_parameter_list'] = True
         return self.get_fullname(name)
 
     def _object_hierarchy_parts(self, sig_node: addnodes.desc_signature) -> tuple[str, ...]:

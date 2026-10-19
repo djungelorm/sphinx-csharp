@@ -40,6 +40,8 @@ def add_config_values(app: Sphinx) -> None:
     app.add_config_value('sphinx_csharp_external_type_rename', None, 'env')
     app.add_config_value('sphinx_csharp_external_search_pages', None, 'env')
     app.add_config_value('sphinx_csharp_check_external_links', False, 'env')
+    # Put each parameter on a line of its own in a longer signature, in place of maximum_signature_line_length
+    app.add_config_value('sphinx_csharp_maximum_signature_line_length', None, 'env', types=(int, type(None)))
     # True for every category, or a list of categories
     app.add_config_value('sphinx_csharp_debug', False, '', types=(bool, list, tuple))
     for name in RENAMED:

@@ -1027,6 +1027,24 @@ def test_toc_entries(build, show_parents, entries):
     assert toc_lines(app.env.tocs['index']) == ['Title', *('  ' + entry for entry in entries)]
 
 
+@pytest.mark.parametrize('rst, confoverrides, wrapped', [
+    ('.. cs:function:: void Foo (int first, int second)\n', {'maximum_signature_line_length': 30}, True),
+    ('.. cs:function:: void Foo (int first, int second)\n', {'maximum_signature_line_length': 40}, False),
+    ('.. cs:function:: void Foo (int first, int second)\n', {}, False),
+    ('.. cs:function:: void Foo (int first, int second)\n',
+     {'maximum_signature_line_length': 40, 'sphinx_csharp_maximum_signature_line_length': 30}, True),
+    ('.. cs:function:: void Foo (int first, int second)\n   :single-line-parameter-list:\n',
+     {'maximum_signature_line_length': 30}, False),
+    ('.. cs:class:: Point (int first, int second)\n', {'maximum_signature_line_length': 30}, True),
+])
+def test_long_signature_wraps(build, rst, confoverrides, wrapped):
+    app = build(rst, **confoverrides)
+    assert warnings(app) == []
+    doctree = resolved_doctree(app)
+    assert [bool(node.get('multi_line_parameter_list')) for node in doctree.findall(addnodes.desc_parameterlist)] \
+        == [wrapped]
+
+
 def test_namespace_none_clears_namespace(build):
     app = build('.. cs:namespace:: MyNamespace\n\n.. cs:namespace:: None\n\n.. cs:class:: Bar\n')
     assert 'class-Bar' in signatures(app)

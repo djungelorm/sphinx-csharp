@@ -28,6 +28,8 @@ Each object gets an entry in the general index, such as `MyNamespace.MyClass (C#
    :no-index-entry:
 ```
 
+A signature longer than `maximum_signature_line_length` puts each parameter on a line of its own, unless the directive has the `:single-line-parameter-list:` option.
+
 Each object in a section also gets an entry in the table of contents, with members nested in their types. The `toc_object_entries_show_parents` option sets how much of the name it shows, and the `:no-contents-entry:` option leaves an object out.
 
 ### Namespaces
@@ -187,6 +189,9 @@ sphinx_csharp_external_type_rename = {
     'NativeArray': 'NativeArray_1',
     ...
 }
+
+# Put each parameter on a line of its own in a signature longer than this, in place of maximum_signature_line_length
+sphinx_csharp_maximum_signature_line_length = None
 
 # Log verbose debug output, for every category with True, or for a list of 'parse', 'xref' and 'external'
 sphinx_csharp_debug = False
