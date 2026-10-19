@@ -91,6 +91,7 @@ def test_normalize_signature(sig, expected):
     ('(int a, (string b, int[] c) d)', '(int, (string, int[]))'),
     ('(List<int> a, int? b)', '(List<int>, int?)'),
     ('Dictionary<string, int>', 'Dictionary<string, int>'),
+    ('delegate*<ref int, out long, void>', 'delegate*<ref int, out long, void>'),
 ])
 def test_overload_type(typ, expected):
     assert overload_type(typ) == expected

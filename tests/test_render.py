@@ -434,6 +434,8 @@ def test_tuple_signature(build, sig, text, links):
     ('function', 'int Apply (delegate *< int, MyClass > f)', 'function-Apply(delegate*<int,MyClass>)',
      'int Apply (delegate*<int, MyClass> f)',
      {'int': MICROSOFT_DOCS + 'System.Int32', 'MyClass': 'class-MyClass'}),
+    ('function', 'void Apply (delegate*<ref int, void> f)', 'function-Apply(delegate*<ref-int,void>)',
+     'void Apply (delegate*<ref int, void> f)', {'int': MICROSOFT_DOCS + 'System.Int32'}),
     ('var', 'delegate *unmanaged[Cdecl]< int, void > Callback', 'var-Callback',
      'delegate* unmanaged[Cdecl]<int, void> Callback', {'int': MICROSOFT_DOCS + 'System.Int32'}),
     ('var', 'delegate* unmanaged<void> Exit', 'var-Exit', 'delegate* unmanaged<void> Exit', {}),

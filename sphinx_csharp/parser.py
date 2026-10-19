@@ -779,7 +779,8 @@ def overload_type(typ: str) -> str:
     start = 0
     for previous, token, following in zip(tokens, tokens[1:], tokens[2:]):
         if is_name(token) and previous.end < token.start and following.text in (',', ')') and \
-                (previous.text[-1] in TUPLE_TYPE_END or previous.kind == 'word'):
+                (previous.text[-1] in TUPLE_TYPE_END or
+                 previous.kind == 'word' and previous.text not in PARAM_MODIFIERS):
             result += typ[start:previous.end]
             start = token.end
     return result + typ[start:]
