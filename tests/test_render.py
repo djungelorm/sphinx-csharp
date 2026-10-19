@@ -539,6 +539,12 @@ def test_generic_attribute(build):
     assert references(app) == {'int': MICROSOFT_DOCS + 'System.Int32', 'MyAttr': 'attribute-MyAttr'}
 
 
+def test_constructor_initializer(build):
+    app = build('.. cs:class:: C\n\n   .. cs:function:: public C (int a) : base(a, "x")\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-C.C'] == 'public C (int a) : base(a, "x")'
+
+
 @pytest.mark.parametrize('directive, sig, node_id, text', [
     ('function', '[Obsolete("Use Bar")] void Foo ()', 'function-Foo', '[Obsolete("Use Bar")] void Foo ()'),
     ('function', '[Serializable] record Point (int X)', 'record-Point', '[Serializable] record Point (int X)'),

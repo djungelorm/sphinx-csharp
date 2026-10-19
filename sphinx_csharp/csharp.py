@@ -406,8 +406,8 @@ class CSharpMethod(CSharpObject):
             self.change_objtype(signode, keyword.split()[0])
             return self.handle_type_signature(' '.join([*modifiers, rest]), signode, keyword)
 
-        modifiers, return_type, name, generic_params, params, constraints, operator = parse_method_signature(
-            sig, (self.env.docname, self.lineno))
+        modifiers, return_type, name, generic_params, params, constraints, operator, initializer = \
+            parse_method_signature(sig, (self.env.docname, self.lineno))
         if self.objtype == 'delegate' and 'delegate' not in modifiers:
             modifiers.append('delegate')
         if 'delegate' in modifiers and self.objtype != 'delegate':
@@ -443,6 +443,8 @@ class CSharpMethod(CSharpObject):
         signode += nodes.Text('\xa0')
 
         self.append_parameters(signode, params, generic_names)
+        if initializer:
+            signode += nodes.Text(' : ' + initializer)
         self.append_constraints(signode, constraints, generic_names)
 
         generics = '<' + ','.join(generic_names) + '>' if generic_names else ''

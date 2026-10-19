@@ -21,6 +21,10 @@
 
       A constructor for the class.
 
+   .. function:: MyClass (string a) : this(a, 2)
+
+      A constructor that calls another constructor.
+
    .. function:: void MyMethod (string arg)
 
       A method with a single argument.

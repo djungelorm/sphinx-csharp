@@ -227,6 +227,16 @@ def test_parse_operator(sig, expected):
     assert (result.modifiers, result.return_type, result.name, result.operator, len(result.params)) == expected
 
 
+@pytest.mark.parametrize('sig, expected', [
+    ('C(int a) : this(a, 0)', ([param('int', 'a')], 'this(a, 0)')),
+    ('public C(int a = F(1)) :base(a, G(2))', ([param('int', 'a', 'F(1)')], 'base(a, G(2))')),
+    ('C()', ([], None)),
+])
+def test_parse_constructor_initializer(sig, expected):
+    result = parse_method_signature(sig, None)
+    assert (result.params, result.initializer) == expected
+
+
 def test_parse_method_doxygen_template():
     assert parse_method_signature('template<T> void Foo(T a)', None) == \
         MethodSig([], 'void', 'Foo', ['T'], [param('T', 'a')], [], None)

@@ -77,6 +77,8 @@ class MethodSig(NamedTuple):
     constraints: list[Constraint]
     # The operator as written, such as "operator +", or "operator" for a conversion
     operator: str | None
+    # The constructor initializer, such as base(name)
+    initializer: str | None = None
 
 
 class VariableSig(NamedTuple):
@@ -493,9 +495,17 @@ class Parser:
             generic_params = self.generic_args()
             self.expect('(')
         params = self.params(')')
+        initializer = None
+        if self.accept(':'):
+            initializer_start = self.pos
+            if not self.at('this', 'base') or not self.at('(', offset=1):
+                raise ParseError
+            self.pos += 1
+            self.group('(', ')')
+            initializer = self.text(initializer_start)
         constraints = self.constraints()
         return MethodSig(modifiers, return_type, interface + name, generic_params or templates, params, constraints,
-                         None)
+                         None, initializer)
 
     def variable(self) -> VariableSig:
         """ A field, constant or event, such as public const int X = 1 """
