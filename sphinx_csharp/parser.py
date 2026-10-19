@@ -571,7 +571,7 @@ def try_parse(sig: str, production: Callable[[Parser], T]) -> T | None:
 
 def parse(kind: str, sig: str, location: Location, production: Callable[[Parser], T]) -> T:
     """ Parse a signature with a production, or log a warning and raise a ValueError if it does not match it """
-    result = try_parse(sig, production)
+    result = try_parse(strip_semicolon(sig), production)
     if result is None:
         raise invalid_signature(kind, sig, location)
     return result
@@ -615,7 +615,7 @@ def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
 
 
 def strip_semicolon(sig: str) -> str:
-    """ Remove whitespace and a trailing semicolon from a signature copied from source, such as int P => 1; """
+    """ Remove whitespace and a trailing semicolon from a signature copied from source, such as void Foo(); """
     return sig.strip().removesuffix(';').rstrip()
 
 
@@ -658,9 +658,7 @@ def is_indexer_signature(sig: str) -> bool:
 def parse_indexer_signature(sig: str, location: Location) -> IndexerSig:
     """ Parse a indexer signature of the form:
         modifier* type (interface.)?this[params] ({ accessor* } | => expression)? """
-    result = try_parse(strip_semicolon(sig), Parser.indexer)
-    if result is None:
-        raise invalid_signature('Indexer', sig, location)
+    result = parse('Indexer', sig, location, Parser.indexer)
     if CSDebug.parse_idxr:
         logger.info(f"parsed idxr: {tuple(result)}")
     return result

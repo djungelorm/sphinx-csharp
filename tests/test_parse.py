@@ -207,6 +207,7 @@ def test_parse_method_constraints(sig, expected):
     ('EventHandler E { add; remove; }', ([], 'EventHandler', 'E', ['add', 'remove'], None)),
     ('int P', ([], 'int', 'P', [], None)),
     ('int P = 1', ([], 'int', 'P', [], '1')),
+    ('int P;', ([], 'int', 'P', [], None)),
 ])
 def test_parse_property(sig, expected):
     assert parse_property_signature(sig, None) == expected
@@ -220,6 +221,7 @@ def test_parse_property(sig, expected):
     ('int[,] grid', ([], 'int[,]', 'int', [], 'grid', None)),
     ('static readonly (int, int) T', (['static', 'readonly'], '(int, int)', '(int, int)', [], 'T', None)),
     ('template<T> T x', ([], 'T', 'T', ['T'], 'x', None)),
+    ('int x;', ([], 'int', 'int', [], 'x', None)),
 ])
 def test_parse_variable(sig, expected):
     assert parse_variable_signature(sig, None) == expected
