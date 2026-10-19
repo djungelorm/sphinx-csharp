@@ -477,6 +477,8 @@ def test_operator_signature(build, sig, node_id, text):
     ('function', 'readonly record  struct Point (int X, int Y)', 'record-Point',
      'readonly record struct Point (int X, int Y)'),
     ('function', 'record class Point< T > (T X)', 'record-Point-1', 'record class Point<T> (T X)'),
+    ('function', 'template< T > record class Point< T > (T X)', 'record-Point-1', 'record class Point<T> (T X)'),
+    ('function', 'template<T> class Point<T> (T X)', 'class-Point-1', 'class Point<T> (T X)'),
     ('function', 'class Point (int X)', 'class-Point', 'class Point (int X)'),
     ('function', 'record Point (int X) : System.IDisposable', 'record-Point', 'record Point (int X) : IDisposable'),
     ('function', 'record Point<T> (T X) : Base(X) where T : struct', 'record-Point-1',

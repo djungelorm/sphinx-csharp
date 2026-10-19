@@ -899,6 +899,8 @@ def parse_type_as_function(sig: str) -> tuple[list[str], str, str] | None:
     """ The modifiers, keyword and rest of a record, or a type with a primary constructor, that Doxygen writes as a
         function, such as record struct and Point(int X) in record struct Point(int X), or None if it is neither """
     parser = Parser(sig.strip())
+    # Note: The name of a generic record also has its generic parameters, so we drop the template prefix.
+    parser.templates()
     try:
         modifiers, keyword, rest = parse_type_keyword(parser, ('record', 'class', 'struct'))
         parser.qualified_name()

@@ -119,7 +119,7 @@ def test_parse_record_kind(sig, expected):
 
 @pytest.mark.parametrize('sig, expected', [
     ('record struct Point<T>(T X)', ([], 'record struct', 'Point<T>(T X)')),
-    ('public record N.Box<T> (T X)', (['public'], 'record', 'N.Box<T> (T X)')),
+    ('template<T> public record N.Box<T> (T X)', (['public'], 'record', 'N.Box<T> (T X)')),
     ('class Service(ILogger logger)', ([], 'class', 'Service(ILogger logger)')),
     ('record Point', None),
     ('void Foo()', None),
