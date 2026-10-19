@@ -1,3 +1,4 @@
+import http.client
 import urllib.error
 import urllib.request
 from email.message import Message
@@ -80,11 +81,11 @@ def test_debug_logging(build):
     assert 'found in extlink_cache for int' in log
 
 
-def urlopen(status_code):
-    """ A replacement for urlopen that responds with a status code, or fails to connect if it is None """
+def urlopen(status_code, error=None):
+    """ A replacement for urlopen that responds with a status code, or raises error if the status code is None """
     def _urlopen(url, timeout):
         if status_code is None:
-            raise urllib.error.URLError('connection refused')
+            raise error or urllib.error.URLError('connection refused')
         if status_code >= 400:
             raise urllib.error.HTTPError(url, status_code, 'Not Found', Message(), None)
         response = MagicMock()
@@ -106,8 +107,14 @@ def test_link_testing(build, monkeypatch, status_code, url):
     assert references(app, 'function-Foo')['int'] == url
 
 
-def test_link_testing_without_connection(build, monkeypatch):
-    monkeypatch.setattr(urllib.request, 'urlopen', urlopen(None))
+@pytest.mark.parametrize('error', [
+    urllib.error.URLError('connection refused'),
+    http.client.RemoteDisconnected('closed'),
+    http.client.InvalidURL('control character'),
+    http.client.IncompleteRead(b''),
+])
+def test_link_testing_without_connection(build, monkeypatch, error):
+    monkeypatch.setattr(urllib.request, 'urlopen', urlopen(None, error))
     refs, app = links(build, 'int', sphinx_csharp_check_external_links=True)
     assert warnings(app) == []
     assert refs == {'int': MICROSOFT_DOCS + 'System.Int32'}

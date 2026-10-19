@@ -1,3 +1,4 @@
+import http.client
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -187,7 +188,7 @@ class ExternalRefs:
 
 
 def link_status(url: str) -> int | None:
-    """ The HTTP status of a link, or None if the server cannot be reached """
+    """ The HTTP status of a link, or None if the server cannot be reached or the request fails """
     try:
         with urllib.request.urlopen(url, timeout=3) as response:
             status: int = response.status
@@ -195,5 +196,6 @@ def link_status(url: str) -> int | None:
     except urllib.error.HTTPError as error:
         error.close()
         return error.code
-    except (urllib.error.URLError, TimeoutError):
+    # Note: urllib raises the connection and protocol errors of http.client as they are, outside URLError.
+    except (OSError, ValueError, http.client.HTTPException):
         return None
