@@ -1,0 +1,34 @@
+name: Install Doxygen
+description: Download a Doxygen release, check its SHA-256, and add it to the PATH
+inputs:
+  version:
+    description: The Doxygen version, such as 1.15.0
+    required: true
+runs:
+  using: composite
+  steps:
+    # The archive, which the SHA-256 check guards
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      with:
+        path: ${{ runner.temp }}/doxygen-archive
+        key: doxygen-${{ inputs.version }}-${{ runner.os }}
+    - shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        case "$VERSION-$RUNNER_OS" in
+          1.15.0-Linux) sha256=0ec2e5b2c3cd82b7106d19cb42d8466450730b8cb7a9e85af712be38bf4523a1 ;;
+          1.9.8-Linux) sha256=dda773bdc62384b7d796fe8b6c5029daad72483e4c8ad4abf6ee9fb98b649388 ;;
+          *)
+            echo "No SHA-256 for Doxygen $VERSION on $RUNNER_OS"
+            exit 1 ;;
+        esac
+        archive=doxygen-$VERSION.linux.bin.tar.gz
+        mkdir -p "$RUNNER_TEMP/doxygen-archive"
+        cd "$RUNNER_TEMP/doxygen-archive"
+        if [ ! -f "$archive" ]; then
+          curl -sSfLO --retry 3 "https://github.com/doxygen/doxygen/releases/download/Release_${VERSION//./_}/$archive"
+        fi
+        echo "$sha256  $archive" | sha256sum --check --quiet
+        tar xzf "$archive" -C "$RUNNER_TEMP"
+        echo "$RUNNER_TEMP/doxygen-$VERSION/bin" >> "$GITHUB_PATH"

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -83,6 +83,14 @@ skip-install = true
 
 [tool.hatch.envs.matrix.scripts]
 all = "python scripts/test_matrix.py {args}"
+
+# Builds and checks the sdist and wheel in dist/
+[tool.hatch.envs.package]
+skip-install = true
+dependencies = ["twine==7.0.0"]
+
+[tool.hatch.envs.package.scripts]
+check = "python scripts/check_package.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
