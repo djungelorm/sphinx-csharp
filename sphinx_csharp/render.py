@@ -46,7 +46,7 @@ class TypeRenderer:
         if typ.startswith('('):
             self.append_tuple(node, typ, ignored_types)
         else:
-            self.append_type_name(node, typ, name, ExternalRefs.shorten_type(typ), len(sig.generics))
+            self.append_type_name(node, typ, name, ExternalRefs.shorten_type(typ), len(sig.generics), ignored_types)
         if sig.generics:
             self.append_generics(node, sig.generics, ignored_types=ignored_types)
 
@@ -67,14 +67,15 @@ class TypeRenderer:
         if sig.suffix:
             node += nodes.Text(sig.suffix)
 
-    def append_type_name(self, node: nodes.Element, typ: str, name: str, text: str,
-                         arity: int) -> addnodes.pending_xref | None:
+    def append_type_name(self, node: nodes.Element, typ: str, name: str, text: str, arity: int,
+                         ignored_types: list[str] | None = None) -> addnodes.pending_xref | None:
         """
         Adds a reference to a type, with arity generic arguments, unless the type is never linked.
         name is the type with the arity of each generic type, such as Box-1.
         """
         # The generic parameters of an enclosing type are not linked
-        if ExternalRefs.check_ignored_ref(typ) or typ in self.env.ref_context.get('cs:generic_names', []):
+        if ExternalRefs.check_ignored_ref(typ) or typ in self.env.ref_context.get('cs:generic_names', []) \
+                or ignored_types and typ in ignored_types:
             node += addnodes.desc_type(text, text)
             return None
 

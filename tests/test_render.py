@@ -654,6 +654,14 @@ def test_doc_field_with_generic_parameter_of_any_signature(build):
     assert references(app) == {'int': MICROSOFT_DOCS + 'System.Int32'}
 
 
+def test_doc_field_type_with_modifiers(build):
+    app = build('.. cs:function:: ref readonly int Foo ()\n\n   :rtype: ref readonly int\n')
+    assert warnings(app) == []
+    fields = {field[0].astext(): field[1].astext().replace('\xa0', ' ')
+              for field in resolved_doctree(app).findall(nodes.field)}
+    assert fields['Return type'] == 'ref readonly int'
+
+
 def test_doc_field_with_invalid_type(build):
     app = build('.. cs:function:: void Foo (int a)\n\n   :param a: The value.\n   :type a: <int>\n')
     assert len(warnings(app)) == 1
@@ -667,11 +675,12 @@ def test_doc_field_with_unresolved_type(build):
     assert 'index.rst:4: WARNING: cs:type reference target not found: Unknown' in warnings(app)[1]
 
 
-def test_generic_parameter_type_is_not_linked(build):
-    app = build('.. cs:function:: void Foo<T> (T a)\n')
+@pytest.mark.parametrize('sig', ['void Foo<T> (T a)', 'T? Foo<T> (T[] a, T? b)', 'T[] Foo<T> ((T, int) a)'])
+def test_generic_parameter_type_is_not_linked(build, sig):
+    app = build(f'.. cs:function:: {sig}\n')
     assert warnings(app) == []
-    assert signatures(app)['function-Foo'] == 'void Foo<T> (T a)'
-    assert references(app, 'function-Foo') == {}
+    assert signatures(app)['function-Foo'] == sig
+    assert set(references(app, 'function-Foo')) <= {'int'}
 
 
 def test_namespace_none_clears_namespace(build):

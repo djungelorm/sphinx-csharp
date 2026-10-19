@@ -174,6 +174,8 @@
 
    .. function:: T AGenericMethod<T> (int x)
 
+   .. function:: T? AGenericNullableMethod<T> (T[] items)
+
    .. property:: System.Tuple<int,string> ATupleProperty { get; set; }
 
    .. property:: (int count, MyClass item) AValueTupleProperty { get; }

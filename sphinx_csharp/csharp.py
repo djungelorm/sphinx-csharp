@@ -229,10 +229,7 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_parameter(self, node: nodes.Element, param: ParamTuple, ignore_types: list[str]) -> None:
         self.append_modifiers(node, param.modifiers)
-        if param.typ in ignore_types:
-            node += addnodes.desc_type(param.typ, param.typ)
-        else:
-            self.append_type(node, param.typ, ignore_types)
+        self.append_type(node, param.typ, ignore_types)
         node += nodes.Text('\xa0')
         node += nodes.emphasis(param.name, param.name)
         if param.default is not None:
@@ -425,10 +422,7 @@ class CSharpMethod(CSharpObject):
         # Constructors have no return type
         if return_type is not None:
             # Generic type parameters are not linked
-            if return_type in generic_names:
-                signode += addnodes.desc_type(return_type, return_type)
-            else:
-                self.append_type(signode, return_type, generic_names)
+            self.append_type(signode, return_type, generic_names)
             signode += nodes.Text('\xa0')
 
         display_name = operator or name
