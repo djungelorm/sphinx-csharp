@@ -26,10 +26,14 @@ def run(name: str, args: list[str]) -> tuple[str, bool, str, float]:
     """ Run the tests in one environment, and return whether they passed and the last line of the output """
     start = time.monotonic()
     log = LOGS / f'{name}.log'
+    # Each environment has its own pytest temporary directory, as pytest removes old ones from a shared directory
+    temp = LOGS / 'tmp' / name
+    temp.mkdir(parents=True, exist_ok=True)
     with log.open('w') as file:
         # Note: The cache provider writes to one directory, which parallel runs share.
         result = subprocess.run(['hatch', 'run', f'{name}:all', '-p', 'no:cacheprovider', *args], cwd=ROOT,
-                                stdout=file, stderr=subprocess.STDOUT, check=False)
+                                stdout=file, stderr=subprocess.STDOUT, check=False,
+                                env={**os.environ, 'PYTEST_DEBUG_TEMPROOT': str(temp)})
     lines = [line for line in log.read_text().splitlines() if line.strip()]
     return name, result.returncode == 0, lines[-1].strip('= ') if lines else '', time.monotonic() - start
 
