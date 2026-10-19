@@ -128,4 +128,4 @@ Link to the C# objects of another project with `intersphinx <https://www.sphinx-
    extensions = ['sphinx_csharp', 'sphinx.ext.intersphinx']
    intersphinx_mapping = {'library': ('https://example.com/library/', None)}
 
-A reference to an object that the project does not describe then links to the other project, in roles and in signatures. Qualify the target with its namespace, or put the reference inside the namespace. Every role works across projects, including ``:cs:obj:``.
+A reference to an object that your pages do not describe then links to the other project, in roles and in signatures. Qualify the target with its namespace, or put the reference inside the namespace. Every role works across projects, including ``:cs:obj:``.

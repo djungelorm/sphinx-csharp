@@ -6,7 +6,7 @@ sphinx-csharp reads these options from ``conf.py``.
 External Links
 --------------
 
-A type that the project does not describe links to external documentation, if sphinx-csharp knows it. The ``System`` types link to the Microsoft documentation:
+A type that your pages do not describe links to its external documentation, when the type map below lists it. The ``System`` types link to the Microsoft documentation:
 
 .. code-block:: rst
 
@@ -63,7 +63,7 @@ Other Options
 
 .. confval:: sphinx_csharp_multi_language
 
-   Whether link titles start with ``C#``, as in ``C# class: Geometry.Shape``, for a project that documents several languages. Default: ``False``.
+   Whether link titles start with ``C#``, as in ``C# class: Geometry.Shape``, for docs that describe several languages. Default: ``False``.
 
 .. confval:: sphinx_csharp_debug
 
@@ -96,4 +96,4 @@ Each warning has a type, so you can silence it with ``suppress_warnings``:
    * - ``cs.namespace``
      - A ``namespace-pop`` has no ``namespace-push`` to undo.
 
-Run Sphinx with ``-n``, or set ``nitpicky = True``, to warn about each reference that links to nothing.
+Run Sphinx with ``-n``, or set ``nitpicky = True``, to warn about each reference without a target.

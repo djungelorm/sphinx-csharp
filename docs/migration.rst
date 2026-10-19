@@ -1,4 +1,4 @@
-Migrating from 0.1
+Migration from 0.1
 ==================
 
 Version 1.0 renames the domain, some directives and roles, and the targets of objects.
@@ -40,7 +40,25 @@ Directives and Roles
 Targets
 -------
 
-The target of an object starts with its object type, as in 0.1. The type of a method is ``function``, and of an enum value ``enumerator``. A generic type has its number of generic parameters, as in ``class-Box-1``, and an overload has its parameter types, as in ``function-MyClass.Add(int)``. A link to an anchor in pages built with 0.1 needs the new target. :doc:`references` describes the targets.
+The target of an object starts with its object type, as in 0.1. Some object types and names change:
+
+.. list-table::
+   :header-rows: 1
+
+   * - 0.1
+     - 1.0
+   * - ``method-MyClass.Add``
+     - ``function-MyClass.Add``, and ``function-MyClass.Add(int)`` for the overload
+   * - ``value-Color.Red``
+     - ``enumerator-Color.Red``
+   * - ``class-Box``, for ``Box<T>``
+     - ``class-Box-1``
+
+A link to an anchor in pages built with 0.1 needs the new target.
+
+.. seealso::
+
+   :doc:`references` describes the targets.
 
 Option Names
 ------------
