@@ -82,9 +82,10 @@ class TypeRenderer:
             node += addnodes.desc_type(text, text)
             return None
 
+        # Note: An explicit title keeps the text as written when intersphinx resolves the reference.
         tnode = addnodes.pending_xref(
             '', refdomain='cs', reftype='type',
-            reftarget=typ, modname=None, classname=None)
+            reftarget=typ, modname=None, classname=None, refexplicit=True)
 
         # Note: this may not be the correct parent namespace
         tnode['cs:parent'] = self.env.ref_context.get('cs:parent')

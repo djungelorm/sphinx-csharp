@@ -623,6 +623,8 @@ class CSharpXRefRole(XRefRole):
     def process_link(self, env: BuildEnvironment, refnode: nodes.Element, has_explicit_title: bool,
                      title: str, target: str) -> tuple[str, str]:
         refnode['cs:parent'] = env.ref_context.get('cs:parent')
+        # Intersphinx shows the title as written, as a local reference does, rather than the name in the inventory
+        refnode['refexplicit'] = True
         return super().process_link(
             env, refnode, has_explicit_title, title, target)
 
@@ -634,26 +636,26 @@ class CSharpDomain(Domain):
 
     # Object types and the roles that reference them
     object_types = {
-        'namespace': ObjType(_('namespace'), 'namespace'),
+        'namespace': ObjType(_('namespace'), 'namespace', 'obj'),
 
         # Types
-        'class': ObjType(_('class'), 'class', 'type'),
-        'struct': ObjType(_('struct'), 'struct', 'type'),
-        'interface': ObjType(_('interface'), 'interface', 'type'),
-        'enum': ObjType(_('enum'), 'enum', 'type'),
-        'record': ObjType(_('record'), 'record', 'type'),
+        'class': ObjType(_('class'), 'class', 'type', 'obj'),
+        'struct': ObjType(_('struct'), 'struct', 'type', 'obj'),
+        'interface': ObjType(_('interface'), 'interface', 'type', 'obj'),
+        'enum': ObjType(_('enum'), 'enum', 'type', 'obj'),
+        'record': ObjType(_('record'), 'record', 'type', 'obj'),
         # Breathe passes delegates to the function directive
-        'delegate': ObjType(_('delegate'), 'delegate', 'type', 'func', 'meth'),
+        'delegate': ObjType(_('delegate'), 'delegate', 'type', 'func', 'meth', 'obj'),
 
-        'function': ObjType(_('function'), 'function', 'func', 'meth', 'member'),
+        'function': ObjType(_('function'), 'function', 'func', 'meth', 'member', 'obj'),
 
-        'var': ObjType(_('var'), 'var', 'member'),
-        'property': ObjType(_('property'), 'prop', 'member'),
-        'event': ObjType(_('event'), 'event', 'member'),
+        'var': ObjType(_('var'), 'var', 'member', 'obj'),
+        'property': ObjType(_('property'), 'prop', 'member', 'obj'),
+        'event': ObjType(_('event'), 'event', 'member', 'obj'),
 
-        'enumerator': ObjType(_('enumerator'), 'enumerator', 'value'),
-        'attribute': ObjType(_('attribute'), 'attr'),
-        'indexer': ObjType(_('indexer'), 'idxr'),
+        'enumerator': ObjType(_('enumerator'), 'enumerator', 'value', 'obj'),
+        'attribute': ObjType(_('attribute'), 'attr', 'obj'),
+        'indexer': ObjType(_('indexer'), 'idxr', 'obj'),
     }
     directives = {
         'namespace': CSharpCurrentNamespace,
@@ -803,7 +805,7 @@ class CSharpDomain(Domain):
             # Breathe creates references without a target
             target = contnode.astext()
 
-        objtypes = list(self.object_types) if typ == 'obj' else self.objtypes_for_role(typ) or []
+        objtypes = self.objtypes_for_role(typ) or []
         parent = node.get('cs:parent')
 
         # The name of a type in a signature, with the arity of each generic type
@@ -850,6 +852,18 @@ class CSharpDomain(Domain):
         return [('cs:' + self.object_types[match.key[0]].roles[0],
                  self.make_refnode(builder, fromdocname, match, contnode))
                 for match in matches]
+
+    def get_full_qualified_name(self, node: nodes.Element) -> str:
+        """
+        The name of a reference as in the inventory, with the arity of each generic type, such as N.Box-1 for Box<T>.
+        Intersphinx looks this name up when the target as written is not in an inventory.
+        """
+        name = arity_name(normalize_signature(node.get('cs:name', node['reftarget'])))
+        parent = node.get('cs:parent')
+        # A target that starts with the outermost namespace of the parent is already qualified
+        if parent and name.split('.')[0] != parent.split('.')[0]:
+            name = parent + '.' + name
+        return name
 
     def make_refnode(self, builder: Builder, fromdocname: str, match: ObjectMatch,
                      contnode: nodes.Element) -> nodes.reference:

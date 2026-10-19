@@ -85,6 +85,17 @@ A role splits a target that ends in `>` into a title and a target, so `` :cs:typ
 
 The target of a generic type has its number of generic parameters, as in the Microsoft docs, such as `class-Box-1` for Box<T> and `function-Box-1.Put` for its method Put. You can document Box and Box<T> side by side, and `` :cs:type:`Box` `` then links to Box.
 
+### Intersphinx
+
+Link to the C# objects of another project with [intersphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html):
+
+```py
+extensions = ['sphinx_csharp', 'sphinx.ext.intersphinx']
+intersphinx_mapping = {'library': ('https://example.com/library/', None)}
+```
+
+A reference to an object that the project does not describe then links to the other project, in roles and in signatures. Qualify the target with its namespace, or put the reference inside that namespace. Every role, including `:cs:obj:`, works across projects.
+
 ### Warnings
 
 Each warning has a type, so you can silence it with `suppress_warnings` in `conf.py`:
