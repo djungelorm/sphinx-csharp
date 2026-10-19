@@ -24,21 +24,22 @@ runs:
             echo "No SHA-256 for Doxygen $VERSION on $RUNNER_OS"
             exit 1 ;;
         esac
-        if [ "$RUNNER_OS" = Windows ]; then
-          archive=doxygen-$VERSION.windows.x64.bin.zip
-        else
-          archive=doxygen-$VERSION.linux.bin.tar.gz
-        fi
+        # The archive, how to extract it next to the archive directory, and the directory of the doxygen program
+        case "$RUNNER_OS" in
+          Windows)
+            archive=doxygen-$VERSION.windows.x64.bin.zip
+            extract() { unzip -qo "$archive" -d "../doxygen-$VERSION"; }
+            bin=doxygen-$VERSION ;;
+          *)
+            archive=doxygen-$VERSION.linux.bin.tar.gz
+            extract() { tar xzf "$archive" -C ..; }
+            bin=doxygen-$VERSION/bin ;;
+        esac
         mkdir -p "$RUNNER_TEMP/doxygen-archive"
         cd "$RUNNER_TEMP/doxygen-archive"
         if [ ! -f "$archive" ]; then
           curl -sSfLO --retry 3 "https://github.com/doxygen/doxygen/releases/download/Release_${VERSION//./_}/$archive"
         fi
         echo "$sha256  $archive" | sha256sum --check --quiet
-        if [ "$RUNNER_OS" = Windows ]; then
-          python -m zipfile -e "$archive" "$RUNNER_TEMP/doxygen"
-          echo "$RUNNER_TEMP/doxygen" >> "$GITHUB_PATH"
-        else
-          tar xzf "$archive" -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/doxygen-$VERSION/bin" >> "$GITHUB_PATH"
-        fi
+        extract
+        echo "$RUNNER_TEMP/$bin" >> "$GITHUB_PATH"
