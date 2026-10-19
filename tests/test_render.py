@@ -986,6 +986,14 @@ def test_overloads_in_one_directive(build):
     assert references(app).items() >= {'plain': 'function-Foo', 'string': 'function-Foo(string)'}.items()
 
 
+def test_overload_with_spaced_nullable(build):
+    app = build('.. cs:function:: void Foo (int a)\n'
+                '                 void Foo (int ? a)\n\n'
+                ':cs:meth:`nullable <Foo(int?)>`\n')
+    assert warnings(app) == []
+    assert references(app)['nullable'] == 'function-Foo(int?)'
+
+
 def test_overloads_on_other_pages(build):
     pages = {'page1': 'Page 1\n======\n\n.. cs:function:: void Foo (int a)\n',
              'page2': 'Page 2\n======\n\n.. cs:function:: void Foo (string a)\n'}

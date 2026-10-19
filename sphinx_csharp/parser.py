@@ -47,7 +47,7 @@ INSTANCE_OPERATOR_NAMES = {'++': 'IncrementAssignment', '--': 'DecrementAssignme
 CONVERSION_OPERATORS = ['op_Implicit', 'op_Explicit', 'op_CheckedImplicit', 'op_CheckedExplicit']
 
 # The characters that whitespace around them is optional for, such as the space in Dictionary<string, int>
-TIGHT_PUNCTUATION = set(',<>()[]*')
+TIGHT_PUNCTUATION = set(',<>()[]*?')
 # The last characters of a tuple element type, before the element name, other than name characters
 TUPLE_TYPE_END = set('>])?*')
 # The parameter modifiers that overloads can differ by

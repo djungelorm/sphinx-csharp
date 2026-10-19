@@ -82,6 +82,7 @@ def test_arity_name(name, expected):
 @pytest.mark.parametrize('sig, expected', [
     ('C.M(int, List< string >)', 'C.M(int,List<string>)'),
     ('M(ref  int a, string s = "a , b")', 'M(ref int a,string s = "a , b")'),
+    ('M(int ?, string)', 'M(int?,string)'),
 ])
 def test_normalize_signature(sig, expected):
     assert normalize_signature(sig) == expected
