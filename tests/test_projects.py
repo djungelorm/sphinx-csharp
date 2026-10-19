@@ -13,6 +13,15 @@ def test_basic(app):
     assert signature_lines(app) == (app.srcdir / 'signatures.txt').read_text().splitlines()
 
 
+@pytest.mark.parametrize('buildername', ['text', 'latex', 'man', 'singlehtml'])
+def test_basic_builders(make_app, rootdir, tmp_path, buildername):
+    srcdir = tmp_path / 'basic'
+    shutil.copytree(rootdir / 'test-basic', srcdir)
+    app = make_app(buildername, srcdir=srcdir, confoverrides={'nitpicky': True})
+    app.build()
+    assert warnings(app) == []
+
+
 @pytest.mark.skipif(shutil.which('doxygen') is None, reason='doxygen is not installed')
 # Note: Passing srcdir copies the test root in every supported Sphinx version.
 @pytest.mark.sphinx('html', testroot='breathe', srcdir='breathe', confoverrides={'nitpicky': True})
