@@ -23,8 +23,8 @@ LIBRARY = '''
 def library(tmp_path_factory):
     """ The output directory, with the inventory, of a project that documents the library """
     srcdir = tmp_path_factory.mktemp('library')
-    (srcdir / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
-    (srcdir / 'index.rst').write_text(LIBRARY)
+    (srcdir / 'conf.py').write_text("extensions = ['sphinx_csharp']\n", encoding='utf-8')
+    (srcdir / 'index.rst').write_text(LIBRARY, encoding='utf-8')
     app = SphinxTestApp('html', srcdir=srcdir, confoverrides={'nitpicky': True})
     try:
         app.build()
