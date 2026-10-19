@@ -883,7 +883,7 @@ def strip_semicolon(sig: str) -> str:
 
 def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
     """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
-    logger.warning(f'{kind} signature invalid: {sig}', location=location)
+    logger.warning(f'{kind} signature invalid: {sig}', location=location, type='cs', subtype='parse')
     return ValueError(f'{kind} signature invalid: {sig}')
 
 

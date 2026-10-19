@@ -291,6 +291,19 @@ def test_overload_reference_is_stable_across_builds(build, make_app, tmp_path):
     assert references(app)['Foo'] == 'a.html#function-Foo'
 
 
+@pytest.mark.parametrize('subtype, rst, confoverrides', [
+    ('duplicate', '.. cs:class:: Foo\n\n.. cs:class:: Foo\n', {}),
+    ('ambiguous', '.. cs:class:: A.Foo\n\n.. cs:class:: B.Foo\n\n:cs:type:`Foo`\n', {}),
+    ('parse', '.. cs:function:: void Foo (int)\n', {}),
+    ('external', '.. cs:function:: void Foo (Bar a)\n',
+     {'sphinx_csharp_ext_type_map': {'msdn': {'A': ['Bar'], 'B': ['Bar']}}}),
+])
+@pytest.mark.parametrize('suppressed', [False, True])
+def test_suppress_warnings(build, subtype, rst, confoverrides, suppressed):
+    app = build(rst, suppress_warnings=[f'cs.{subtype}'] if suppressed else [], **confoverrides)
+    assert len(warnings(app)) == (0 if suppressed else 1)
+
+
 def test_config_is_not_merged_twice(build):
     build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
     build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])

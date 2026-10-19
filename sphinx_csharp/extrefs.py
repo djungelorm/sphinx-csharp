@@ -60,13 +60,13 @@ class ExternalRefs:
         return typ
 
     @classmethod
-    def get_nested_external_ref(cls, outer: str, arity: int, nested: str, objtype: str,
-                                contnode: nodes.Node) -> nodes.reference | None:
+    def get_nested_external_ref(cls, outer: str, arity: int, nested: str, objtype: str, contnode: nodes.Node,
+                                location: nodes.Node | None = None) -> nodes.reference | None:
         """
         Link a type nested in an external type, such as Enumerator in List<T>.Enumerator, to the Microsoft docs.
         arity is the number of generic arguments of the outer type.
         """
-        ref = cls.get_external_ref(outer, objtype, nodes.Text(''), arity)
+        ref = cls.get_external_ref(outer, objtype, nodes.Text(''), arity, location)
         # The Microsoft docs name a nested type page by appending it to the page of the outer type
         if ref is None or not ref['refuri'].startswith(cls.external_search_pages['msdn'][0] % ''):
             return None
@@ -77,10 +77,11 @@ class ExternalRefs:
 
     @classmethod
     def get_external_ref(cls, name: str, objtype: str, contnode: nodes.Node,  # noqa: PLR0912, PLR0915
-                         arity: int = 0) -> nodes.reference | None:
+                         arity: int = 0, location: nodes.Node | None = None) -> nodes.reference | None:
         """
         Link a type to external documentation, such as the Microsoft docs for System types.
-        arity is the number of generic arguments. Returns None if the type is not recognized.
+        arity is the number of generic arguments, and location is the reference for warnings.
+        Returns None if the type is not recognized.
         """
         cache_key = (name, arity)
 
@@ -128,7 +129,7 @@ class ExternalRefs:
 
         if len(matches) > 1:
             logger.warning(f"ambiguous external reference for '{fullname}' using first, "
-                           f"found matches: {matches}")
+                           f"found matches: {matches}", location=location, type='cs', subtype='external')
 
         pkg, parent, member = matches[0]
 
@@ -152,7 +153,7 @@ class ExternalRefs:
         except KeyError:
             logger.warning(
                 f"external links package does not have any links set in EXTERNAL_SEARCH_PAGES, package: {pkg}, "
-                f"target fullname: {fullname}")
+                f"target fullname: {fullname}", location=location, type='cs', subtype='external')
             return None
 
         apilink_status_code = 0
@@ -170,7 +171,8 @@ class ExternalRefs:
         else:
             # Use search link or homepage instead
             logger.warning(f"invalid API link, using fallback, "
-                           f"status_code={apilink_status_code}, apilink={apilink}")
+                           f"status_code={apilink_status_code}, apilink={apilink}",
+                           location=location, type='cs', subtype='external')
             url = cls.external_search_pages[pkg][1] % link_name
 
         cls.extlink_cache[cache_key] = fullname, url

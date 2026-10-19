@@ -111,7 +111,7 @@ class CSharpObject(ObjectDescription[str]):
         if key in objects:
             logger.warning(f'duplicate description of {self.objtype} {overload_name}, ' +
                            f'other instance in {self.env.doc2path(objects[key].docname)}',
-                           location=(self.env.docname, self.lineno))
+                           location=(self.env.docname, self.lineno), type='cs', subtype='duplicate')
         document = self.state.document
         if overload_targetname in document.ids:
             return
@@ -817,7 +817,7 @@ class CSharpDomain(Domain):
 
         if len(matches) > 1:
             logger.warning(f'ambiguous reference to {target}, matches: {[match.key[1] for match in matches]}',
-                           location=node)
+                           location=node, type='cs', subtype='ambiguous')
         if matches:
             return self.make_refnode(builder, fromdocname, matches[0], contnode)
         if CSDebug.xref:
@@ -830,7 +830,7 @@ class CSharpDomain(Domain):
         """ Link to external documentation, such as the Microsoft docs, or return None if the target is unknown """
         if 'cs:outer' in node:
             return ExternalRefs.get_nested_external_ref(node['cs:outer'], node['cs:outer_arity'],
-                                                        target[len(node['cs:outer']) + 1:], typ, contnode)
+                                                        target[len(node['cs:outer']) + 1:], typ, contnode, node)
         # The generic arguments of a type in a role, as in :cs:type:`List\<int>.Enumerator`, give its arity
         sig = parse_type_reference(target)
         if sig is None or sig.suffix:
@@ -838,8 +838,8 @@ class CSharpDomain(Domain):
         arity = node.get('cs:arity') or len(sig.generics)
         if sig.nested:
             nested = remove_generic_arguments(''.join('.'.join(sig.nested).split()))
-            return ExternalRefs.get_nested_external_ref(sig.typ, arity, nested, typ, contnode)
-        return ExternalRefs.get_external_ref(sig.typ, typ, contnode, arity)
+            return ExternalRefs.get_nested_external_ref(sig.typ, arity, nested, typ, contnode, node)
+        return ExternalRefs.get_external_ref(sig.typ, typ, contnode, arity, node)
 
     def resolve_any_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, target: str,
                          node: addnodes.pending_xref,
@@ -880,5 +880,5 @@ class CSharpDomain(Domain):
                 if key in self.objects:
                     logger.warning(f'duplicate description of {key[0]} {key[1]}, '
                                    f'other instance in {self.env.doc2path(self.objects[key].docname)}',
-                                   location=entry.docname)
+                                   location=entry.docname, type='cs', subtype='duplicate')
                 self.objects[key] = entry
