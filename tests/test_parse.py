@@ -8,6 +8,7 @@ from sphinx_csharp.parser import (
     TypeSig,
     VariableSig,
     arity_name,
+    last_name_part,
     normalize_signature,
     overload_type,
     parse_attr_signature,
@@ -91,6 +92,15 @@ def test_arity_name(name, expected):
 ])
 def test_simple_name(name, expected):
     assert simple_name(name) == expected
+
+
+@pytest.mark.parametrize('name, expected', [
+    ('N.Box<T>.Put(N.T)', 'Put(N.T)'),
+    ('N.Dictionary<N.K, V>', 'Dictionary<N.K, V>'),
+    ('Foo', 'Foo'),
+])
+def test_last_name_part(name, expected):
+    assert last_name_part(name) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [

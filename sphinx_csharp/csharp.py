@@ -31,6 +31,7 @@ from .parser import (
     arity_name,
     generic_type_name,
     is_indexer_signature,
+    last_name_part,
     normalize_signature,
     overload_type,
     parameter_types,
@@ -674,6 +675,11 @@ class CSharpXRefRole(XRefRole):
         refnode['cs:parent'] = env.ref_context.get('cs:parent')
         # Intersphinx shows the title as written, as a local reference does, rather than the name in the inventory
         refnode['refexplicit'] = True
+        # A target that starts with ~ shows only the last part of its name
+        if target.startswith('~'):
+            target = target[1:]
+            if not has_explicit_title:
+                title = last_name_part(target)
         return super().process_link(
             env, refnode, has_explicit_title, title, target)
 

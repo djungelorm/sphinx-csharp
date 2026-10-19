@@ -971,6 +971,19 @@ def test_namespace_without_index(build):
     assert 'class-N.A' in signatures(app)
 
 
+@pytest.mark.parametrize('role, title, target', [
+    (':cs:type:`~N.Foo`', 'Foo', 'class-N.Foo'),
+    (':cs:type:`~N.Box\\<T>`', 'Box<T>', 'class-N.Box-1'),
+    (':cs:meth:`~N.Box\\<T>.Put(int)`', 'Put(int)', 'function-N.Box-1.Put(int)'),
+    (':cs:type:`title <~N.Foo>`', 'title', 'class-N.Foo'),
+])
+def test_tilde_shows_last_name_part(build, role, title, target):
+    app = build('.. cs:class:: N.Foo\n\n.. cs:class:: N.Box<T>\n\n   .. cs:function:: void Put (int a)\n\n'
+                + role + '\n')
+    assert warnings(app) == []
+    assert references(app)[title] == target
+
+
 def test_namespace_none_clears_namespace(build):
     app = build('.. cs:namespace:: MyNamespace\n\n.. cs:namespace:: None\n\n.. cs:class:: Bar\n')
     assert 'class-Bar' in signatures(app)

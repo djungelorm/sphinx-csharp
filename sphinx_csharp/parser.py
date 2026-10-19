@@ -814,6 +814,12 @@ def remove_arity(name: str) -> str:
     return '.'.join(without_arity(part) for part in name[:end].split('.')) + name[end:]
 
 
+def last_name_part(name: str) -> str:
+    """ The last part of a name, with its generic arguments and parameters, such as Put(T) for N.Box<T>.Put(T) """
+    end = parameters_start(name)
+    return split_sig(name[:end], '.')[-1] + name[end:]
+
+
 @functools.cache
 def simple_name(name: str) -> str:
     """ The last part of a name without generic arguments, arity or parameters, such as Put for N.Box-1.Put<U>(U) """

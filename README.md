@@ -76,6 +76,14 @@ Describe parameters, type parameters, return values and exceptions with field li
 
 The types in the `type`, `rtype` and `throws` fields link like the types in a signature.
 
+### References
+
+A reference links to the object whose name ends with the target, preferring the object in the closest enclosing namespace. Start the target with `~` to show only the last part of the name:
+
+```rst
+:cs:meth:`~MyNamespace.MyClass.MyMethod` shows MyMethod.
+```
+
 ### Overloads
 
 Reference an overload by its parameter types:
