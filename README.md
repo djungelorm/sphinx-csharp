@@ -28,6 +28,8 @@ Each object gets an entry in the general index, such as `MyNamespace.MyClass (C#
    :no-index-entry:
 ```
 
+Each object in a section also gets an entry in the table of contents, with members nested in their types. The `toc_object_entries_show_parents` option sets how much of the name it shows, and the `:no-contents-entry:` option leaves an object out.
+
 ### Namespaces
 
 Set the namespace of the objects that follow with `namespace`, and nest a namespace in it with `namespace-push`:

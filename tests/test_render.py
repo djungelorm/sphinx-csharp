@@ -984,6 +984,50 @@ def test_tilde_shows_last_name_part(build, role, title, target):
     assert references(app)[title] == target
 
 
+TOC_SOURCE = '''
+Title
+=====
+
+.. cs:namespace:: N
+
+.. cs:class:: Box<T>
+
+   .. cs:function:: void Put (T item)
+
+   .. cs:property:: int Count { get; }
+
+   .. cs:function:: void IDisposable.Dispose ()
+
+.. cs:class:: Hidden
+   :no-contents-entry:
+
+.. cs:namespace:: None
+
+.. cs:enum:: Other.Color
+'''
+
+
+def toc_lines(node, depth=0):
+    """ The text of each entry in a TOC, indented by its depth """
+    lines = []
+    for item in node.children:
+        lines.append('  ' * depth + item[0].astext())
+        for child in item[1:]:
+            lines += toc_lines(child, depth + 1)
+    return lines
+
+
+@pytest.mark.parametrize('show_parents, entries', [
+    ('domain', ['Box', '  Box.Put()', '  Box.Count', '  Box.IDisposable.Dispose()', 'Other.Color']),
+    ('hide', ['Box', '  Put()', '  Count', '  IDisposable.Dispose()', 'Color']),
+    ('all', ['N.Box', '  N.Box.Put()', '  N.Box.Count', '  N.Box.IDisposable.Dispose()', 'Other.Color']),
+])
+def test_toc_entries(build, show_parents, entries):
+    app = build(TOC_SOURCE, toc_object_entries_show_parents=show_parents)
+    assert warnings(app) == []
+    assert toc_lines(app.env.tocs['index']) == ['Title', *('  ' + entry for entry in entries)]
+
+
 def test_namespace_none_clears_namespace(build):
     app = build('.. cs:namespace:: MyNamespace\n\n.. cs:namespace:: None\n\n.. cs:class:: Bar\n')
     assert 'class-Bar' in signatures(app)

@@ -52,10 +52,14 @@ from .parser import (
     simple_name,
     split_attributes,
     split_declarators,
+    split_sig,
     split_type_keyword,
     target_id,
 )
 from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
+
+# The object types of types and namespaces, as opposed to members
+TYPE_OBJTYPES = {'namespace', 'class', 'struct', 'interface', 'enum', 'record', 'delegate'}
 
 
 class ObjectEntry(NamedTuple):
@@ -164,13 +168,38 @@ class CSharpObject(ObjectDescription[str]):
         parent = self.env.ref_context.get('cs:parent')
         return parent + '.' + name if parent else name
 
+    def describe_name(self, signode: addnodes.desc_signature, name: str) -> str:
+        """ Return the full name of the object a signature describes, and note the parts of it for the TOC """
+        parent = self.env.ref_context.get('cs:parent')
+        # The TOC nests the entry of a member in the entry of its type, and IFoo.Bar is one member
+        parts = split_sig(name, '.') if self.objtype in TYPE_OBJTYPES else [name]
+        signode['cs:toc_parts'] = (*(split_sig(parent, '.') if parent else []), *parts)
+        return self.get_fullname(name)
+
+    def _object_hierarchy_parts(self, sig_node: addnodes.desc_signature) -> tuple[str, ...]:
+        parts: tuple[str, ...] = sig_node.get('cs:toc_parts', ())
+        return parts
+
+    def _toc_entry_name(self, sig_node: addnodes.desc_signature) -> str:
+        parts = sig_node['_toc_parts']
+        if not parts:
+            return ''
+        show_parents = self.config.toc_object_entries_show_parents
+        if show_parents == 'hide':
+            parts = parts[-1:]
+        elif show_parents == 'domain':
+            # The name within the current namespace, such as MyClass.MyMethod, as every full name starts with it
+            parts = parts[len(split_sig(self.env.ref_context.get('cs:namespace') or '', '.')):]
+        parens = '()' if self.objtype == 'function' and self.config.add_function_parentheses else ''
+        return '.'.join(remove_arity(part) for part in parts) + parens
+
     def get_overload_fullname(self, name: str, overload_name: str, sig: str,
                               signode: addnodes.desc_signature) -> str:
         """
         Describe one overload of a method or indexer, and return the full name of the method.
         overload_name includes the parameter types, such as M(int,string).
         """
-        fullname = self.get_fullname(name)
+        fullname = self.describe_name(signode, name)
         self.overload_name = normalize_signature(self.get_fullname(overload_name))
         # Sphinx adds a target for only the first signature of each name in a directive
         if fullname in self.names and 'no-index' not in self.options and 'noindex' not in self.options:
@@ -305,7 +334,7 @@ class CSharpObject(ObjectDescription[str]):
         # Set last, as add_target_and_index takes it and does not run for a signature that fails to render
         self.dispname = remove_arity(self.get_fullname(display)) + \
             ('<' + ', '.join(generic_params) + '>' if generic_params else '')
-        return self.get_fullname(generic_type_name(typ, len(generics)))
+        return self.describe_name(signode, generic_type_name(typ, len(generics)))
 
     def reset_objtype(self) -> None:
         """ Undo change_objtype for the previous signature of this directive """
@@ -335,8 +364,9 @@ class CSharpNamespaceDirective(SphinxDirective):
         """ Make a namespace current, and add a target for it to the document, or clear it if it is None """
         if namespace is None:
             self.env.ref_context.pop('cs:parent', None)
+            self.env.ref_context.pop('cs:namespace', None)
             return []
-        self.env.ref_context['cs:parent'] = namespace
+        self.env.ref_context['cs:parent'] = self.env.ref_context['cs:namespace'] = namespace
         targetid = target_id('namespace', namespace)
         document = self.state.document
         if 'no-index' in self.options or 'noindex' in self.options or targetid in document.ids:
@@ -397,7 +427,7 @@ class CSharpNamespacePlain(CSharpObject):
         signode += addnodes.desc_annotation(prefix, prefix)
         signode += addnodes.desc_name(sig, sig)
 
-        return sig
+        return self.describe_name(signode, sig)
 
 
 class CSharpType(CSharpObject):
@@ -564,7 +594,7 @@ class CSharpVariable(CSharpDeclarators):
         if var.default:
             signode += nodes.Text(' = ')
             signode += nodes.Text(var.default)
-        return self.get_fullname(var.name)
+        return self.describe_name(signode, var.name)
 
 
 class CSharpProperty(CSharpObject):
@@ -588,7 +618,7 @@ class CSharpProperty(CSharpObject):
         self.append_accessors(signode, accessors)
         if default_val is not None:
             signode += nodes.Text(' = ' + default_val)
-        return self.get_fullname(name)
+        return self.describe_name(signode, name)
 
 
 class CSharpEvent(CSharpDeclarators):
@@ -611,7 +641,7 @@ class CSharpEvent(CSharpDeclarators):
             signode += nodes.Text(' = ')
             signode += nodes.Text(default_value)
 
-        return self.get_fullname(name)
+        return self.describe_name(signode, name)
 
 
 class CSharpIndexer(CSharpObject):
@@ -639,7 +669,7 @@ class CSharpEnum(CSharpObject):
         if base:
             signode += nodes.Text(' : ')
             self.append_type(signode, base)
-        return self.get_fullname(arity_name(name))
+        return self.describe_name(signode, arity_name(name))
 
 
 class CSharpEnumValue(CSharpObject):
@@ -651,7 +681,7 @@ class CSharpEnumValue(CSharpObject):
         signode += addnodes.desc_name(name, name)
         if value:
             signode += nodes.Text(' = ' + value)
-        return self.get_fullname(arity_name(name))
+        return self.describe_name(signode, arity_name(name))
 
 
 class CSharpAttribute(CSharpObject):
@@ -666,7 +696,7 @@ class CSharpAttribute(CSharpObject):
         if params:
             signode += nodes.Text('\xa0')
             self.append_parameters(signode, params, generic_params)
-        return self.get_fullname(arity_name(generic_type_name(name, len(generic_params))))
+        return self.describe_name(signode, arity_name(generic_type_name(name, len(generic_params))))
 
 
 class CSharpXRefRole(XRefRole):
