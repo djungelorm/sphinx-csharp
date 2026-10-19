@@ -16,6 +16,8 @@ MODIFIERS = {'public', 'private', 'internal', 'protected', 'abstract', 'async', 
 PARAM_MODIFIERS = {'this', 'ref', 'in', 'out', 'params', 'scoped', 'readonly'}
 ACCESSOR_MODIFIERS = {'public', 'private', 'protected', 'internal', 'readonly'}
 ACCESSORS = {'get', 'set', 'init', 'add', 'remove'}
+# Breathe writes the access level of each base type, as in public IDisposable
+BASE_ACCESS = {'public', 'protected', 'private', 'internal', 'virtual'}
 CONSTRAINT_KEYWORDS = ['class', 'class?', 'struct', 'notnull', 'unmanaged', 'default', 'new()', 'allows ref struct']
 
 OPENING = {'(', '[', '{'}
@@ -857,7 +859,16 @@ def parse_tuple_element(element: str) -> tuple[str, str | None] | None:
 
 
 def parse_base_type(base: str) -> tuple[str, str | None]:
-    """ Split a base type into its type and the arguments to its constructor, such as Base and (x) in Base(x) """
+    """ Split a base type that Breathe writes into its type and the arguments to its constructor, if any,
+        such as Base and (x) in public Base(x) """
+    words = base.split(None, 1)
+    while len(words) == 2 and words[0] in BASE_ACCESS:
+        base = words[1]
+        words = base.split(None, 1)
+    # Doxygen 1.9 separates the namespaces of some base types with ::, which is C# syntax only after global
+    parts = base.split('::')
+    base = parts[0] + ''.join(('::' if previous.endswith('global') else '.') + part
+                              for previous, part in zip(parts, parts[1:]))
     parser = Parser(base)
     try:
         parser.type()

@@ -439,6 +439,23 @@ def test_type_constraints(build):
     assert references(app, 'interface-IFoo-1') == {}
 
 
+def test_base_type_access_level_is_dropped(build):
+    # Breathe writes the access level of each base type
+    app = build('.. cs:class:: Base\n\n.. cs:class:: MyClass : public Base, protected virtual System.IDisposable\n')
+    assert warnings(app) == []
+    assert signatures(app)['class-MyClass'] == 'class MyClass : Base, IDisposable'
+    assert references(app, 'class-MyClass') == {
+        'Base': 'class-Base', 'IDisposable': MICROSOFT_DOCS + 'System.IDisposable'}
+
+
+def test_base_type_scope_is_dotted(build):
+    app = build('.. cs:namespace:: N\n\n.. cs:interface:: IBase<U>\n\n'
+                '.. cs:class:: MyClass<T> : public N::IBase< T >\n')
+    assert warnings(app) == []
+    assert signatures(app)['class-N.MyClass-1'] == 'class MyClass<T> : N.IBase<T>'
+    assert references(app, 'class-N.MyClass-1') == {'N.IBase': 'interface-N.IBase-1'}
+
+
 def test_method_constraints(build):
     app = build('.. cs:class:: MyClass\n\n.. cs:function:: T Make<T, U> (U u) where T : MyClass, U where U : struct\n')
     assert warnings(app) == []

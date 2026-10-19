@@ -98,8 +98,9 @@ def test_parse_tuple_element(element, expected):
 
 @pytest.mark.parametrize('base, expected', [
     ('IDisposable', ('IDisposable', None)),
-    ('IBase< T >', ('IBase< T >', None)),
-    ('Base(x, y)', ('Base', '(x, y)')),
+    ('public N::IBase< T >', ('N.IBase< T >', None)),
+    ('global::System.IDisposable', ('global::System.IDisposable', None)),
+    ('protected virtual Base(x, y)', ('Base', '(x, y)')),
     ('Base<(int, int)>(x)', ('Base<(int, int)>', '(x)')),
     ('1(x)', ('1(x)', None)),
 ])
@@ -346,6 +347,8 @@ def test_parse_variable(sig, expected):
     ('template<T> Bar', ('Bar', [], ['T'], [], '')),
     ('template<T> Box-1-g', ('Box-1', [], ['T'], [], '')),
     ('Box-1', ('Box-1', [], [], [], '')),
+    ('template<K, V> N.Lookup : public IEnumerable< IGrouping< K, V > >',
+     ('N.Lookup', [], ['K', 'V'], ['public IEnumerable< IGrouping< K, V > >'], '')),
     ('Outer-2-g.Inner-1-g<U>', ('Outer-2.Inner-1', [], ['U'], [], '')),
     ('(int, (int, (int, int)))?', ('(int, (int, (int, int)))', [], [], [], '?')),
 ])
