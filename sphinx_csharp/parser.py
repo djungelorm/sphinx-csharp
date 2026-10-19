@@ -955,6 +955,12 @@ def parse_tuple_element(element: str) -> tuple[str, str | None] | None:
     return element.strip(), None
 
 
+def is_global(text: str) -> bool:
+    """ Whether text ends with the global keyword, as before the :: in global::System """
+    tokens = tokenize(text)
+    return bool(tokens) and tokens[-1].text == 'global'
+
+
 def parse_base_type(base: str) -> tuple[str, str | None]:
     """ Split a base type that Breathe writes into its type and the arguments to its constructor, if any,
         such as Base and (x) in public Base(x) """
@@ -964,8 +970,7 @@ def parse_base_type(base: str) -> tuple[str, str | None]:
         words = base.split(None, 1)
     # Doxygen 1.9 separates the namespaces of some base types with ::, which is C# syntax only after global
     parts = base.split('::')
-    base = parts[0] + ''.join(('::' if previous.endswith('global') else '.') + part
-                              for previous, part in zip(parts, parts[1:]))
+    base = parts[0] + ''.join(('::' if is_global(previous) else '.') + part for previous, part in zip(parts, parts[1:]))
     parser = Parser(base)
     try:
         parser.type()

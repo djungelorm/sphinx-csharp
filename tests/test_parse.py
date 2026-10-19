@@ -111,6 +111,7 @@ def test_parse_tuple_element(element, expected):
     ('IDisposable', ('IDisposable', None)),
     ('public N::IBase< T >', ('N.IBase< T >', None)),
     ('global::System.IDisposable', ('global::System.IDisposable', None)),
+    ('Myglobal::IBase', ('Myglobal.IBase', None)),
     ('protected virtual Base(x, y)', ('Base', '(x, y)')),
     ('Base<(int, int)>(x)', ('Base<(int, int)>', '(x)')),
     ('1(x)', ('1(x)', None)),
