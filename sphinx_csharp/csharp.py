@@ -128,7 +128,8 @@ class CSharpObject(ObjectDescription[str]):
         overload_targetname = targetname = target_id(self.objtype, overload_name)
         objects = self.env.domaindata['cs']['objects']
         key = (self.objtype, overload_name)
-        if key in objects:
+        # A namespace can have a description in each page that makes it current
+        if key in objects and self.objtype != 'namespace':
             logger.warning(f'duplicate description of {self.objtype} {overload_name}, ' +
                            f'other instance in {self.env.doc2path(objects[key].docname)}',
                            location=(self.env.docname, self.lineno), type='cs', subtype='duplicate')
@@ -176,8 +177,13 @@ class CSharpObject(ObjectDescription[str]):
             self.env.ref_context['cs:parent'] = self.parentname_saved
         self.env.ref_context['cs:generic_names'] = self.generic_names_saved
 
+    def get_parent(self) -> str | None:
+        """ The namespace or type that qualifies the name of the object """
+        parent: str | None = self.env.ref_context.get('cs:parent')
+        return parent
+
     def get_fullname(self, name: str) -> str:
-        parent = self.env.ref_context.get('cs:parent')
+        parent = self.get_parent()
         return parent + '.' + name if parent else name
 
     def describe_name(self, signode: addnodes.desc_signature, name: str) -> str:
@@ -185,7 +191,7 @@ class CSharpObject(ObjectDescription[str]):
         Finish a signature, and return the full name of the object it describes. Each signature calls this last.
         Notes the parts of the name for the TOC, and puts each parameter on a line of its own in a long signature.
         """
-        parent = self.env.ref_context.get('cs:parent')
+        parent = self.get_parent()
         # The TOC nests the entry of a member in the entry of its type, and IFoo.Bar is one member
         parts = split_sig(name, '.') if self.objtype in TYPE_OBJTYPES else [name]
         signode['cs:toc_parts'] = (*(split_sig(parent, '.') if parent else []), *parts)
@@ -456,6 +462,10 @@ class CSharpNamespacePlain(CSharpObject):
     """ Visual rendering of a C# namespace,
      without updating the parent like the directive CSharpCurrentNamespace.
      Used by breathe. """
+
+    def get_parent(self) -> str | None:
+        """ None, as Breathe writes the fully qualified name of a namespace """
+        return None
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         signode += keywords('namespace')
@@ -1049,7 +1059,7 @@ class CSharpDomain(Domain):
     def merge_domaindata(self, docnames: Set[str], otherdata: dict[str, Any]) -> None:
         for key, entry in otherdata['objects'].items():
             if entry.docname in docnames:
-                if key in self.objects:
+                if key in self.objects and key[0] != 'namespace':
                     logger.warning(f'duplicate description of {key[0]} {key[1]}, '
                                    f'other instance in {self.env.doc2path(self.objects[key].docname)}',
                                    location=entry.docname, type='cs', subtype='duplicate')

@@ -963,6 +963,26 @@ def test_namespace_on_several_pages(build):
     assert references(app)['N'] == 'a.html#namespace-N'
 
 
+def test_namespace_plain_in_its_own_namespace(make_app, tmp_path):
+    # Breathe runs CSharpNamespacePlain under the name cs:namespace
+    (tmp_path / 'conf.py').write_text(
+        "from sphinx_csharp.csharp import CSharpNamespacePlain\n"
+        "class Plain(CSharpNamespacePlain):\n"
+        "    def run(self):\n"
+        "        self.name = 'cs:namespace'\n"
+        "        return super().run()\n"
+        "extensions = ['sphinx_csharp']\n"
+        "def setup(app):\n"
+        "    app.add_directive_to_domain('cs', 'namespace-plain', Plain)\n")
+    (tmp_path / 'index.rst').write_text('.. cs:namespace:: N\n\n.. cs:namespace-plain:: N\n\n'
+                                        '   .. cs:class:: C\n\n:cs:namespace:`N` :cs:class:`N.C`\n')
+    app = make_app('html', srcdir=tmp_path, confoverrides={'nitpicky': True})
+    app.build()
+    assert warnings(app) == []
+    assert set(app.env.domaindata['cs']['objects']) == {('namespace', 'N'), ('class', 'N.C')}
+    assert references(app) == {'N': 'namespace-N', 'N.C': 'class-N.C'}
+
+
 def test_namespace_without_index(build):
     app = build('.. cs:namespace:: N\n   :no-index:\n\n.. cs:class:: A\n\n:cs:namespace:`N`\n')
     assert len(warnings(app)) == 1
