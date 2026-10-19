@@ -139,6 +139,7 @@ def messages(app):
 # Doxygen nests paragraphs with text in them, which Breathe warns about as it parses
 @pytest.mark.filterwarnings('ignore:Warning on line:UserWarning')
 def test_corpus(make_app, rootdir, tmp_path, corpus):
+    pytest.importorskip('breathe')
     srcdir = tmp_path / corpus.name
     shutil.copytree(rootdir / 'test-corpus', srcdir)
     extract_sources(corpus, srcdir / 'src')
