@@ -14,13 +14,15 @@ def test_basic(app):
     assert signature_lines(app) == (app.srcdir / 'signatures.txt').read_text().splitlines()
 
 
-@pytest.mark.parametrize('buildername', ['text', 'latex', 'man', 'singlehtml'])
-def test_basic_builders(make_app, rootdir, tmp_path, buildername):
+@pytest.mark.parametrize('buildername, pattern', [
+    ('text', '*.txt'), ('latex', '*.tex'), ('man', '*.1'), ('singlehtml', '*.html')])
+def test_basic_builders(make_app, rootdir, tmp_path, buildername, pattern):
     srcdir = tmp_path / 'basic'
     shutil.copytree(rootdir / 'test-basic', srcdir)
     app = make_app(buildername, srcdir=srcdir, confoverrides={'nitpicky': True})
     app.build()
     assert warnings(app) == []
+    assert any('MyMethodClass' in path.read_text() for path in app.outdir.glob(pattern))
 
 
 @pytest.fixture(scope='module')
