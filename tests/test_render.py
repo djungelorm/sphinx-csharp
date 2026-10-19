@@ -234,6 +234,17 @@ def test_parallel_build(build):
     assert references(app)['Page3Class'] == 'page3.html#class-Page3Class'
 
 
+def test_overload_reference_is_stable_across_builds(build, make_app, tmp_path):
+    pages = {'a': 'A\n=\n\n.. cs:function:: void Foo (int a)\n', 'b': 'B\n=\n\n.. cs:function:: void Foo (string a)\n'}
+    app = build('.. toctree::\n\n   a\n   b\n\n:cs:meth:`Foo`\n', pages=pages)
+    assert references(app)['Foo'] == 'a.html#function-Foo'
+    # Rereading page a moves its overload after the overload on page b in the domain data
+    (tmp_path / 'a.rst').write_text(pages['a'] + '\nChanged.\n')
+    app = make_app('html', srcdir=tmp_path, confoverrides={'nitpicky': True})
+    app.build()
+    assert references(app)['Foo'] == 'a.html#function-Foo'
+
+
 def test_config_is_not_merged_twice(build):
     build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
     build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
@@ -621,6 +632,89 @@ def test_duplicate_description(build):
     app = build('.. toctree::\n\n   page\n\n.. cs:class:: Foo\n', pages={'page': 'Page\n====\n\n.. cs:class:: Foo\n'})
     assert len(warnings(app)) == 1
     assert 'duplicate description of class Foo' in warnings(app)[0]
+
+
+OVERLOADS_SOURCE = '''
+.. cs:class:: C
+
+   .. cs:function:: void Foo (int a)
+
+   .. cs:function:: void Foo (ref int a, Dictionary<string, int> b)
+
+   .. cs:function:: void Foo<T> (T a)
+
+   .. cs:function:: void Foo ((int count, string name) pair)
+
+   .. cs:function:: static implicit operator int (C c)
+
+   .. cs:function:: static implicit operator string (C c)
+
+   .. cs:function:: static implicit operator (int x, int y) (C c)
+
+   .. cs:indexer:: string this[int i] { get; }
+
+   .. cs:indexer:: string this[string key] { get; }
+
+:cs:meth:`plain <C.Foo>`, :cs:meth:`int <C.Foo(int)>`, :cs:meth:`ref <C.Foo(ref int, Dictionary<string, int>)>`,
+:cs:meth:`generic <C.Foo<T>(T)>`, :cs:meth:`string <C.op_Implicit(C)~string>`, :cs:idxr:`indexer <C.this[]>`,
+:cs:idxr:`key <C.this[string]>`, :any:`any <C.Foo>`, :cs:meth:`tuple <C.Foo((int, string))>`,
+:cs:meth:`pair <C.op_Implicit(C)~(int, int)>`
+'''
+
+
+def test_overloads(build):
+    app = build(OVERLOADS_SOURCE)
+    assert warnings(app) == []
+    assert set(signatures(app)) == {
+        'class-C', 'function-C.Foo', 'function-C.Foo(int)', 'function-C.Foo(ref-int,Dictionary<string,int>)',
+        'function-C.Foo<T>(T)', 'function-C.Foo((int,string))', 'function-C.op_Implicit',
+        'function-C.op_Implicit(C)~int', 'function-C.op_Implicit(C)~string', 'function-C.op_Implicit(C)~(int,int)',
+        'indexer-C.this[]', 'indexer-C.this[int]', 'indexer-C.this[string]'}
+    assert signatures(app)['function-C.Foo'] == 'void Foo (int a)'
+    assert references(app).items() >= {
+        'plain': 'function-C.Foo', 'int': 'function-C.Foo(int)',
+        'ref': 'function-C.Foo(ref-int,Dictionary<string,int>)', 'generic': 'function-C.Foo<T>(T)',
+        'string': 'function-C.op_Implicit(C)~string', 'indexer': 'indexer-C.this[]',
+        'key': 'indexer-C.this[string]', 'any': 'function-C.Foo', 'tuple': 'function-C.Foo((int,string))',
+        'pair': 'function-C.op_Implicit(C)~(int,int)'}.items()
+
+
+def test_overloads_in_one_directive(build):
+    app = build('.. cs:function:: void Foo (int a)\n'
+                '                 void Foo (string a)\n\n'
+                ':cs:meth:`plain <Foo>` and :cs:meth:`string <Foo(string)>`\n')
+    assert warnings(app) == []
+    assert set(signatures(app)) == {'function-Foo', 'function-Foo(int)', 'function-Foo(string)'}
+    assert index_entries(app) == [('Foo (C# function)', 'function-Foo')]
+    assert references(app).items() >= {'plain': 'function-Foo', 'string': 'function-Foo(string)'}.items()
+
+
+def test_overloads_on_other_pages(build):
+    pages = {'page1': 'Page 1\n======\n\n.. cs:function:: void Foo (int a)\n',
+             'page2': 'Page 2\n======\n\n.. cs:function:: void Foo (string a)\n'}
+    app = build('.. toctree::\n\n   page1\n   page2\n\n'
+                ':cs:meth:`plain <Foo>` and :cs:meth:`string <Foo(string)>`\n', pages=pages)
+    assert warnings(app) == []
+    assert references(app).items() >= {'plain': 'page1.html#function-Foo',
+                                       'string': 'page2.html#function-Foo(string)'}.items()
+
+
+def test_duplicate_overload(build):
+    app = build('.. toctree::\n\n   page\n\n.. cs:function:: void Foo (int a)\n',
+                pages={'page': 'Page\n====\n\n.. cs:function:: void Foo (int b)\n'})
+    assert len(warnings(app)) == 1
+    assert 'duplicate description of function Foo(int)' in warnings(app)[0]
+
+
+def test_overloads_in_inventory(build):
+    app = build('.. cs:function:: void Foo (int a)\n\n.. cs:function:: void Bar (int a)\n\n'
+                '.. cs:function:: void Bar (string a)\n')
+    assert sorted(app.env.get_domain('cs').get_objects()) == [
+        ('Bar', 'Bar', 'function', 'index', 'function-Bar', -1),
+        ('Bar(int)', 'Bar(int)', 'function', 'index', 'function-Bar(int)', 1),
+        ('Bar(string)', 'Bar(string)', 'function', 'index', 'function-Bar(string)', 1),
+        ('Foo', 'Foo', 'function', 'index', 'function-Foo', 1),
+        ('Foo(int)', 'Foo(int)', 'function', 'index', 'function-Foo(int)', -1)]
 
 
 def test_rebuild_keeps_objects_from_other_pages(build, tmp_path):

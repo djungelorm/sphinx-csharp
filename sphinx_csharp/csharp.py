@@ -1,7 +1,8 @@
 """ C# sphinx domain """
 
+from collections import Counter
 from collections.abc import Iterable, Iterator, Set
-from typing import Any
+from typing import Any, NamedTuple
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
@@ -26,6 +27,9 @@ from .parser import (
     Constraint,
     ParamTuple,
     is_indexer_signature,
+    normalize_signature,
+    overload_type,
+    parameter_types,
     parse_attr_signature,
     parse_base_type,
     parse_enum_signature,
@@ -37,8 +41,23 @@ from .parser import (
     parse_type_as_function,
     parse_type_signature,
     parse_variable_signature,
+    target_id,
 )
 from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
+
+
+class ObjectEntry(NamedTuple):
+    docname: str
+    # The full name, without the parameters of an overload
+    name: str
+
+
+class ObjectMatch(NamedTuple):
+    # The key of the object in the domain data, as (objtype, full name with any overload parameters)
+    key: tuple[str, str]
+    # The name the reference links to, with the parameters if the target names one overload
+    name: str
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,29 +82,42 @@ class CSharpObject(ObjectDescription[str]):
         # The generic parameters the signatures declare for the content, such as T in class List<T>
         self.generic_names: list[str] = []
         self.generic_names_saved: list[str] = []
+        # The full name of the overload being described, such as N.C.M(int,string)
+        self.overload_name: str | None = None
 
     def add_generic_names(self, names: list[str]) -> None:
         """ Declare generic parameters for the content, which every signature of the directive shares """
         self.generic_names += [name for name in names if name not in self.generic_names]
 
     def add_target_and_index(self, name: str, _: str, signode: addnodes.desc_signature) -> None:
-        targetname = self.objtype + '-' + name
-        if targetname not in self.state.document.ids:
-            signode['names'].append(targetname)
-            signode['ids'].append(targetname)
+        overload_name = self.overload_name or name
+        self.overload_name = None
+        overload_targetname = targetname = target_id(self.objtype, overload_name)
+        document = self.state.document
+        if overload_targetname not in document.ids:
+            # The first overload in a document also gets the target without parameters, which the index uses
+            plain_targetname = target_id(self.objtype, name)
+            if plain_targetname != overload_targetname and plain_targetname not in document.ids:
+                signode['names'].append(plain_targetname)
+                signode['ids'].append(plain_targetname)
+                targetname = plain_targetname
+            signode['names'].append(overload_targetname)
+            signode['ids'].append(overload_targetname)
             signode['first'] = not self.names
-            self.state.document.note_explicit_target(signode)
+            document.note_explicit_target(signode)
 
             objects = self.env.domaindata['cs']['objects']
-            key = (self.objtype, name)
+            key = (self.objtype, overload_name)
             if key in objects:
-                logger.warning(f'duplicate description of {self.objtype} {name}, ' +
-                               f'other instance in {self.env.doc2path(objects[key])}',
+                logger.warning(f'duplicate description of {self.objtype} {overload_name}, ' +
+                               f'other instance in {self.env.doc2path(objects[key].docname)}',
                                location=(self.env.docname, self.lineno))
-            objects[key] = self.env.docname
+            objects[key] = ObjectEntry(self.env.docname, name)
 
         # Sphinx 7 and 8 keep noindexentry as a separate option
-        if 'no-index-entry' not in self.options and 'noindexentry' not in self.options:
+        indexed = 'no-index-entry' not in self.options and 'noindexentry' not in self.options
+        # The index has one entry for the overloads of a method in a document, at the target without parameters
+        if indexed and targetname == target_id(self.objtype, name):
             indextext = self.get_index_text(name)
             if indextext:
                 self.indexnode['entries'].append(('single', indextext, targetname, '', None))
@@ -116,6 +148,19 @@ class CSharpObject(ObjectDescription[str]):
     def get_fullname(self, name: str) -> str:
         parent = self.env.ref_context.get('cs:parent')
         return parent + '.' + name if parent else name
+
+    def get_overload_fullname(self, name: str, overload_name: str, sig: str,
+                              signode: addnodes.desc_signature) -> str:
+        """
+        Describe one overload of a method or indexer, and return the full name of the method.
+        overload_name includes the parameter types, such as M(int,string).
+        """
+        fullname = self.get_fullname(name)
+        self.overload_name = normalize_signature(self.get_fullname(overload_name))
+        # Sphinx adds a target for only the first signature of each name in a directive
+        if fullname in self.names and 'no-index' not in self.options and 'noindex' not in self.options:
+            self.add_target_and_index(fullname, sig, signode)
+        return fullname
 
     append_modifiers = staticmethod(append_modifiers)
 
@@ -211,7 +256,7 @@ class CSharpObject(ObjectDescription[str]):
         signode += addnodes.desc_name(name, name)
         self.append_indexer_parameters(signode, params)
         self.append_accessors(signode, accessors)
-        return self.get_fullname(name + '[]')
+        return self.get_overload_fullname(name + '[]', f'{name}[{parameter_types(params)}]', sig, signode)
 
     def handle_type_signature(self, sig: str, signode: addnodes.desc_signature, keyword: str) -> str:
         """ Handle a type declaration, such as a class, and return its full name """
@@ -355,7 +400,9 @@ class CSharpMethod(CSharpObject):
             self.append_type(signode, return_type)
             signode += nodes.Text('\xa0')
             self.append_parameters(signode, params)
-            return self.get_fullname(name)
+            # Conversion operators differ by return type, as in the .NET documentation ids
+            overload_name = f'{name}({parameter_types(params)})~{overload_type(return_type)}'
+            return self.get_overload_fullname(name, overload_name, sig, signode)
 
         # Variance modifiers such as out T come before the parameter name
         generic_names = [generic.split()[-1] for generic in generic_params]
@@ -380,7 +427,8 @@ class CSharpMethod(CSharpObject):
         self.append_parameters(signode, params, generic_names)
         self.append_constraints(signode, constraints, generic_names)
 
-        return self.get_fullname(name)
+        generics = '<' + ','.join(generic_names) + '>' if generic_names else ''
+        return self.get_overload_fullname(name, f'{name}{generics}({parameter_types(params)})', sig, signode)
 
 
 class CSharpDelegate(CSharpMethod):
@@ -581,8 +629,10 @@ class CSharpDomain(Domain):
         'obj': CSharpXRefRole(),
     }
     initial_data = {
-        'objects': {},  # (objtype, fullname) -> docname
+        'objects': {},  # (objtype, full name with any overload parameters) -> ObjectEntry
     }
+    # The version of the objects data, which Sphinx compares with a saved environment
+    data_version = 1
 
     @staticmethod
     def apply_config(_app: "Sphinx", config: Config) -> None:
@@ -597,24 +647,41 @@ class CSharpDomain(Domain):
             raise
 
     def clear_doc(self, docname: str) -> None:
-        for (typ, name), doc in dict(self.objects).items():
-            if doc == docname:
-                del self.objects[typ, name]
+        for key, entry in dict(self.objects).items():
+            if entry.docname == docname:
+                del self.objects[key]
 
     @property
-    def objects(self) -> dict[tuple[str, str], str]:
+    def objects(self) -> dict[tuple[str, str], ObjectEntry]:
         """ The documented objects, keyed by object type and full name, with the document they are in """
-        objects: dict[tuple[str, str], str] = self.data['objects']
+        objects: dict[tuple[str, str], ObjectEntry] = self.data['objects']
         return objects
 
     def find_objects(self, target: str, parent: str | None, objtypes: Iterable[str],
-                     loose: bool = True) -> list[tuple[str, str]]:
+                     loose: bool = True) -> list[ObjectMatch]:
         """
         Find the objects of the given types that a target refers to from within a parent namespace.
         Without loose, only the target qualified by the parent or an enclosing namespace matches.
+        A target without parameters refers to the first overload of a method.
         """
-        matches = [key for key in self.objects
-                   if key[0] in objtypes and (key[1] == target or key[1].endswith('.' + target))]
+        target = normalize_signature(target)
+
+        def names(key: tuple[str, str]) -> set[str]:
+            return {key[1], self.objects[key].name}
+
+        def refers_to(name: str) -> bool:
+            return name == target or name.endswith('.' + target)
+
+        # The first overload of each method, by document and then name
+        first_overloads: dict[tuple[str, str], tuple[str, str]] = {}
+        for key in self.objects:
+            if key[0] in objtypes and any(refers_to(name) for name in names(key)):
+                method = (key[0], self.objects[key].name)
+                if method not in first_overloads or self.object_order(key) < self.object_order(first_overloads[method]):
+                    first_overloads[method] = key
+        # A target with the parameters of an overload links to that overload
+        matches = [ObjectMatch(key, key[1] if refers_to(key[1]) else self.objects[key].name)
+                   for key in sorted(first_overloads.values(), key=self.object_order)]
 
         # The parent and each of its enclosing namespaces, innermost first
         scopes = []
@@ -624,7 +691,7 @@ class CSharpDomain(Domain):
 
         # Prefer the target qualified by the closest scope, then an object anywhere inside that scope
         for scope in scopes + ['']:
-            exact = [key for key in matches if key[1] == (scope + '.' + target if scope else target)]
+            exact = [match for match in matches if (scope + '.' + target if scope else target) in names(match.key)]
             if exact:
                 return exact
         if not loose:
@@ -632,10 +699,14 @@ class CSharpDomain(Domain):
         if len(matches) <= 1:
             return matches
         for scope in scopes:
-            inside = [key for key in matches if key[1].startswith(scope + '.')]
+            inside = [match for match in matches if match.key[1].startswith(scope + '.')]
             if inside:
                 return inside
         return matches
+
+    def object_order(self, key: tuple[str, str]) -> tuple[str, tuple[str, str]]:
+        """ The order of objects that is the same in every build, by document and then key """
+        return self.objects[key].docname, key
 
     def resolve_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, typ: str, target: str,
                      node: addnodes.pending_xref, contnode: nodes.Element) -> nodes.reference | None:
@@ -659,11 +730,10 @@ class CSharpDomain(Domain):
             matches = self.find_objects(target, parent, objtypes)
 
         if len(matches) > 1:
-            logger.warning(f'ambiguous reference to {target}, matches: {[name for _, name in matches]}',
+            logger.warning(f'ambiguous reference to {target}, matches: {[match.key[1] for match in matches]}',
                            location=node)
         if matches:
-            objtype, name = matches[0]
-            return self.make_refnode(builder, fromdocname, objtype, name, contnode)
+            return self.make_refnode(builder, fromdocname, matches[0], contnode)
         if CSDebug.xref:
             logger.info(f'no C# object found for {target}, searched object types {objtypes}', location=node)
         return None
@@ -672,21 +742,35 @@ class CSharpDomain(Domain):
                          node: addnodes.pending_xref,
                          contnode: nodes.Element) -> list[tuple[str, nodes.reference]]:
         matches = self.find_objects(target, node.get('cs:parent'), list(self.object_types))
-        return [('cs:' + self.object_types[objtype].roles[0],
-                 self.make_refnode(builder, fromdocname, objtype, name, contnode))
-                for objtype, name in matches]
+        return [('cs:' + self.object_types[match.key[0]].roles[0],
+                 self.make_refnode(builder, fromdocname, match, contnode))
+                for match in matches]
 
-    def make_refnode(self, builder: Builder, fromdocname: str, objtype: str, name: str,
+    def make_refnode(self, builder: Builder, fromdocname: str, match: ObjectMatch,
                      contnode: nodes.Element) -> nodes.reference:
+        """ Link to an object, or to one overload of it """
+        objtype, name = match.key[0], match.name
+        entry = self.objects[match.key]
         title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {name}'
-        return make_refnode(builder, fromdocname, self.objects[objtype, name],
-                            objtype + '-' + name, contnode, title)
+        return make_refnode(builder, fromdocname, entry.docname, target_id(objtype, name), contnode, title)
 
     def get_objects(self) -> Iterator[tuple[str, str, str, str, str, int]]:
-        for (typ, name), docname in self.objects.items():
-            yield name, name, typ, docname, typ + '-' + name, 1
+        overloads = Counter((objtype, entry.name) for (objtype, _), entry in self.objects.items())
+        methods = set()
+        for objtype, overload_name in sorted(self.objects, key=self.object_order):
+            entry = self.objects[objtype, overload_name]
+            method = (objtype, entry.name)
+            # Search shows the overloads of a method, and otherwise the name without parameters
+            overloaded = overloads[method] > 1
+            if method not in methods:
+                methods.add(method)
+                yield entry.name, entry.name, objtype, entry.docname, target_id(objtype, entry.name), \
+                    -1 if overloaded else 1
+            if overload_name != entry.name:
+                yield overload_name, overload_name, objtype, entry.docname, \
+                    target_id(objtype, overload_name), 1 if overloaded else -1
 
     def merge_domaindata(self, docnames: Set[str], otherdata: dict[str, Any]) -> None:
-        for key, docname in otherdata['objects'].items():
-            if docname in docnames:
-                self.objects[key] = docname
+        for key, entry in otherdata['objects'].items():
+            if entry.docname in docnames:
+                self.objects[key] = entry

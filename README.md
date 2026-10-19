@@ -46,6 +46,19 @@ Describe parameters, type parameters, return values and exceptions with field li
 
 The types in the `type`, `rtype` and `throws` fields link like the types in a signature.
 
+### Overloads
+
+Reference an overload by its parameter types:
+
+```rst
+.. cs:function:: void Add (int value)
+.. cs:function:: void Add (ref int value, string name)
+
+:cs:meth:`Add` links to the first overload, and :cs:meth:`Add(ref int, string)` to the second.
+```
+
+Each overload has a target with its parameter types, such as `function-Add(ref-int,string)`. The first overload in a page also has the target `function-Add`. Indexers use brackets, as in `this[string]`. Conversion operators add their return type, as in `op_Implicit(MyType)~int`.
+
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 

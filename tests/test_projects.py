@@ -25,4 +25,8 @@ def test_breathe(app):
         'string this[Dictionary<string, int> map, int offset = 0] ' + accessors
     assert signatures(app)['class-OtherNamespace.Box'] == 'class Box<T>'
     assert 'function-OtherNamespace.Box.First' in signatures(app)
+    assert {'function-OtherNamespace.Overloads.Add(int)',
+            'function-OtherNamespace.Overloads.Add(ref-int,Dictionary<string,int>)',
+            'indexer-OtherNamespace.Overloads.this[string]',
+            'function-OtherNamespace.Overloads.op_Implicit(Overloads)~string'} <= set(signatures(app))
 

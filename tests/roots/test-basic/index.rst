@@ -27,6 +27,10 @@
 
       And a reference back to the containing class :type:`MyClass`
 
+   .. function:: void MyMethod (string arg, ref int count)
+
+      An overload of :func:`MyMethod`, with its own target :func:`MyMethod(string, ref int)`.
+
    .. function:: T MyMethodWithFields<T> (System.Collections.Generic.IList<T> items, int index)
 
       A method with documented parameters.
@@ -245,6 +249,8 @@ Struct ref :struct:`MyStruct`
 Interface ref :interface:`MyInterface`
 
 Method ref: :func:`MyClass.MyMethod`
+
+Overload ref: :func:`MyClass.MyMethod(string,ref int)`
 
 Property ref: :prop:`MyClass.MyProperty`
 

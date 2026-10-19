@@ -42,6 +42,13 @@ UNARY_OPERATOR_NAMES = {'+': 'UnaryPlus', '-': 'UnaryNegation'}
 INSTANCE_OPERATOR_NAMES = {'++': 'IncrementAssignment', '--': 'DecrementAssignment'}
 CONVERSION_OPERATORS = ['op_Implicit', 'op_Explicit', 'op_CheckedImplicit', 'op_CheckedExplicit']
 
+# The characters that whitespace around them is optional for, such as the space in Dictionary<string, int>
+TIGHT_PUNCTUATION = set(',<>()[]*')
+# The last characters of a tuple element type, before the element name, other than name characters
+TUPLE_TYPE_END = set('>])?*')
+# The parameter modifiers that overloads can differ by
+OVERLOAD_PARAM_MODIFIERS = ['ref', 'out', 'in', 'readonly']
+
 # Source location of a signature, as a (docname, line) pair, or the node of a doc field
 Location = tuple[str, int] | nodes.Node | None
 
@@ -621,15 +628,52 @@ def split_sig(params: str, separator: str = ',') -> list[str]:
     return result
 
 
-def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
-    """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
-    logger.warning(f'{kind} signature invalid: {sig}', location=location)
-    return ValueError(f'{kind} signature invalid: {sig}')
+def normalize_signature(sig: str) -> str:
+    """ Remove optional whitespace from a name or signature, such as M(int, string) to M(int,string) """
+    result = ''
+    previous = None
+    for token in tokenize(sig):
+        if previous is not None and previous.end < token.start and \
+                previous.text not in TIGHT_PUNCTUATION and token.text not in TIGHT_PUNCTUATION:
+            result += ' '
+        result += token.text
+        previous = token
+    return result
+
+
+def parameter_types(params: list[ParamTuple]) -> str:
+    """ The parameter types that tell overloads apart, such as ref int,string """
+    return ','.join(' '.join([modifier for modifier in param.modifiers if modifier in OVERLOAD_PARAM_MODIFIERS] +
+                             [overload_type(param.typ)]) for param in params)
+
+
+def overload_type(typ: str) -> str:
+    """ A type as it appears in an overload id, without tuple element names, such as (int,int) for (int a,int b) """
+    tokens = tokenize(typ)
+    result = ''
+    start = 0
+    for previous, token, following in zip(tokens, tokens[1:], tokens[2:]):
+        if is_name(token) and previous.end < token.start and following.text in (',', ')') and \
+                (previous.text[-1] in TUPLE_TYPE_END or previous.kind == 'word'):
+            result += typ[start:previous.end]
+            start = token.end
+    return result + typ[start:]
+
+
+def target_id(objtype: str, name: str) -> str:
+    """ The node id of an object, such as function-N.C.M(ref-int,string) """
+    return objtype + '-' + name.replace(' ', '-')
 
 
 def strip_semicolon(sig: str) -> str:
     """ Remove whitespace and a trailing semicolon from a signature copied from source, such as void Foo(); """
     return sig.strip().removesuffix(';').rstrip()
+
+
+def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
+    """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
+    logger.warning(f'{kind} signature invalid: {sig}', location=location)
+    return ValueError(f'{kind} signature invalid: {sig}')
 
 
 def parse_method_signature(sig: str, location: Location) -> MethodSig:

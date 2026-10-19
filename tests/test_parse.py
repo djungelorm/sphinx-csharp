@@ -6,6 +6,8 @@ from sphinx_csharp.parser import (
     MethodSig,
     ParamTuple,
     TypeSig,
+    normalize_signature,
+    overload_type,
     parse_attr_signature,
     parse_base_type,
     parse_enum_signature,
@@ -50,6 +52,23 @@ def test_tokenize(sig, expected):
 ])
 def test_split_sig(params, expected):
     assert split_sig(params) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('C.M(int, List< string >)', 'C.M(int,List<string>)'),
+    ('M(ref  int a, string s = "a , b")', 'M(ref int a,string s = "a , b")'),
+])
+def test_normalize_signature(sig, expected):
+    assert normalize_signature(sig) == expected
+
+
+@pytest.mark.parametrize('typ, expected', [
+    ('(int a, (string b, int[] c) d)', '(int, (string, int[]))'),
+    ('(List<int> a, int? b)', '(List<int>, int?)'),
+    ('Dictionary<string, int>', 'Dictionary<string, int>'),
+])
+def test_overload_type(typ, expected):
+    assert overload_type(typ) == expected
 
 
 @pytest.mark.parametrize('element, expected', [
