@@ -281,6 +281,19 @@ class Parser:
             name += self.name_part()
         return name
 
+    def generic_qualified_name(self) -> str:
+        """ A qualified name with generic arguments, such as Outer<T>.Color, without whitespace """
+        name = self.qualified_name()
+        while self.at('<'):
+            start = self.pos
+            self.group('<', '>')
+            name += ''.join(self.text(start).split())
+            if not (self.at('.') and is_name(self.peek(1))):
+                break
+            self.pos += 1
+            name += '.' + self.qualified_name()
+        return name
+
     def type(self) -> ParsedType:
         """ A type such as List<int>.Enumerator[], or a tuple type such as (int a, string b)? """
         start = self.pos
@@ -542,18 +555,18 @@ class Parser:
     def enum(self) -> EnumSig:
         """ An enum, such as public Color : byte """
         modifiers = self.modifiers(MODIFIERS)
-        name = self.qualified_name()
+        name = self.generic_qualified_name()
         base = self.qualified_name() if self.accept(':') else None
         return EnumSig(modifiers, name, base)
 
     def enumerator(self) -> EnumeratorSig:
         """ An enum value, such as Red = 1 """
-        name = self.name()
+        name = self.generic_qualified_name()
         return EnumeratorSig(name, self.rest() if self.accept('=') else None)
 
     def attribute(self) -> AttrSig:
-        """ An attribute class, such as MyAttr(int a) """
-        name = self.qualified_name()
+        """ An attribute class, such as MyAttr<T>(T a) """
+        name = self.generic_qualified_name()
         params = self.params(')') if self.accept('(') else []
         return AttrSig(name, params)
 

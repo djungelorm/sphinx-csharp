@@ -314,6 +314,7 @@ def test_parse_indexer(sig, expected):
     ('Color', ([], 'Color', None)),
     ('public Color : byte', (['public'], 'Color', 'byte')),
     ('internal Flags:System.UInt16', (['internal'], 'Flags', 'System.UInt16')),
+    ('Outer< T >.Color', ([], 'Outer<T>.Color', None)),
 ])
 def test_parse_enum(sig, expected):
     assert parse_enum_signature(sig, None) == expected
@@ -323,6 +324,7 @@ def test_parse_enum(sig, expected):
     ('Red', ('Red', None)),
     ('Red = 1', ('Red', '1')),
     ('All=Red | Green', ('All', 'Red | Green')),
+    ('Color.Red = 1', ('Color.Red', '1')),
 ])
 def test_parse_enumerator(sig, expected):
     assert parse_enumerator_signature(sig, None) == expected
@@ -333,6 +335,7 @@ def test_parse_enumerator(sig, expected):
     ('MyAttr (string a, int b)', ('MyAttr', [param('string', 'a'), param('int', 'b')])),
     ('Obsolete(string message, bool error = false)',
      ('Obsolete', [param('string', 'message'), param('bool', 'error', 'false')])),
+    ('MyAttr<T>(T a)', ('MyAttr<T>', [param('T', 'a')])),
 ])
 def test_parse_attribute(sig, expected):
     assert parse_attr_signature(sig, None) == expected

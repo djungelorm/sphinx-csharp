@@ -491,6 +491,15 @@ def test_default_values_and_attributes_with_brackets(build):
         'void Foo (int a = 1 << 2, bool b = x < y, string s = @"C:\\", [A(X[Y[0]])] int c)'
 
 
+def test_qualified_enumerator_and_generic_attribute(build):
+    app = build('.. cs:enum:: Color\n\n.. cs:enumerator:: Color.Red = 1\n\n.. cs:attribute:: MyAttr<T> (int a)\n\n'
+                ':cs:enumerator:`Color.Red`\n')
+    assert warnings(app) == []
+    assert signatures(app)['enumerator-Color.Red'] == 'Color.Red = 1'
+    assert signatures(app)['attribute-MyAttr<T>'] == 'MyAttr<T> (int a)'
+    assert references(app)['Color.Red'] == 'enumerator-Color.Red'
+
+
 def test_nested_type_in_generic_type(build):
     app = build('.. cs:class:: Outer<T>\n\n   .. cs:class:: Inner\n\n   .. cs:class:: Pair<U>\n\n'
                 '.. cs:function:: Outer<int>.Inner Local ()\n\n'

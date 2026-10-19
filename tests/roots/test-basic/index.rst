@@ -221,6 +221,12 @@
 
    Another attribute.
 
+.. attribute:: MyAttribute4<T> (int param1)
+
+   A generic attribute.
+
+.. enumerator:: MyFlags.Second = 2
+
 .. _references:
 
 References
