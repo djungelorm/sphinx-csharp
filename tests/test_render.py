@@ -113,6 +113,7 @@ def test_system_types_link_to_microsoft_docs(build, sig, links):
 
 @pytest.mark.parametrize('directive, sig', [
     ('function', 'void Foo (int)'),
+    ('function', 'template<T void Foo ()'),
     ('property', 'int'),
     ('class', '<T>'),
 ])

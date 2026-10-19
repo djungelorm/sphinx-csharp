@@ -22,6 +22,7 @@ CONSTRAINT_KEYWORDS = ['class', 'class?', 'struct', 'notnull', 'unmanaged', 'def
 
 OPENING = {'(', '[', '{'}
 CLOSING = {')', ']', '}'}
+# The punctuation that can appear in generic arguments, as in Dictionary<string, (int, int?)[]>
 TYPE_PUNCTUATION = {'<', '>', ',', '.', '::', '?', '*', '(', ')', '[', ']'}
 
 # Operators, named by their .NET metadata names such as op_Addition
@@ -355,6 +356,8 @@ class Parser:
         while True:
             start = self.pos
             name = self.name()
+            if name == 'operator':
+                raise ParseError
             if self.at('<'):
                 self.group('<', '>')
                 if not self.at('.'):
@@ -462,6 +465,8 @@ class Parser:
                 raise ParseError
             return_type = self.type().fulltype
             operator = ('operator ' + checked).strip()
+        elif return_type is None:
+            raise ParseError
         else:
             operator = 'operator ' + checked + op
         self.expect('(')
@@ -584,6 +589,8 @@ class Parser:
             while self.peek() is not None and not self.at('where'):
                 self.pos += 1
             inherits = split_sig(self.text(start))
+            if not inherits:
+                raise ParseError
         constraints = self.constraints()
         return TypeSig(typ.name, modifiers, typ.generics or templates, inherits, typ.suffix, constraints, params,
                        typ.nested)
@@ -910,9 +917,9 @@ def parse_type_as_function(sig: str) -> tuple[list[str], str, str] | None:
     """ The modifiers, keyword and rest of a record, or a type with a primary constructor, that Doxygen writes as a
         function, such as record struct and Point(int X) in record struct Point(int X), or None if it is neither """
     parser = Parser(sig.strip())
-    # Note: The name of a generic record also has its generic parameters, so we drop the template prefix.
-    parser.templates()
     try:
+        # Note: The name of a generic record also has its generic parameters, so we drop the template prefix.
+        parser.templates()
         modifiers, keyword, rest = parse_type_keyword(parser, ('record', 'class', 'struct'))
         parser.qualified_name()
         parser.generic_args()

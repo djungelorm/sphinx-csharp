@@ -40,6 +40,10 @@ def param(typ, name, default=None, modifiers=()):
     ('"a\\"b" \'\\\'\' x', ['"a\\"b"', "'\\''", 'x']),
     ('@"C:\\""x""" y', ['@"C:\\""x"""', 'y']),
     ('"abc', ['"abc']),
+    ('@$"C:\\{a}" $@"\\" $"\\"" x', ['@$"C:\\{a}"', '$@"\\"', '$"\\""', 'x']),
+    ('"""a "b" \\""" $$""""x"""" "" y', ['"""a "b" \\"""', '$$""""x""""', '""', 'y']),
+    ('"""a', ['"""a']),
+    ('$ x', ['$', 'x']),
 ])
 def test_tokenize(sig, expected):
     assert [token.text for token in tokenize(sig)] == expected
@@ -48,6 +52,8 @@ def test_tokenize(sig, expected):
 @pytest.mark.parametrize('params, expected', [
     ('String a, int b = 1, List<int> c = [1, 2, 3], Dictionary<string, int> d',
      ['String a', 'int b = 1', 'List<int> c = [1, 2, 3]', 'Dictionary<string, int> d']),
+    ('Base(a < b, c), IFoo< T, U >', ['Base(a < b, c)', 'IFoo< T, U >']),
+    ('IFoo <(int, int)[], int?>, IBar', ['IFoo <(int, int)[], int?>', 'IBar']),
     ('a,', ['a']),
     ('a>, b', ['a>', 'b']),
     ('(int, string) a, Foo b = new Foo(1, 2)', ['(int, string) a', 'Foo b = new Foo(1, 2)']),
@@ -124,6 +130,7 @@ def test_parse_record_kind(sig, expected):
     ('class Service(ILogger logger)', ([], 'class', 'Service(ILogger logger)')),
     ('record Point', None),
     ('void Foo()', None),
+    ('template<T void Foo()', None),
 ])
 def test_parse_type_as_function(sig, expected):
     assert parse_type_as_function(sig) == expected
@@ -200,11 +207,36 @@ def test_split_attributes(sig, expected):
     ('void Foo(int a = 1 << 2, bool b = 1 > 0, int c = x < y ? 1 : 2, bool d = x < y)',
      ([], 'void', 'Foo', [], [param('int', 'a', '1 << 2'), param('bool', 'b', '1 > 0'),
                               param('int', 'c', 'x < y ? 1 : 2'), param('bool', 'd', 'x < y')])),
+    ('void Foo(bool a = 1 < 2, bool b = x >= 1, int c = 1 >> 2, int d = a < b ? 1 : 2, bool e = x<y)',
+     ([], 'void', 'Foo', [], [param('bool', 'a', '1 < 2'), param('bool', 'b', 'x >= 1'), param('int', 'c', '1 >> 2'),
+                              param('int', 'd', 'a < b ? 1 : 2'), param('bool', 'e', 'x<y')])),
+    ('void Foo(bool a = x < y, bool b = y > z)',
+     ([], 'void', 'Foo', [], [param('bool', 'a', 'x < y'), param('bool', 'b', 'y > z')])),
     ('~MyClass()', ([], None, '~MyClass', [], [])),
+    ('static MyClass()', (['static'], None, 'MyClass', [], [])),
+    ('unsafe void Foo(int* p)', (['unsafe'], 'void', 'Foo', [], [param('int*', 'p')])),
+    ('partial void Foo()', (['partial'], 'void', 'Foo', [], [])),
+    ('readonly int Foo()', (['readonly'], 'int', 'Foo', [], [])),
+    ('ref readonly int Foo()', (['ref', 'readonly'], 'int', 'Foo', [], [])),
+    ('void Foo(params ReadOnlySpan<int> xs)',
+     ([], 'void', 'Foo', [], [param('ReadOnlySpan<int>', 'xs', modifiers=['params'])])),
+    ('static int Foo(this in Vector v)',
+     (['static'], 'int', 'Foo', [], [param('Vector', 'v', modifiers=['this', 'in'])])),
+    ('dynamic Foo(dynamic d, nint n, nuint u)',
+     ([], 'dynamic', 'Foo', [], [param('dynamic', 'd'), param('nint', 'n'), param('nuint', 'u')])),
+    ('void @class(int @int)', ([], 'void', '@class', [], [param('int', '@int')])),
+    ('global::System.String Foo(global::System.Int32 a)',
+     ([], 'global::System.String', 'Foo', [], [param('global::System.Int32', 'a')])),
+    ('void Foo(string?[] a, int[][,] b)',
+     ([], 'void', 'Foo', [], [param('string?[]', 'a'), param('int[][,]', 'b')])),
+    ('delegate void Handler<in T, out U>(T a)',
+     (['delegate'], 'void', 'Handler', ['in T', 'out U'], [param('T', 'a')])),
     ('((int, (int, int)), int) Foo()', ([], '((int, (int, int)), int)', 'Foo', [], [])),
     ('void Foo([A(X[Y[0]])] int a)', ([], 'void', 'Foo', [], [param('int', 'a', modifiers=['[A(X[Y[0]])]'])])),
     ('void Foo(string s = @"C:\\", int b)',
      ([], 'void', 'Foo', [], [param('string', 's', '@"C:\\"'), param('int', 'b')])),
+    ('void Foo(string s = @$"C:\\", string t = """a "," b""")',
+     ([], 'void', 'Foo', [], [param('string', 's', '@$"C:\\"'), param('string', 't', '"""a "," b"""')])),
     ('void Foo([DefaultValue(new[] {1})] int[] a, [Attr("]", \'[\')] int b)',
      ([], 'void', 'Foo', [], [param('int[]', 'a', modifiers=['[DefaultValue(new[] {1})]']),
                               param('int', 'b', modifiers=['[Attr("]", \'[\')]'])])),
@@ -222,6 +254,12 @@ def test_parse_method(sig, expected):
     ('static V operator >>>(V a, int b)', (['static'], 'V', 'op_UnsignedRightShift', 'operator >>>', 2)),
     ('static bool operator true(V a)', (['static'], 'bool', 'op_True', 'operator true', 1)),
     ('static V operator checked +(V a, V b)', (['static'], 'V', 'op_CheckedAddition', 'operator checked +', 2)),
+    ('static V operator checked -(V a)', (['static'], 'V', 'op_CheckedUnaryNegation', 'operator checked -', 1)),
+    ('static V operator ~(V a)', (['static'], 'V', 'op_OnesComplement', 'operator ~', 1)),
+    ('static bool operator !(V a)', (['static'], 'bool', 'op_LogicalNot', 'operator !', 1)),
+    ('static V operator %(V a, V b)', (['static'], 'V', 'op_Modulus', 'operator %', 2)),
+    ('static V operator <<(V a, int b)', (['static'], 'V', 'op_LeftShift', 'operator <<', 2)),
+    ('static V operator >>(V a, int b)', (['static'], 'V', 'op_RightShift', 'operator >>', 2)),
     ('static V operator ++(V a)', (['static'], 'V', 'op_Increment', 'operator ++', 1)),
     ('void operator ++()', ([], 'void', 'op_IncrementAssignment', 'operator ++', 0)),
     ('void operator +=(V b)', ([], 'void', 'op_AdditionAssignment', 'operator +=', 1)),
@@ -259,6 +297,7 @@ def test_parse_expression_body(sig, expected):
     ('C(int a) : this(a, 0)', ([param('int', 'a')], 'this(a, 0)')),
     ('public C(int a = F(1)) :base(a, G(2))', ([param('int', 'a', 'F(1)')], 'base(a, G(2))')),
     ('C()', ([], None)),
+    ('C(int a) : base(a) where T : new()', ([param('int', 'a')], 'base(a)')),
 ])
 def test_parse_constructor_initializer(sig, expected):
     result = parse_method_signature(sig, None)
@@ -277,6 +316,9 @@ def test_parse_method_doxygen_template():
     ('void Foo<T>(Func<T> f = null) where T : Dictionary<string, (int, int)>',
      [Constraint('T', ['Dictionary<string, (int, int)>'])]),
     ('void Foo<T>() where T : allows  ref struct', [Constraint('T', ['allows ref struct'])]),
+    ('void Foo<T>() where T : unmanaged', [Constraint('T', ['unmanaged'])]),
+    ('void Foo<T>() where T : class?', [Constraint('T', ['class?'])]),
+    ('T Foo<T>(T a) where T : struct => a', [Constraint('T', ['struct'])]),
 ])
 def test_parse_method_constraints(sig, expected):
     assert parse_method_signature(sig, None).constraints == expected
@@ -304,6 +346,9 @@ def test_parse_method_constraints(sig, expected):
     ('int P => 1', ([], 'int', 'P', ['get'], None)),
     ('int P => x > 0;', ([], 'int', 'P', ['get'], None)),
     ('EventHandler E { add; remove; }', ([], 'EventHandler', 'E', ['add', 'remove'], None)),
+    ('partial event EventHandler E { add; remove; }',
+     (['partial', 'event'], 'EventHandler', 'E', ['add', 'remove'], None)),
+    ('partial int P { get; set; }', (['partial'], 'int', 'P', ['get', 'set'], None)),
     ('int IShape. Sides {get;}', ([], 'int', 'IShape.Sides', ['get'], None)),
     ('EventHandler IShape. Moved', ([], 'EventHandler', 'IShape.Moved', [], None)),
     ('int P', ([], 'int', 'P', [], None)),
@@ -325,6 +370,8 @@ def test_parse_property(sig, expected):
     ('template<T> T x', ([], 'T', 'T', ['T'], 'x', None)),
     ('int *p', ([], 'int *', 'int', [], 'p', None)),
     ('public const int X = 1;', (['public', 'const'], 'int', 'int', [], 'X', '1')),
+    ('public volatile int x', (['public', 'volatile'], 'int', 'int', [], 'x', None)),
+    ('event EventHandler E', (['event'], 'EventHandler', 'EventHandler', [], 'E', None)),
     ('int x ;', ([], 'int', 'int', [], 'x', None)),
 ])
 def test_parse_variable(sig, expected):
@@ -458,6 +505,12 @@ def test_parse_attribute(sig, expected):
     (parse_method_signature, 'T Foo<T(int a)'),
     (parse_method_signature, 'void Foo(int a = )'),
     (parse_method_signature, 'C(int a) : Foo(a)'),
+    (parse_method_signature, 'V operator(V a)'),
+    (parse_method_signature, 'static implicit operator +(V a)'),
+    (parse_method_signature, 'operator +(V a)'),
+    (parse_variable_signature, 'int operator'),
+    (parse_type_signature, 'MyClass :'),
+    (parse_type_signature, 'MyClass<T> : where T : IFoo'),
     (parse_variable_signature, 'int[3] x'),
     (parse_variable_signature, 'int x ='),
     (parse_property_signature, 'int'),
