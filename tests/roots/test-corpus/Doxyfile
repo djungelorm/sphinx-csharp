@@ -1,0 +1,16 @@
+PROJECT_NAME         = "Corpus Test"
+INPUT                = src
+FILE_PATTERNS        = *.cs
+RECURSIVE            = YES
+OUTPUT_DIRECTORY     = _doxygen
+GENERATE_HTML        = NO
+GENERATE_LATEX       = NO
+GENERATE_XML         = YES
+QUIET                = YES
+EXTRACT_ALL          = YES
+EXTRACT_PRIVATE      = YES
+EXTRACT_STATIC       = YES
+EXTRACT_PACKAGE      = YES
+WARNINGS             = NO
+WARN_IF_UNDOCUMENTED = NO
+WARN_IF_DOC_ERROR    = NO
