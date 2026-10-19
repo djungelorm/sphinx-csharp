@@ -1,6 +1,7 @@
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 
-import requests
 from docutils import nodes
 from sphinx.config import Config
 from sphinx.util import logging
@@ -164,10 +165,11 @@ class ExternalRefs:
             if not cls.check_links_logged:
                 cls.check_links_logged = True
                 logger.info("csharp: external link testing is enabled")
-            try:
-                apilink_status_code = requests.get(apilink, timeout=3).status_code
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            status = link_status(apilink)
+            if status is None:
                 cls.check_links = False
+            else:
+                apilink_status_code = status
 
         if not cls.check_links or apilink_status_code < 400:
             url = apilink
@@ -182,3 +184,16 @@ class ExternalRefs:
         if CSDebug.external:
             logger.info(f"found external link: {cache_key, fullname, url}")
         return create_node(fullname, url)
+
+
+def link_status(url: str) -> int | None:
+    """ The HTTP status of a link, or None if the server cannot be reached """
+    try:
+        with urllib.request.urlopen(url, timeout=3) as response:
+            status: int = response.status
+            return status
+    except urllib.error.HTTPError as error:
+        error.close()
+        return error.code
+    except (urllib.error.URLError, TimeoutError):
+        return None

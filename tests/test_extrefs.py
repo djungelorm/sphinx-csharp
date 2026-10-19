@@ -1,5 +1,9 @@
+import urllib.error
+import urllib.request
+from email.message import Message
+from unittest.mock import MagicMock
+
 import pytest
-import requests
 from conftest import references, status, warnings
 
 from sphinx_csharp.extrefs import ExternalRefs
@@ -76,9 +80,17 @@ def test_debug_logging(build):
     assert 'found in extlink_cache for int' in log
 
 
-class Response:
-    def __init__(self, status_code):
-        self.status_code = status_code
+def urlopen(status_code):
+    """ A replacement for urlopen that responds with a status code, or fails to connect if it is None """
+    def _urlopen(url, timeout):
+        if status_code is None:
+            raise urllib.error.URLError('connection refused')
+        if status_code >= 400:
+            raise urllib.error.HTTPError(url, status_code, 'Not Found', Message(), None)
+        response = MagicMock()
+        response.__enter__.return_value.status = status_code
+        return response
+    return _urlopen
 
 
 @pytest.mark.parametrize('status_code, url', [
@@ -86,7 +98,7 @@ class Response:
     (404, MICROSOFT_SEARCH + 'System.Int32'),
 ])
 def test_link_testing(build, monkeypatch, status_code, url):
-    monkeypatch.setattr(requests, 'get', lambda *args, **kwargs: Response(status_code))
+    monkeypatch.setattr(urllib.request, 'urlopen', urlopen(status_code))
     app = build('.. cs:function:: void Foo (int a, string b)\n', sphinx_csharp_check_external_links=True)
     assert len(warnings(app)) == (2 if status_code == 404 else 0)
     assert all('invalid API link' in line for line in warnings(app))
@@ -95,9 +107,7 @@ def test_link_testing(build, monkeypatch, status_code, url):
 
 
 def test_link_testing_without_connection(build, monkeypatch):
-    def get(*args, **kwargs):
-        raise requests.exceptions.ConnectionError
-    monkeypatch.setattr(requests, 'get', get)
+    monkeypatch.setattr(urllib.request, 'urlopen', urlopen(None))
     refs, app = links(build, 'int', sphinx_csharp_check_external_links=True)
     assert warnings(app) == []
     assert refs == {'int': MICROSOFT_DOCS + 'System.Int32'}
