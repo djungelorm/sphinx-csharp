@@ -284,7 +284,7 @@ def parse_operator_signature(sig: str, location: Location) -> MethodSig | None:
     conversion = operator_match is None
 
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    modifiers = (groups['modifiers'] or '').split()
     return_type = groups['fulltype'].strip() if groups['fulltype'] else None
     params = parse_params(groups['params'], location)
     checked = 'checked ' if groups['checked'] else ''
@@ -325,7 +325,7 @@ def parse_named_method_signature(sig: str, location: Location) -> MethodSig:
         raise invalid_signature('Method', sig, location)
 
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    modifiers = (groups['modifiers'] or '').split()
     return_type = groups['fulltype'].strip() if groups['fulltype'] else None
     # Doxygen writes generic parameters as a C++ template prefix
     generic_params = split_generics(groups['genericparams'] or groups['templates'])
@@ -364,7 +364,7 @@ def parse_variable_signature(sig: str, location: Location, is_param: bool = Fals
 
     groups = match.groupdict()
     modifiers = ATTRIBUTE_RE.findall(groups.get('attributes') or '')
-    modifiers += groups['modifiers'].split() if groups['modifiers'] else []
+    modifiers += (groups['modifiers'] or '').split()
     # The templates group is the Doxygen form of the generics
     generics = split_generics(groups['generics'] or groups['templates'])
 
@@ -391,7 +391,7 @@ def parse_property_signature(sig: str, location: Location) -> PropertySig:
         return PropertySig(var.modifiers, var.fulltype, var.name, [], var.default)
 
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    modifiers = (groups['modifiers'] or '').split()
     accessors = ['get'] if groups['expr'] else parse_accessors(groups['accessors'])
     result = PropertySig(modifiers, groups['fulltype'].strip(), groups['name'], accessors, groups['value'])
     if CSDebug.parse_prop:
@@ -407,7 +407,7 @@ def parse_indexer_signature(sig: str, location: Location) -> IndexerSig:
         raise invalid_signature('Indexer', sig, location)
 
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    modifiers = (groups['modifiers'] or '').split()
     interface = groups['interface'][:-1] if groups['interface'] else None
     accessors = ['get'] if groups['expr'] else parse_accessors(groups['accessors'] or '')
     result = IndexerSig(modifiers, groups['fulltype'].strip(), interface,
@@ -431,7 +431,7 @@ def parse_type_signature(sig: str, location: Location) -> TypeSig:
         raise invalid_signature('Type', sig, location)
 
     groups = match.groupdict()
-    modifiers = groups['modifiers'].split() if groups['modifiers'] else []
+    modifiers = (groups['modifiers'] or '').split()
     # The templates group is the Doxygen form of the generics
     generics = split_generics(groups['generics'] or groups['templates'])
     inherits = split_sig(groups['inherits']) if groups['inherits'] else []
@@ -453,7 +453,7 @@ def parse_enum_signature(sig: str, location: Location) -> EnumSig:
     match = ENUM_SIG_RE.match(sig.strip())
     if not match:
         raise invalid_signature('Enum', sig, location)
-    modifiers = match['modifiers'].split() if match['modifiers'] else []
+    modifiers = (match['modifiers'] or '').split()
     return EnumSig(modifiers, match['name'], match['base'])
 
 
