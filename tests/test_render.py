@@ -531,6 +531,14 @@ def test_operator_signature(build, sig, node_id, text):
     ('class', 'Service(Base logger, int timeout = 30) : Base(logger)', 'class-Service',
      'class Service (Base logger, int timeout = 30) : Base(logger)'),
     ('struct', 'Empty()', 'struct-Empty', 'struct Empty ()'),
+    # The signature can have the keyword of the directive
+    ('class', 'public abstract class Shape : IComparable<Shape>', 'class-Shape',
+     'public abstract class Shape : IComparable<Shape>'),
+    ('struct', 'public readonly struct Point (double X)', 'struct-Point', 'public readonly struct Point (double X)'),
+    ('interface', 'public interface IScalable', 'interface-IScalable', 'public interface IScalable'),
+    ('record', 'public record Size (double W)', 'record-Size', 'public record Size (double W)'),
+    ('record', 'public record struct Bounds (int A)', 'record-Bounds', 'public record struct Bounds (int A)'),
+    ('enum', 'public enum Color : byte', 'enum-Color', 'public enum Color : byte'),
     # Doxygen writes records, and types with primary constructors, as functions
     ('function', 'record Point (int X, int Y)', 'record-Point', 'record Point (int X, int Y)'),
     ('function', 'readonly record  struct Point (int X, int Y)', 'record-Point',

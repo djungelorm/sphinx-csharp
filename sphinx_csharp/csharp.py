@@ -39,7 +39,6 @@ from .parser import (
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
-    parse_record_kind,
     parse_type_as_function,
     parse_type_reference,
     parse_type_signature,
@@ -48,6 +47,7 @@ from .parser import (
     remove_generic_arguments,
     split_attributes,
     split_declarators,
+    split_type_keyword,
     target_id,
 )
 from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
@@ -354,6 +354,11 @@ class CSharpType(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         sig = self.append_attributes(signode, sig)
+        # The signature can have the keyword, as in public class Shape
+        declaration = split_type_keyword(sig, (self.keyword,))
+        if declaration is not None:
+            modifiers, _, rest = declaration
+            sig = ' '.join([*modifiers, rest])
         return self.handle_type_signature(sig, signode, self.keyword)
 
 
@@ -373,15 +378,16 @@ class CSharpInterface(CSharpType):
 
 
 class CSharpRecord(CSharpType):
-    """ Description of a C# record, or a record class or record struct if the signature starts with class or struct """
+    """ Description of a C# record, or a record class or record struct if the signature has class or struct """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         sig = self.append_attributes(signode, sig)
-        record = parse_record_kind(sig)
+        record = split_type_keyword(sig, ('record', 'class', 'struct'))
         if record is None:
             return self.handle_type_signature(sig, signode, 'record')
         modifiers, kind, rest = record
-        return self.handle_type_signature(' '.join([*modifiers, rest]), signode, 'record ' + kind)
+        keyword = kind if kind.startswith('record') else 'record ' + kind
+        return self.handle_type_signature(' '.join([*modifiers, rest]), signode, keyword)
 
 
 class CSharpInherits(CSharpObject):
@@ -547,6 +553,10 @@ class CSharpEnum(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         sig = self.append_attributes(signode, sig)
+        declaration = split_type_keyword(sig, ('enum',))
+        if declaration is not None:
+            modifiers, _, rest = declaration
+            sig = ' '.join([*modifiers, rest])
         modifiers, name, base = parse_enum_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
         prefix = 'enum' + ' '

@@ -17,7 +17,6 @@ from sphinx_csharp.parser import (
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
-    parse_record_kind,
     parse_tuple_element,
     parse_type_as_function,
     parse_type_reference,
@@ -28,6 +27,7 @@ from sphinx_csharp.parser import (
     split_attributes,
     split_declarators,
     split_sig,
+    split_type_keyword,
 )
 
 
@@ -119,11 +119,12 @@ def test_parse_base_type(base, expected):
 @pytest.mark.parametrize('sig, expected', [
     ('public class Point(int X)', (['public'], 'class', 'Point(int X)')),
     ('struct Point', ([], 'struct', 'Point')),
+    ('public record struct Point', (['public'], 'record struct', 'Point')),
     ('Point(int X)', None),
     ('class', None),
 ])
-def test_parse_record_kind(sig, expected):
-    assert parse_record_kind(sig) == expected
+def test_split_type_keyword(sig, expected):
+    assert split_type_keyword(sig, ('record', 'class', 'struct')) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [

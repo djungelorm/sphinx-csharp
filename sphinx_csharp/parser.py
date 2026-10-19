@@ -973,12 +973,12 @@ def parse_type_keyword(parser: Parser, keywords: tuple[str, ...]) -> tuple[list[
     return modifiers, keyword, parser.sig[token.start:]
 
 
-def parse_record_kind(sig: str) -> tuple[list[str], str, str] | None:
-    """ The modifiers, kind and rest of a record declaration that starts with class or struct,
-        such as class and Point(int X) in public class Point(int X) """
+def split_type_keyword(sig: str, keywords: tuple[str, ...]) -> tuple[list[str], str, str] | None:
+    """ The modifiers, keyword and rest of a type declaration that has one of keywords, such as public, class and
+        Point(int X) in public class Point(int X), or None if it has none of them """
     parser = Parser(sig.strip())
     try:
-        return parse_type_keyword(parser, ('class', 'struct'))
+        return parse_type_keyword(parser, keywords)
     except ParseError:
         return None
 
