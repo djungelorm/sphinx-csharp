@@ -43,6 +43,12 @@ check = [
   "dotnet build -nologo --artifacts-path build/dotnet tests/roots/test-breathe",
 ]
 
+[tool.hatch.envs.docs]
+dependencies = ["pydata-sphinx-theme"]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -W -n --keep-going -b html docs docs/_build/html"
+
 [tool.hatch.envs.types]
 dependencies = ["mypy", "types-docutils"]
 
