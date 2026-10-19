@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import requests
 from docutils import nodes
 from sphinx.config import Config
@@ -98,29 +100,28 @@ class ExternalRefs:
 
         # Start search in the external type map
         fullname = name
-        name_split = name.rsplit('.', 1)
-        if len(name_split) == 2:
-            # We also have the namespace in the name
-            parent, name = name_split
-            matches = [(pkg, namespace) for pkg, namespaces in cls.external_type_map.items()
-                       for namespace, members in namespaces.items()
-                       if name in members
-                       and namespace.endswith(parent)]
-            if len(matches) > 1:
-                # Enforce exact match if there are several
-                matches_strict = [i for i in matches if i[1] == parent]
-                if len(matches_strict) >= 1:
-                    matches = matches_strict
-        else:
-            # search all namespaces
-            parent = ''
-            matches = [(pkg, namespace) for pkg, namespaces in cls.external_type_map.items()
-                       for namespace, members in namespaces.items()
-                       if name in members]
+        # The namespace in the name, if any, which the namespace of a match ends with
+        parent, _, name = name.rpartition('.')
+
+        def find(is_member: Callable[[str], object]) -> list[tuple[str, str, str]]:
+            return [(pkg, namespace, member) for pkg, namespaces in cls.external_type_map.items()
+                    for namespace, members in namespaces.items() if namespace.endswith(parent)
+                    for member in members if is_member(member)]
+
+        # A generic type can have an entry with its arity, such as IEqualityComparer-1, in another namespace
+        matches = (find(f'{name}-{arity}'.__eq__) if arity else []) or find(name.__eq__)
+        if not matches and not arity:
+            # A generic type without its generic arguments, such as System.Collections.Generic.IList
+            matches = find(lambda member: member.startswith(name + '-') and member[len(name) + 1:].isdecimal())
+        if parent and len(matches) > 1:
+            # Enforce exact match if there are several
+            matches_strict = [i for i in matches if i[1] == parent]
+            if len(matches_strict) >= 1:
+                matches = matches_strict
 
         if not matches and fullname.startswith('System.'):
             # Any other System type is in the Microsoft docs
-            matches = [('msdn', parent)]
+            matches = [('msdn', parent, name)]
         if not matches:
             return None
 
@@ -128,9 +129,11 @@ class ExternalRefs:
             logger.warning(f"ambiguous external reference for '{fullname}' using first, "
                            f"found matches: {matches}")
 
-        pkg, parent = matches[0]
+        pkg, parent, member = matches[0]
 
-        if pkg == 'msdn' and arity:
+        if member != name:
+            link_name = member
+        elif pkg == 'msdn' and arity:
             # The Microsoft docs give generic types an arity suffix, such as List-1
             link_name = f'{name}-{arity}'
         else:

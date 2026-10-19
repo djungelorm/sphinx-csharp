@@ -38,6 +38,24 @@ def test_ambiguous_external_reference(build, typ, namespaces, url):
     assert refs == {typ: MICROSOFT_DOCS + url}
 
 
+@pytest.mark.parametrize('typ, url', [
+    ('IEqualityComparer', 'System.Collections.IEqualityComparer'),
+    ('IEqualityComparer<int>', 'System.Collections.Generic.IEqualityComparer-1'),
+    ('IEnumerator<int>', 'System.Collections.Generic.IEnumerator-1'),
+    ('IEnumerable', 'System.Collections.IEnumerable'),
+    ('IEnumerable<int>', 'System.Collections.Generic.IEnumerable-1'),
+    ('IList', 'System.Collections.IList'),
+    ('IList<int>', 'System.Collections.Generic.IList-1'),
+    ('ICollection', 'System.Collections.ICollection'),
+    ('IDictionary<int, int>', 'System.Collections.Generic.IDictionary-2'),
+    ('Collection', 'System.Collections.ObjectModel.Collection-1'),
+])
+def test_generic_type_with_arity(build, typ, url):
+    refs, app = links(build, typ)
+    assert warnings(app) == []
+    assert refs[typ.partition('<')[0]] == MICROSOFT_DOCS + url
+
+
 def test_package_without_search_page(build):
     app = build('.. cs:function:: void Foo (Bar a)\n', nitpicky=False,
                 sphinx_csharp_ext_type_map={'nopkg': {'N': ['Bar']}})

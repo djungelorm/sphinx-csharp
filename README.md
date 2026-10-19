@@ -80,6 +80,7 @@ sphinx_csharp_ext_search_pages = {
 # Types that are in an external package. Use the format
 #   'package name': {
 #      'Namespace1': ['Type1', 'Type2'],
+# A generic type named with its arity, such as IComparer-1, takes precedence over a non-generic type
 sphinx_csharp_ext_type_map = {
     'unity': {
         '': ['MonoBehaviour', 'ScriptableObject'],
