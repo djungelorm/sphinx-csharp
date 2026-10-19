@@ -113,19 +113,9 @@ class CSharpObject(ObjectDescription[str]):
             self.env.ref_context['cs:parent'] = self.parentname_saved
         self.env.ref_context['cs:generic_names'] = self.generic_names_saved
 
-    def has_parent(self) -> bool:
-        return 'cs:parent' in self.env.ref_context and \
-            self.env.ref_context['cs:parent'] is not None
-
-    def get_parent(self) -> str:
-        parent: str = self.env.ref_context['cs:parent']
-        return parent
-
     def get_fullname(self, name: str) -> str:
-        fullname = name
-        if self.has_parent():
-            fullname = self.get_parent()+'.'+fullname
-        return fullname
+        parent = self.env.ref_context.get('cs:parent')
+        return parent + '.' + name if parent else name
 
     append_modifiers = staticmethod(append_modifiers)
 
@@ -222,7 +212,6 @@ class CSharpObject(ObjectDescription[str]):
         self.append_indexer_parameters(signode, params)
         self.append_accessors(signode, accessors)
         return self.get_fullname(name + '[]')
-
 
     def handle_type_signature(self, sig: str, signode: addnodes.desc_signature, keyword: str) -> str:
         """ Handle a type declaration, such as a class, and return its full name """
