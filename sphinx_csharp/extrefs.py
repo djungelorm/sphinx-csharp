@@ -16,7 +16,9 @@ class ExternalRefs:
     All data is stored in a separate file in the class ExternalRefsData """
 
     extlink_cache: dict[tuple[str, int], tuple[str, str]] = {}
-    test_links = False
+    check_links = False
+    # Whether the build has logged that the links are checked
+    check_links_logged = False
     multi_lang = False
     unqualified_namespaces: list[str] = []
     ignore_xref_types: list[str] = []
@@ -28,21 +30,22 @@ class ExternalRefs:
     def apply_config(cls, config: Config) -> None:
         """ Merge the config values with the defaults in ExternalRefsData """
         cls.extlink_cache = {}
-        cls.test_links = config['sphinx_csharp_test_links']
+        cls.check_links = config['sphinx_csharp_check_external_links']
+        cls.check_links_logged = False
         cls.multi_lang = config['sphinx_csharp_multi_language']
 
         # Start from copies so that the defaults are never modified
         cls.unqualified_namespaces = ExternalRefsData.unqualified_namespaces + \
             (config['sphinx_csharp_unqualified_namespaces'] or [])
-        cls.ignore_xref_types = ExternalRefsData.ignore_xref_types + (config['sphinx_csharp_ignore_xref'] or [])
+        cls.ignore_xref_types = ExternalRefsData.ignore_xref_types + (config['sphinx_csharp_ignore_types'] or [])
         cls.external_type_rename = {**ExternalRefsData.external_type_rename,
                                     **(config['sphinx_csharp_external_type_rename'] or {})}
         cls.external_search_pages = {**ExternalRefsData.external_search_pages,
-                                     **(config['sphinx_csharp_ext_search_pages'] or {})}
+                                     **(config['sphinx_csharp_external_search_pages'] or {})}
 
         cls.external_type_map = {pkg: {ns: list(types) for ns, types in namespaces.items()}
                                  for pkg, namespaces in ExternalRefsData.external_type_map.items()}
-        for pkg, namespaces in (config['sphinx_csharp_ext_type_map'] or {}).items():
+        for pkg, namespaces in (config['sphinx_csharp_external_type_map'] or {}).items():
             for ns, types in namespaces.items():
                 cls.external_type_map.setdefault(pkg, {}).setdefault(ns, []).extend(types)
 
@@ -93,7 +96,7 @@ class ExternalRefs:
 
         # Use existing link if we have already determined it, for performance
         if cache_key in cls.extlink_cache:
-            if CSDebug.ext_links:
+            if CSDebug.external:
                 logger.info(f"found in extlink_cache for {name}")
             return create_node(*cls.extlink_cache[cache_key])
 
@@ -157,16 +160,16 @@ class ExternalRefs:
             return None
 
         apilink_status_code = 0
-        if cls.test_links:
-            if not CSDebug.has_printed_test_links:
-                CSDebug.has_printed_test_links = True
+        if cls.check_links:
+            if not cls.check_links_logged:
+                cls.check_links_logged = True
                 logger.info("csharp: external link testing is enabled")
             try:
                 apilink_status_code = requests.get(apilink, timeout=3).status_code
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                cls.test_links = False
+                cls.check_links = False
 
-        if not cls.test_links or apilink_status_code < 400:
+        if not cls.check_links or apilink_status_code < 400:
             url = apilink
         else:
             # Use search link or homepage instead
@@ -176,6 +179,6 @@ class ExternalRefs:
             url = cls.external_search_pages[pkg][1] % link_name
 
         cls.extlink_cache[cache_key] = fullname, url
-        if CSDebug.ext_links:
+        if CSDebug.external:
             logger.info(f"found external link: {cache_key, fullname, url}")
         return create_node(fullname, url)

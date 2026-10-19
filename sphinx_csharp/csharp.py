@@ -19,6 +19,7 @@ from sphinx.util import logging
 from sphinx.util.docfields import Field, GroupedField
 from sphinx.util.nodes import make_refnode
 
+from .config import apply_deprecated_names
 from .debug import CSDebug
 from .extrefs import ExternalRefs
 from .parser import (
@@ -714,6 +715,7 @@ class CSharpDomain(Domain):
         """ Read in the config variables, called once the config is initialized (this is a callback) """
 
         try:
+            apply_deprecated_names(config)
             CSDebug.set_config_values(config)
             ExternalRefs.apply_config(config)
         except Exception as e:

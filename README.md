@@ -97,9 +97,10 @@ suppress_warnings = ['cs.ambiguous']
 - `cs.duplicate`: an object is described more than once.
 - `cs.ambiguous`: a reference matches more than one object, and links to the first.
 - `cs.external`: an external link is ambiguous, fails the link check, or has no search page for its package.
+- `cs.config`: an option has a deprecated name.
 
 ### `conf.py` Options
-The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
+The options below can be set in `conf.py`. They are registered in [`config.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/config.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 
 Here are all the options. The lists and dictionaries hold example values, which are added to the defaults:
 
@@ -107,8 +108,8 @@ Here are all the options. The lists and dictionaries hold example values, which 
 # Are other languages used in the sphinx project, if yes add language (domain) prefix to reference labels
 sphinx_csharp_multi_language = False
 
-# Should generated external links be tested for validity
-sphinx_csharp_test_links = False
+# Check that each external link exists, and use the search page of its package if it does not
+sphinx_csharp_check_external_links = False
 
 # Show types in these namespaces, and in namespaces nested inside them, without their namespace
 sphinx_csharp_unqualified_namespaces = [
@@ -116,14 +117,14 @@ sphinx_csharp_unqualified_namespaces = [
 ]
 
 # Never link these types
-sphinx_csharp_ignore_xref = [
+sphinx_csharp_ignore_types = [
     'Vector2',
     ...
 ]
 
 # How to generate external doc links, replace %s with type. Use the format
 #    'package name': ('direct link to %s', 'alternate backup link or search page')
-sphinx_csharp_ext_search_pages = {
+sphinx_csharp_external_search_pages = {
     'upm.xrit': ('https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/%s.html',
                  'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/?%s'),
     ...
@@ -133,7 +134,7 @@ sphinx_csharp_ext_search_pages = {
 #   'package name': {
 #      'Namespace1': ['Type1', 'Type2'],
 # A generic type named with its arity, such as IComparer-1, takes precedence over a non-generic type
-sphinx_csharp_ext_type_map = {
+sphinx_csharp_external_type_map = {
     'unity': {
         '': ['MonoBehaviour', 'ScriptableObject'],
         'XR': ['InputDevice', 'InputDeviceCharacteristics'],
@@ -149,18 +150,21 @@ sphinx_csharp_external_type_rename = {
     ...
 }
 
-# Debug options, these enable various verbose logging features.
-sphinx_csharp_debug = False # enables all debug options
-sphinx_csharp_debug_parse = False # enables all parsing options
-sphinx_csharp_debug_parse_func = False
-sphinx_csharp_debug_parse_var = False
-sphinx_csharp_debug_parse_prop = False
-sphinx_csharp_debug_parse_attr = False
-sphinx_csharp_debug_parse_idxr = False
-sphinx_csharp_debug_parse_type = False
-sphinx_csharp_debug_xref = False
-sphinx_csharp_debug_ext_links = False
+# Log verbose debug output, for every category with True, or for a list of 'parse', 'xref' and 'external'
+sphinx_csharp_debug = False
 ```
+
+Earlier versions named some of these options differently. The old names still work, with a `cs.config` warning:
+
+| Old name | New name |
+|---|---|
+| `sphinx_csharp_test_links` | `sphinx_csharp_check_external_links` |
+| `sphinx_csharp_ignore_xref` | `sphinx_csharp_ignore_types` |
+| `sphinx_csharp_ext_type_map` | `sphinx_csharp_external_type_map` |
+| `sphinx_csharp_ext_search_pages` | `sphinx_csharp_external_search_pages` |
+| `sphinx_csharp_debug_parse` and `sphinx_csharp_debug_parse_*` | `sphinx_csharp_debug = ['parse']` |
+| `sphinx_csharp_debug_xref` | `sphinx_csharp_debug = ['xref']` |
+| `sphinx_csharp_debug_ext_links` | `sphinx_csharp_debug = ['external']` |
 
 ## Development
 

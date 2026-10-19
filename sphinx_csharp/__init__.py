@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING
 
 from sphinx.application import Sphinx
 
+from .config import add_config_values
 from .csharp import CSharpDomain
-from .debug import CSDebug
 
 # Note: ExtensionMetadata was added in Sphinx 7.3.
 if TYPE_CHECKING:
@@ -18,16 +18,7 @@ def setup(app: Sphinx) -> 'ExtensionMetadata':
     app.add_domain(CSharpDomain)
     app.connect('config-inited', CSharpDomain.apply_config)
 
-    # Add variables available in conf.py
-    app.add_config_value('sphinx_csharp_test_links', False, 'env')
-    app.add_config_value('sphinx_csharp_multi_language', False, 'env')
-    app.add_config_value('sphinx_csharp_unqualified_namespaces', None, 'env')
-    app.add_config_value('sphinx_csharp_ignore_xref', None, 'env')
-    app.add_config_value('sphinx_csharp_ext_type_map', None, 'env')
-    app.add_config_value('sphinx_csharp_external_type_rename', None, 'env')
-    app.add_config_value('sphinx_csharp_ext_search_pages', None, 'env')
-
-    CSDebug.add_config_values(app)
+    add_config_values(app)
 
     return {
         'version': version('sphinx-csharp'),

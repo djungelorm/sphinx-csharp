@@ -296,7 +296,8 @@ def test_overload_reference_is_stable_across_builds(build, make_app, tmp_path):
     ('ambiguous', '.. cs:class:: A.Foo\n\n.. cs:class:: B.Foo\n\n:cs:type:`Foo`\n', {}),
     ('parse', '.. cs:function:: void Foo (int)\n', {}),
     ('external', '.. cs:function:: void Foo (Bar a)\n',
-     {'sphinx_csharp_ext_type_map': {'msdn': {'A': ['Bar'], 'B': ['Bar']}}}),
+     {'sphinx_csharp_external_type_map': {'msdn': {'A': ['Bar'], 'B': ['Bar']}}}),
+    ('config', '', {'sphinx_csharp_ignore_xref': ['Foo']}),
 ])
 @pytest.mark.parametrize('suppressed', [False, True])
 def test_suppress_warnings(build, subtype, rst, confoverrides, suppressed):
@@ -305,8 +306,8 @@ def test_suppress_warnings(build, subtype, rst, confoverrides, suppressed):
 
 
 def test_config_is_not_merged_twice(build):
-    build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
-    build(SOURCE, sphinx_csharp_ignore_xref=['Foo'])
+    build(SOURCE, sphinx_csharp_ignore_types=['Foo'])
+    build(SOURCE, sphinx_csharp_ignore_types=['Foo'])
     assert ExternalRefs.ignore_xref_types.count('Foo') == 1
     assert 'Foo' not in ExternalRefsData.ignore_xref_types
 
@@ -814,7 +815,7 @@ def test_nested_type_in_generic_type(build):
 
 def test_nested_type_in_unknown_or_ignored_type(build):
     app = build('.. cs:function:: Missing<int>.Inner Foo ()\n\n.. cs:function:: Skip<int>.Inner Bar ()\n',
-                sphinx_csharp_ignore_xref=['Skip', 'Skip.Inner'])
+                sphinx_csharp_ignore_types=['Skip', 'Skip.Inner'])
     assert len(warnings(app)) == 2
     assert 'Missing' in warnings(app)[0] and 'Missing.Inner' in warnings(app)[1]
     assert signatures(app)['function-Bar'] == 'Skip<int>.Inner Bar ()'
@@ -1103,10 +1104,55 @@ def test_debug_logging(build):
         assert text in log
 
 
+@pytest.mark.parametrize('old, new, value', [
+    ('sphinx_csharp_ext_type_map', 'sphinx_csharp_external_type_map', {'msdn': {'N': ['Foo']}}),
+    ('sphinx_csharp_ext_search_pages', 'sphinx_csharp_external_search_pages', {'pkg': ('%s', '%s')}),
+    ('sphinx_csharp_ignore_xref', 'sphinx_csharp_ignore_types', ['Foo']),
+    ('sphinx_csharp_test_links', 'sphinx_csharp_check_external_links', True),
+])
+def test_deprecated_config_name(build, old, new, value):
+    app = build('', **{old: value})
+    assert len(warnings(app)) == 1
+    assert f'{old} is deprecated, use {new}' in warnings(app)[0]
+    assert app.config[new] == value
+
+
+@pytest.mark.parametrize('flags, categories', [
+    ({'sphinx_csharp_debug_parse_func': True, 'sphinx_csharp_debug_ext_links': True}, ['external', 'parse']),
+    ({'sphinx_csharp_debug_xref': False}, False),
+])
+def test_deprecated_debug_flags(build, flags, categories):
+    app = build('', **flags)
+    assert len(warnings(app)) == len(flags)
+    assert all('is deprecated, use sphinx_csharp_debug = [' in warning for warning in warnings(app))
+    debug = app.config.sphinx_csharp_debug
+    assert (list(debug) if debug else debug) == categories
+
+
+@pytest.mark.parametrize('debug, text, logged', [
+    (['parse'], 'parsed func:', True),
+    (['xref'], 'parsed func:', False),
+    (['xref'], 'no C# object found for Missing', True),
+])
+def test_debug_categories(build, debug, text, logged):
+    app = build(DEBUG_SOURCE, nitpicky=False, sphinx_csharp_debug=debug)
+    assert (text in status(app)) == logged
+
+
+def test_unknown_debug_category(make_app, tmp_path):
+    (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
+    (tmp_path / 'index.rst').write_text('')
+    warning = StringIO()
+    with pytest.raises(ExtensionError):
+        make_app('html', srcdir=tmp_path, warning=warning, confoverrides={'sphinx_csharp_debug': ['parsing']})
+    assert "unknown sphinx_csharp_debug categories ['parsing']" in warning.getvalue()
+
+
 def test_invalid_config(make_app, tmp_path):
     (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
     (tmp_path / 'index.rst').write_text('')
     warning = StringIO()
     with pytest.raises(ExtensionError):
-        make_app('html', srcdir=tmp_path, warning=warning, confoverrides={'sphinx_csharp_ext_type_map': {'pkg': ['A']}})
+        make_app('html', srcdir=tmp_path, warning=warning,
+                 confoverrides={'sphinx_csharp_external_type_map': {'pkg': ['A']}})
     assert 'Error in CSharpDomain.apply_config()' in warning.getvalue()
