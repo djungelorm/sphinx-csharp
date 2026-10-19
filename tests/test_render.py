@@ -1252,6 +1252,25 @@ def test_merge_takes_duplicates_from_the_merged_pages(build):
     assert domain.duplicates == {}
 
 
+def test_merge_takes_objects_from_the_merged_pages(build):
+    # Note: Sphinx reads in parallel only on POSIX, so this test calls the merge that a parallel read makes.
+    app = build('.. cs:namespace:: N\n\n.. cs:class:: Foo\n')
+    domain = app.env.get_domain('cs')
+    namespace, foo = ObjectEntry('b', 'N', 'N'), ObjectEntry('b', 'N.Foo', 'N.Foo')
+    bar, baz = ObjectEntry('b', 'N.Bar', 'N.Bar'), ObjectEntry('c', 'N.Baz', 'N.Baz')
+    domain.merge_domaindata({'b'}, {'objects': {('namespace', 'N'): namespace, ('class', 'N.Foo'): foo,
+                                                ('class', 'N.Bar'): bar, ('class', 'N.Baz'): baz},
+                                    'duplicates': {}})
+    assert len(warnings(app)) == 1
+    assert 'duplicate description of class N.Foo' in warnings(app)[0]
+    # The description in the first page by name is the target
+    assert domain.objects[('class', 'N.Foo')] == foo
+    assert domain.objects[('namespace', 'N')] == namespace
+    assert domain.objects[('class', 'N.Bar')] == bar
+    assert ('class', 'N.Baz') not in domain.objects
+    assert [entry.docname for entry in domain.duplicates[('class', 'N.Foo')]] == ['index']
+
+
 def test_reference_without_target(build):
     app = build('.. cs:class:: Foo\n')
     node = addnodes.pending_xref('', refdomain='cs', reftype='type')
