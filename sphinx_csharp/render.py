@@ -28,34 +28,34 @@ class TypeRenderer:
 
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
-        typ, modifiers, generic_types, _, suffix, _, _, nested = parse_type_signature(
-            input_typ, self.location)
+        sig = parse_type_signature(input_typ, self.location)
+        typ = sig.typ
 
-        if modifiers:
-            append_modifiers(node, modifiers)
+        if sig.modifiers:
+            append_modifiers(node, sig.modifiers)
 
         if typ.startswith('('):
             self.append_tuple(node, typ, ignored_types)
         else:
-            self.append_type_name(node, typ, ExternalRefs.shorten_type(typ), len(generic_types))
-        if generic_types:
-            self.append_generics(node, generic_types, ignored_types=ignored_types)
+            self.append_type_name(node, typ, ExternalRefs.shorten_type(typ), len(sig.generics))
+        if sig.generics:
+            self.append_generics(node, sig.generics, ignored_types=ignored_types)
 
         # Each nested type links to its path without the generic arguments, such as List.Enumerator
-        outer, outer_arity = typ, len(generic_types)
-        for segment in nested:
-            name, _, generics, _, _, _, _, _ = parse_type_signature(segment, self.location)
-            typ += '.' + name
+        outer, outer_arity = typ, len(sig.generics)
+        for segment in sig.nested:
+            inner = parse_type_signature(segment, self.location)
+            typ += '.' + inner.typ
             node += nodes.Text('.')
-            tnode = self.append_type_name(node, typ, name, len(generics))
+            tnode = self.append_type_name(node, typ, inner.typ, len(inner.generics))
             if tnode is not None:
                 tnode['cs:outer'] = outer
                 tnode['cs:outer_arity'] = outer_arity
-            if generics:
-                self.append_generics(node, generics, ignored_types=ignored_types)
+            if inner.generics:
+                self.append_generics(node, inner.generics, ignored_types=ignored_types)
 
-        if suffix:
-            node += nodes.Text(suffix)
+        if sig.suffix:
+            node += nodes.Text(sig.suffix)
 
     def append_type_name(self, node: nodes.Element, typ: str, text: str, arity: int) -> addnodes.pending_xref | None:
         """ Adds a reference to a type, with arity generic arguments, unless the type is never linked """
