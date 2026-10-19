@@ -3,13 +3,14 @@ import subprocess
 
 import breathe
 import pytest
-from conftest import signatures, warnings
+from conftest import signature_lines, warnings
 
 
 @pytest.mark.sphinx('html', testroot='basic', confoverrides={'nitpicky': True})
 def test_basic(app):
     app.build()
     assert warnings(app) == []
+    assert signature_lines(app) == (app.srcdir / 'signatures.txt').read_text().splitlines()
 
 
 @pytest.mark.skipif(shutil.which('doxygen') is None, reason='doxygen is not installed')
@@ -19,14 +20,8 @@ def test_breathe(app):
     subprocess.run(['doxygen'], cwd=app.srcdir, check=True)
     app.build()
     assert warnings(app) == []
+    expected = (app.srcdir / 'signatures.txt').read_text().splitlines()
     # Note: Breathe 4 writes a set accessor for every property and indexer.
-    accessors = '{ get; set; }' if int(breathe.__version__.split('.')[0]) < 5 else '{ get; }'
-    assert signatures(app)['indexer-OtherNamespace.Indexer.this[]'] == \
-        'string this[Dictionary<string, int> map, int offset = 0] ' + accessors
-    assert signatures(app)['class-OtherNamespace.Box-1'] == 'class Box<T>'
-    assert 'function-OtherNamespace.Box-1.First' in signatures(app)
-    assert {'function-OtherNamespace.Overloads.Add(int)',
-            'function-OtherNamespace.Overloads.Add(ref-int,Dictionary<string,int>)',
-            'indexer-OtherNamespace.Overloads.this[string]',
-            'function-OtherNamespace.Overloads.op_Implicit(Overloads)~string'} <= set(signatures(app))
-
+    if int(breathe.__version__.split('.')[0]) < 5:
+        expected = [line.replace('{ get; }', '{ get; set; }') for line in expected]
+    assert signature_lines(app) == expected

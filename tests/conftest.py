@@ -42,6 +42,13 @@ def warnings(app):
     return [line for line in app._warning.getvalue().splitlines() if line.strip()]
 
 
+def signature_lines(app):
+    """ Each signature on the index page as its ids and text, in the sorted order of the signatures.txt files """
+    doctree = resolved_doctree(app)
+    return sorted(' '.join(node['ids']) + ' | ' + node.astext().replace('\xa0', ' ')
+                  for node in doctree.findall(addnodes.desc_signature))
+
+
 def signatures(app):
     """ Map each object id on the index page to its rendered signature text """
     doctree = resolved_doctree(app)

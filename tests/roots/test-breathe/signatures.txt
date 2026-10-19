@@ -1,0 +1,96 @@
+class-MyNamespace.MultiDimensionalArray | class MultiDimensionalArray
+class-MyNamespace.MyClass | class MyClass : IDisposable
+class-OtherNamespace.Accessors | class Accessors
+class-OtherNamespace.B | class B : MonoBehaviour
+class-OtherNamespace.Bar | class Bar
+class-OtherNamespace.Box-1 | class Box<T>
+class-OtherNamespace.DerivedNullableClass | class DerivedNullableClass : OtherNamespace.NullableClass
+class-OtherNamespace.ExplicitInterfaces | class ExplicitInterfaces : IDisposable, OtherNamespace.IShape
+class-OtherNamespace.Foo | class Foo
+class-OtherNamespace.Holder-1 | class Holder<T> (T value)
+class-OtherNamespace.Indexer | class Indexer
+class-OtherNamespace.NestedTypes | class NestedTypes
+class-OtherNamespace.NullableClass | class NullableClass
+class-OtherNamespace.Overloads | class Overloads
+class-OtherNamespace.Service | class Service (Bar bar)
+class-OtherNamespace.Tuples | class Tuples
+delegate-OtherNamespace.Factory delegate-OtherNamespace.Factory<T,TResult>(T) | delegate TResult Factory<in T, out TResult> (T arg)
+delegate-OtherNamespace.Handler delegate-OtherNamespace.Handler(object,Bar) | delegate void Handler (object sender, Bar bar)
+enum-OtherNamespace.Color | enum Color
+enumerator-OtherNamespace.Color.Green | Green = 2
+enumerator-OtherNamespace.Color.Red | Red = 1
+enumerator-OtherNamespace.Color.Yellow | Yellow = Red | Green
+event-OtherNamespace.Accessors.Changed | event EventHandler? Changed
+function-MyNamespace.MultiDimensionalArray.JaggedArray function-MyNamespace.MultiDimensionalArray.JaggedArray(out-byte[][]) | void JaggedArray (out byte[][] data)
+function-MyNamespace.MultiDimensionalArray.MultiDimensionalArrayMethod function-MyNamespace.MultiDimensionalArray.MultiDimensionalArrayMethod(int[,,]) | int[,] MultiDimensionalArrayMethod (int[,,] data)
+function-MyNamespace.MyClass.Dispose function-MyNamespace.MyClass.Dispose() | void Dispose ()
+function-MyNamespace.MyClass.MyClass function-MyNamespace.MyClass.MyClass(GameObject) | MyClass (GameObject other)
+function-MyNamespace.MyClass.PreExecute function-MyNamespace.MyClass.PreExecute() | void PreExecute ()
+function-MyNamespace.MyClass.Update function-MyNamespace.MyClass.Update() | void Update ()
+function-OtherNamespace.Accessors.OnChanged function-OtherNamespace.Accessors.OnChanged() | void OnChanged ()
+function-OtherNamespace.B.B function-OtherNamespace.B.B(GameObject) | B (GameObject other)
+function-OtherNamespace.B.PreExecute function-OtherNamespace.B.PreExecute() | void PreExecute ()
+function-OtherNamespace.B.Update function-OtherNamespace.B.Update(ref-B,int) | Tuple<MyClass, MyClass> Update (ref B b, int a = 0)
+function-OtherNamespace.Bar.Bar function-OtherNamespace.Bar.Bar() | Bar ()
+function-OtherNamespace.Box-1.Create function-OtherNamespace.Box-1.Create<U>() | U Create<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] U> ()
+function-OtherNamespace.Box-1.First function-OtherNamespace.Box-1.First(IEnumerable<T>) | T First (IEnumerable<T> fallback)
+function-OtherNamespace.DerivedNullableClass.VirtualMethod function-OtherNamespace.DerivedNullableClass.VirtualMethod() | override string? VirtualMethod ()
+function-OtherNamespace.ExplicitInterfaces.IDisposable.Dispose function-OtherNamespace.ExplicitInterfaces.IDisposable.Dispose() | void IDisposable.Dispose ()
+function-OtherNamespace.Foo.Foo function-OtherNamespace.Foo.Foo() | Foo ()
+function-OtherNamespace.NestedTypes.GetEnumerator function-OtherNamespace.NestedTypes.GetEnumerator() | List<int>.Enumerator GetEnumerator ()
+function-OtherNamespace.NullableClass.FooBar function-OtherNamespace.NullableClass.FooBar(MyClass?) | int? FooBar (MyClass? bValue)
+function-OtherNamespace.NullableClass.NullableClass function-OtherNamespace.NullableClass.NullableClass() | NullableClass ()
+function-OtherNamespace.NullableClass.NullableElements function-OtherNamespace.NullableClass.NullableElements(int?[]) | string?[] NullableElements (int?[] values)
+function-OtherNamespace.NullableClass.StaticMethod function-OtherNamespace.NullableClass.StaticMethod() | int? StaticMethod ()
+function-OtherNamespace.NullableClass.VirtualMethod function-OtherNamespace.NullableClass.VirtualMethod() | string? VirtualMethod ()
+function-OtherNamespace.Overloads.Add function-OtherNamespace.Overloads.Add(int) | void Add (int value)
+function-OtherNamespace.Overloads.Add(ref-int,Dictionary<string,int>) | void Add (ref int value, Dictionary<string, int> map)
+function-OtherNamespace.Overloads.Overloads function-OtherNamespace.Overloads.Overloads() | Overloads ()
+function-OtherNamespace.Overloads.op_Implicit function-OtherNamespace.Overloads.op_Implicit(Overloads)~int | implicit operator int (Overloads o)
+function-OtherNamespace.Overloads.op_Implicit(Overloads)~string | implicit operator string (Overloads o)
+function-OtherNamespace.Overloads.static-Overloads function-OtherNamespace.Overloads.static-Overloads() | static Overloads ()
+function-OtherNamespace.Parameters.Read function-OtherNamespace.Parameters.Read(ref-int,ref-readonly-int) | int Read (scoped ref int a, ref readonly int b)
+function-OtherNamespace.Parameters.TryGet function-OtherNamespace.Parameters.TryGet(out-string?,string) | bool TryGet ([NotNullWhen(true)] out string? value, [CallerMemberName] string caller = "")
+function-OtherNamespace.Pointers.Apply function-OtherNamespace.Pointers.Apply(delegate*<int,int>,int) | int Apply (delegate*<int, int> f, int x)
+function-OtherNamespace.Pointers.Offset function-OtherNamespace.Pointers.Offset(int**,int*) | int* Offset (int** table, int* start)
+function-OtherNamespace.Tuples.Combine function-OtherNamespace.Tuples.Combine((int,string),List<(int,Bar)>) | Task<(int, string)> Combine ((int count, string name) pair, List<(int, Bar)> items)
+function-OtherNamespace.Vector.op_Addition function-OtherNamespace.Vector.op_Addition(Vector,Vector) | Vector operator + (Vector a, Vector b)
+function-OtherNamespace.Vector.op_Explicit function-OtherNamespace.Vector.op_Explicit(double)~Vector | static explicit operator Vector (double d)
+function-OtherNamespace.Vector.op_False function-OtherNamespace.Vector.op_False(Vector) | bool operator false (Vector a)
+function-OtherNamespace.Vector.op_Implicit function-OtherNamespace.Vector.op_Implicit(Vector)~double | implicit operator double (Vector a)
+function-OtherNamespace.Vector.op_True function-OtherNamespace.Vector.op_True(Vector) | bool operator true (Vector a)
+function-OtherNamespace.Vector.op_UnaryNegation function-OtherNamespace.Vector.op_UnaryNegation(Vector) | Vector operator - (Vector a)
+indexer-OtherNamespace.ExplicitInterfaces.IShape.this[] indexer-OtherNamespace.ExplicitInterfaces.IShape.this[int] | int IShape.this[int i] { get; }
+indexer-OtherNamespace.IShape.this[] indexer-OtherNamespace.IShape.this[int] | int this[int i] { get; }
+indexer-OtherNamespace.Indexer.this[] indexer-OtherNamespace.Indexer.this[Dictionary<string,int>,int] | string this[Dictionary<string, int> map, int offset = 0] { get; }
+indexer-OtherNamespace.NullableClass.this[] indexer-OtherNamespace.NullableClass.this[int] | string? this[int index] { get; }
+indexer-OtherNamespace.Overloads.this[] indexer-OtherNamespace.Overloads.this[int] | int this[int index] { get; }
+indexer-OtherNamespace.Overloads.this[string] | int this[string key] { get; }
+interface-OtherNamespace.IShape | interface IShape
+namespace-MyNamespace | namespace MyNamespace
+namespace-OtherNamespace | namespace OtherNamespace
+property-MyNamespace.MyClass.MyProp | int MyProp { get; set; } = 1
+property-OtherNamespace.Accessors.ExpressionProperty | int ExpressionProperty { get; }
+property-OtherNamespace.Accessors.InitProperty | int InitProperty { get; }
+property-OtherNamespace.Accessors.PrivateSetProperty | int PrivateSetProperty { get; }
+property-OtherNamespace.Box-1.Values | List<T> Values { get; } = []
+property-OtherNamespace.ExplicitInterfaces.IShape.Sides | int IShape.Sides { get; }
+property-OtherNamespace.IShape.Sides | int Sides { get; }
+property-OtherNamespace.NullableClass.BNullableBool | bool? BNullableBool { get; set; }
+property-OtherNamespace.NullableClass.NNullableInt | Bar? NNullableInt { get; set; }
+property-OtherNamespace.NullableClass.StaticProperty | int? StaticProperty { get; set; }
+record-OtherNamespace.Pair-2 | record class Pair<TFirst, TSecond> (TFirst First, TSecond Second)
+record-OtherNamespace.Point | record Point (int X, int Y)
+record-OtherNamespace.Size | readonly record struct Size (int Width, int Height)
+struct-OtherNamespace.Parameters | struct Parameters
+struct-OtherNamespace.Pointers | struct Pointers
+struct-OtherNamespace.Vector | struct Vector
+var-MyNamespace.MyClass.Mesh | readonly int Mesh
+var-MyNamespace.MyClass.gameObject | GameObject* gameObject
+var-OtherNamespace.B.Mesh | readonly float Mesh
+var-OtherNamespace.B.gameObject | GameObject* gameObject
+var-OtherNamespace.Bar.Foo | Foo Foo
+var-OtherNamespace.NullableClass.ReadonlyField | readonly object? ReadonlyField
+var-OtherNamespace.Pointers.Add | delegate*<int, int, int> Add
+var-OtherNamespace.Pointers.Callback | delegate* unmanaged[Cdecl]<int, void> Callback
+var-OtherNamespace.Pointers.Data | fixed byte Data[16]

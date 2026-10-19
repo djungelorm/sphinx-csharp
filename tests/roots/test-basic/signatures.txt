@@ -1,0 +1,121 @@
+ |  : FileFormatException
+ |  : IDisposable
+ |  : IList<string>
+ | extension (string s)
+ | extension (string)
+attribute-MyNamespace.MyAttribute1 | MyAttribute1
+attribute-MyNamespace.MyAttribute2 | MyAttribute2 (string param1, int param2)
+attribute-MyNamespace.MyAttribute3 | MyAttribute3 (string param1, bool param2 = false)
+attribute-MyNamespace.MyGenericAttribute-1 | MyGenericAttribute<T> (T value)
+class-MyNamespace.MyClass | class MyClass
+class-MyNamespace.MyGenericClass-1 | class MyGenericClass<T> where T : MyClass, new()
+class-MyNamespace.MyGenericClass-1.Nested | class Nested
+class-MyNamespace.MyService | class MyService (MyClass client, int timeout = 30) : MyClass(client)
+class-OtherNamespace.Expressions.Expression | class Expression
+class-OtherNamespace.Subspace.Extensions | public static class Extensions
+class-OtherNamespace.Subspace.MyClass2-2 | public unsafe class MyClass2<T, U> : Dictionary, MyInterface
+class-OtherNamespace.Subspace.Pushed.PushedClass | class PushedClass
+delegate-MyNamespace.MyFactory delegate-MyNamespace.MyFactory<T,TResult>(T) | delegate TResult MyFactory<in T, out TResult> (T arg)
+delegate-MyNamespace.MyHandler delegate-MyNamespace.MyHandler(object,MyClass) | public delegate void MyHandler (object sender, MyClass item)
+enum-MyNamespace.MyEnum | enum MyEnum
+enum-MyNamespace.MyFlags | [System.Flags] public enum MyFlags : byte
+enumerator-MyNamespace.MyEnum.Bar | Bar
+enumerator-MyNamespace.MyEnum.Baz | Baz
+enumerator-MyNamespace.MyEnum.Foo | Foo
+enumerator-MyNamespace.MyFlags.All | All = First | 2
+enumerator-MyNamespace.MyFlags.First | First = 1
+enumerator-MyNamespace.MyFlags.None | None = 0
+enumerator-MyNamespace.MyFlags.Second | MyFlags.Second = 2
+event-MyNamespace.MyClass.Changed | public event EventHandler Changed
+event-MyNamespace.MyClass.Closed | public event EventHandler Closed { add; remove; }
+event-MyNamespace.MyClass.Opened | public event EventHandler? Opened
+function-MyNamespace.MyClass.AGenericMethod function-MyNamespace.MyClass.AGenericMethod<T>(int) | T AGenericMethod<T> (int x)
+function-MyNamespace.MyClass.AGenericNullableMethod function-MyNamespace.MyClass.AGenericNullableMethod<T>(T[]) | T? AGenericNullableMethod<T> (T[] items)
+function-MyNamespace.MyClass.ANestedTupleMethod function-MyNamespace.MyClass.ANestedTupleMethod() | ((int, (int, MyClass)), int) ANestedTupleMethod ()
+function-MyNamespace.MyClass.ATupleMethod function-MyNamespace.MyClass.ATupleMethod((MyClass,(int,int)),System.Collections.Generic.List<(int,MyEnum)>) | (int, string)[] ATupleMethod ((MyClass a, (int b, int c) d) arg, List<(int, MyEnum)> items)
+function-MyNamespace.MyClass.MyClass function-MyNamespace.MyClass.MyClass(string,int,float) | MyClass (string a, int b = 1, float c = 2.3)
+function-MyNamespace.MyClass.MyClass(string) | MyClass (string a) : this(a, 2)
+function-MyNamespace.MyClass.MyExpressionMethod function-MyNamespace.MyClass.MyExpressionMethod(int) | int MyExpressionMethod (int arg)
+function-MyNamespace.MyClass.MyExternMethod function-MyNamespace.MyClass.MyExternMethod(int) | static extern int MyExternMethod (int arg)
+function-MyNamespace.MyClass.MyMethod function-MyNamespace.MyClass.MyMethod(string) | void MyMethod (string arg)
+function-MyNamespace.MyClass.MyMethod(string,ref-int) | void MyMethod (string arg, ref int count)
+function-MyNamespace.MyClass.MyMethod2DArrayReturn function-MyNamespace.MyClass.MyMethod2DArrayReturn() | int[][] MyMethod2DArrayReturn ()
+function-MyNamespace.MyClass.MyMethodClass function-MyNamespace.MyClass.MyMethodClass(MyClass) | MyClass MyMethodClass (MyClass arg)
+function-MyNamespace.MyClass.MyMethodDefaultArg function-MyNamespace.MyClass.MyMethodDefaultArg(string) | void MyMethodDefaultArg (string arg = "foo")
+function-MyNamespace.MyClass.MyMethodDefaultArgWithComma function-MyNamespace.MyClass.MyMethodDefaultArgWithComma(string,char) | void MyMethodDefaultArgWithComma (string arg = "foo, bar", char sep = ',')
+function-MyNamespace.MyClass.MyMethodDefaultArgs function-MyNamespace.MyClass.MyMethodDefaultArgs(int,bool,List<string>,bool) | void MyMethodDefaultArgs (int x, bool y = true, List<string> arg = [ "foo", "bar", "baz" ], bool z = false)
+function-MyNamespace.MyClass.MyMethodEnum function-MyNamespace.MyClass.MyMethodEnum(MyEnum) | MyEnum MyMethodEnum (MyEnum arg)
+function-MyNamespace.MyClass.MyMethodExpressionDefaults function-MyNamespace.MyClass.MyMethodExpressionDefaults(int,bool,string,int) | void MyMethodExpressionDefaults (int flags = 1 << 2, bool less = 1 < 2, string path = @"C:\", [MyAttribute3(Values[0])] int x)
+function-MyNamespace.MyClass.MyMethodFunctionPointer function-MyNamespace.MyClass.MyMethodFunctionPointer(delegate*unmanaged[Cdecl]<int,MyClass>) | unsafe int MyMethodFunctionPointer (delegate* unmanaged[Cdecl]<int, MyClass> callback)
+function-MyNamespace.MyClass.MyMethodHasMultiModifiers function-MyNamespace.MyClass.MyMethodHasMultiModifiers() | public static MyMethodHasMultiModifiers ()
+function-MyNamespace.MyClass.MyMethodHasParamAttributes function-MyNamespace.MyClass.MyMethodHasParamAttributes(out-string?,ref-readonly-int) | bool MyMethodHasParamAttributes ([NotNullWhen(true)] out string? arg0, scoped ref readonly int arg1)
+function-MyNamespace.MyClass.MyMethodHasParamModifiers function-MyNamespace.MyClass.MyMethodHasParamModifiers(ref-int,int[]) | int MyMethodHasParamModifiers (ref int arg0, params int[] arg1)
+function-MyNamespace.MyClass.MyMethodMultiDimArray function-MyNamespace.MyClass.MyMethodMultiDimArray(int[,,]) | int[,] MyMethodMultiDimArray (int[,,] arg)
+function-MyNamespace.MyClass.MyMethodNoArgs function-MyNamespace.MyClass.MyMethodNoArgs() | void MyMethodNoArgs ()
+function-MyNamespace.MyClass.MyMethodNullable function-MyNamespace.MyClass.MyMethodNullable(MyClass?) | int? MyMethodNullable (MyClass? arg)
+function-MyNamespace.MyClass.MyMethodNullableElements function-MyNamespace.MyClass.MyMethodNullableElements(int**,string?[]?) | MyClass?[] MyMethodNullableElements (int** ptr, string?[]? arg)
+function-MyNamespace.MyClass.MyMethodPointers function-MyNamespace.MyClass.MyMethodPointers(int**,int*) | unsafe int* MyMethodPointers (int** table, int* start)
+function-MyNamespace.MyClass.MyMethodTemplatedArg function-MyNamespace.MyClass.MyMethodTemplatedArg(System.Collections.Generic.IDictionary<string,int>) | void MyMethodTemplatedArg (IDictionary<string, int> arg)
+function-MyNamespace.MyClass.MyMethodTwoDArrayArg function-MyNamespace.MyClass.MyMethodTwoDArrayArg(int[][]) | void MyMethodTwoDArrayArg (int[][] arg)
+function-MyNamespace.MyClass.MyMethodWithFields function-MyNamespace.MyClass.MyMethodWithFields<T>(System.Collections.Generic.IList<T>,int) | T MyMethodWithFields<T> (IList<T> items, int index)
+function-MyNamespace.MyClass.MyObsoleteMethod function-MyNamespace.MyClass.MyObsoleteMethod() | [System.Obsolete("Use MyMethod")] void MyObsoleteMethod ()
+function-MyNamespace.MyClass.MyStaticMethod function-MyNamespace.MyClass.MyStaticMethod(int) | static int MyStaticMethod (int arg)
+function-MyNamespace.MyClass.System.Collections.Generic.IEnumerable<string>.GetEnumerator function-MyNamespace.MyClass.System.Collections.Generic.IEnumerable<string>.GetEnumerator() | IEnumerator<string> System.Collections.Generic.IEnumerable<string>.GetEnumerator ()
+function-MyNamespace.MyClass.System.IDisposable.Dispose function-MyNamespace.MyClass.System.IDisposable.Dispose() | void System.IDisposable.Dispose ()
+function-MyNamespace.MyGenericClass-1.AConstrainedMethod function-MyNamespace.MyGenericClass-1.AConstrainedMethod<U>(U) | U AConstrainedMethod<U> (U x) where U : IComparable<U>
+function-MyNamespace.MyGenericClass-1.AGenericMethod function-MyNamespace.MyGenericClass-1.AGenericMethod<T>(int) | T AGenericMethod<T> (int x)
+function-MyNamespace.MyGenericClass-1.AMethod function-MyNamespace.MyGenericClass-1.AMethod() | void AMethod ()
+function-MyNamespace.MyGenericClass-1.GetEnumerator function-MyNamespace.MyGenericClass-1.GetEnumerator() | List<int>.Enumerator GetEnumerator ()
+function-MyNamespace.MyGenericClass-1.GetFirst function-MyNamespace.MyGenericClass-1.GetFirst(System.Collections.Generic.IEnumerable<T>) | T GetFirst (IEnumerable<T> items)
+function-MyNamespace.MyGenericClass-1.GetNested function-MyNamespace.MyGenericClass-1.GetNested() | MyGenericClass<int>.Nested GetNested ()
+function-MyNamespace.MyVector.op_Addition function-MyNamespace.MyVector.op_Addition(MyVector,MyVector) | public static MyVector operator + (MyVector a, MyVector b)
+function-MyNamespace.MyVector.op_Equality function-MyNamespace.MyVector.op_Equality(MyVector,MyVector) | public static bool operator == (MyVector a, MyVector b)
+function-MyNamespace.MyVector.op_Explicit function-MyNamespace.MyVector.op_Explicit(double)~MyVector | public static explicit operator MyVector (double d)
+function-OtherNamespace.Subspace.AfterPop function-OtherNamespace.Subspace.AfterPop(PushedClass) | void AfterPop (PushedClass a)
+function-OtherNamespace.Subspace.CompileExpression function-OtherNamespace.Subspace.CompileExpression(Expression<Func<int>>) | void CompileExpression (Expression<Func<int>> e)
+function-OtherNamespace.Subspace.Extensions.Empty function-OtherNamespace.Subspace.Extensions.Empty() | static string Empty ()
+function-OtherNamespace.Subspace.MyClass2-2.GenericsGaloreFunc function-OtherNamespace.Subspace.MyClass2-2.GenericsGaloreFunc<T,U>(ref-List<T>,List<MyInterface<int,float>>) | private List<MyInterface<int, float>> GenericsGaloreFunc<T, U> (ref List<T> a = default, List<MyInterface<int, float>> b = default)
+function-OtherNamespace.Subspace.MyClass2-2.MyFunc function-OtherNamespace.Subspace.MyClass2-2.MyFunc(ref-int,float,ref-GameObject,ref-List<GameObject>) | public MyStruct MyFunc (ref int a = 3, float b, ref GameObject c, ref List<GameObject> d = default)
+function-OtherNamespace.Subspace.MyClass2-2.ReturnGeneric function-OtherNamespace.Subspace.MyClass2-2.ReturnGeneric<T,U>(int) | private T ReturnGeneric<T, U> (int a = 0)
+indexer-MyNamespace.MyClass.this[System.Collections.Generic.IDictionary<string,int>,int] | string this[IDictionary<string, int> map, int offset = 0] { get; }
+indexer-MyNamespace.MyClass.this[] indexer-MyNamespace.MyClass.this[int] | string this[int i] { get; set; }
+indexer-MyNamespace.MyClass.this[int,MyClass,int] | string this[int i, MyClass j, int k] { get; protected set; }
+indexer-MyNamespace.MyClass.this[int,MyClass] | string this[int i, MyClass j] { get; set; }
+indexer-MyNamespace.MyClass.this[long] | virtual string this[long i] { get; set; }
+indexer-MyNamespace.MyClass.this[string] | string this[string s] { get; }
+interface-OtherNamespace.MyInterface-2 | public interface MyInterface<T, U> : IList
+property-MyNamespace.MyClass.ATupleProperty | Tuple<int, string> ATupleProperty { get; set; }
+property-MyNamespace.MyClass.AValueTupleProperty | (int count, MyClass item) AValueTupleProperty { get; }
+property-MyNamespace.MyClass.BodyProperty | int BodyProperty { get; set; }
+property-MyNamespace.MyClass.ByteArrayProperty | byte[] ByteArrayProperty { get; set; }
+property-MyNamespace.MyClass.ByteProperty | byte ByteProperty { get; set; }
+property-MyNamespace.MyClass.DictionaryIListProperty | IList<IDictionary<string, IList<string>>> DictionaryIListProperty { get; set; }
+property-MyNamespace.MyClass.DictionaryListProperty | IList<Dictionary<string, List<string>>> DictionaryListProperty { get; set; }
+property-MyNamespace.MyClass.ExpressionProperty | int ExpressionProperty { get; }
+property-MyNamespace.MyClass.GlobalProperty | String GlobalProperty { get; }
+property-MyNamespace.MyClass.IListProperty | IList<string> IListProperty { get; set; }
+property-MyNamespace.MyClass.InitProperty | string InitProperty { get; init; }
+property-MyNamespace.MyClass.ListProperty | List<string> ListProperty { get; set; }
+property-MyNamespace.MyClass.MyClassProperty | MyClass MyClassProperty { get; set; }
+property-MyNamespace.MyClass.MyEnumProperty | MyEnum MyEnumProperty { get; set; }
+property-MyNamespace.MyClass.MyProperty | string MyProperty { get; set; }
+property-MyNamespace.MyClass.MyReadOnlyProperty | string MyReadOnlyProperty { get; }
+property-MyNamespace.MyClass.MyStaticProperty | static string MyStaticProperty { get; set; }
+property-MyNamespace.MyClass.MyWriteOnlyProperty | string MyWriteOnlyProperty { set; }
+property-MyNamespace.MyClass.NestedIListProperty | IList<IList<string>> NestedIListProperty { get; set; }
+property-MyNamespace.MyClass.NestedListProperty | List<List<string>> NestedListProperty { get; set; }
+property-MyNamespace.MyClass.NullableEnumProperty | MyEnum? NullableEnumProperty { get; set; }
+property-MyNamespace.MyClass.NullableProperty | bool? NullableProperty { get; set; }
+property-MyNamespace.MyClass.PrivateSetProperty | string PrivateSetProperty { get; private set; }
+property-OtherNamespace.Subspace.Extensions.IsEmpty | bool IsEmpty { get; }
+record-MyNamespace.MyPoint | record MyPoint (int X, int Y)
+record-MyNamespace.MySize | readonly record struct MySize (int Width, int Height)
+struct-MyNamespace.MyVector | struct MyVector
+struct-OtherNamespace.MyStruct-2 | public struct MyStruct<T, U> : IList
+var-OtherNamespace.Subspace.MyClass2-2.Buffer | private fixed byte Buffer[16]
+var-OtherNamespace.Subspace.MyClass2-2.GenericVar | private static const List<MyInterface> GenericVar
+var-OtherNamespace.Subspace.MyClass2-2.TwoGenericBrackets | private static const List<MyInterface> TwoGenericBrackets = new List < MyInterface > ()
+var-OtherNamespace.Subspace.MyClass2-2.a | private int a = 0
+var-OtherNamespace.Subspace.MyClass2-2.b | private MyEnum b = MyEnum.Bar
+var-OtherNamespace.Subspace.MyClass2-2.c | private int c
+var-OtherNamespace.Subspace.MyClass2-2.d | private int d = 2
