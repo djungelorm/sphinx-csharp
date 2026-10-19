@@ -94,13 +94,18 @@ CORPORA = [
 
 
 def download(corpus):
-    """ Download the archive of a library into the cache, and return its path """
+    """ Download the archive of a library into the cache, check it, and return its path """
     cache = Path(os.environ.get('SPHINX_CSHARP_CORPUS_CACHE', Path(__file__).parent.parent / '.cache' / 'corpus'))
     path = cache / (corpus.root + '.tar.gz')
-    if not path.exists():
+    if path.exists():
+        content = path.read_bytes()
+    else:
         with urllib.request.urlopen(corpus.url, timeout=60) as response:
             content = response.read()
-        assert hashlib.sha256(content).hexdigest() == corpus.sha256
+    digest = hashlib.sha256(content).hexdigest()
+    assert digest == corpus.sha256, f'{corpus.url} has sha256 {digest}, expected {corpus.sha256}. Delete {path} ' \
+        'if it is in the cache.'
+    if not path.exists():
         cache.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
     return path
