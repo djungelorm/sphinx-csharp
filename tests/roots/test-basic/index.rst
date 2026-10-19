@@ -374,6 +374,16 @@ More Tests
 
 .. function:: void CompileExpression (Expression<Func<int>> e)
 
+.. namespace-push:: Pushed
+
+.. class:: PushedClass
+
+   See :namespace:`OtherNamespace.Subspace.Pushed`.
+
+.. namespace-pop::
+
+.. function:: void AfterPop (PushedClass a)
+
 .. class:: public static class Extensions
 
    .. extension:: (string s)

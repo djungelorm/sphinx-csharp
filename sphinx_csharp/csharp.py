@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Set
 from typing import Any, NamedTuple
 
 from docutils import nodes
-from docutils.parsers.rst import Directive
+from docutils.parsers.rst import directives
 from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.builders import Builder
@@ -17,6 +17,7 @@ from sphinx.locale import _
 from sphinx.roles import XRefRole
 from sphinx.util import logging
 from sphinx.util.docfields import Field, GroupedField
+from sphinx.util.docutils import SphinxDirective
 from sphinx.util.nodes import make_refnode
 
 from .config import apply_deprecated_names
@@ -320,22 +321,68 @@ class CSharpObject(ObjectDescription[str]):
             desc['classes'].append(objtype)
 
 
-class CSharpCurrentNamespace(Directive):
-    """ Set the current C# namespace """
+class CSharpNamespaceDirective(SphinxDirective):
+    """ A directive that changes the current C# namespace """
 
     has_content = False
-    required_arguments = 1
+    required_arguments = 0
     optional_arguments = 0
     final_argument_whitespace = False
     option_spec = {}
 
+    def set_namespace(self, namespace: str | None) -> list[nodes.Node]:
+        """ Make a namespace current, and add a target for it to the document, or clear it if it is None """
+        if namespace is None:
+            self.env.ref_context.pop('cs:parent', None)
+            return []
+        self.env.ref_context['cs:parent'] = namespace
+        targetid = target_id('namespace', namespace)
+        document = self.state.document
+        if 'no-index' in self.options or 'noindex' in self.options or targetid in document.ids:
+            return []
+        target = nodes.target('', '', ids=[targetid])
+        document.note_explicit_target(target)
+        domain: CSharpDomain = self.env.get_domain('cs')  # type: ignore[assignment]
+        domain.add_object(('namespace', namespace), ObjectEntry(self.env.docname, namespace, namespace))
+        return [target]
+
+
+class CSharpCurrentNamespace(CSharpNamespaceDirective):
+    """ Set the current C# namespace, or clear it with None """
+
+    required_arguments = 1
+    option_spec = {'no-index': directives.flag, 'noindex': directives.flag}
+
     def run(self) -> list[nodes.Node]:
-        env = self.state.document.settings.env
+        self.env.ref_context.pop('cs:namespaces', None)
         namespace = self.arguments[0].strip()
-        if namespace == 'None':
-            env.ref_context.pop('cs:parent', None)
-        else:
-            env.ref_context['cs:parent'] = namespace
+        return self.set_namespace(None if namespace == 'None' else namespace)
+
+
+class CSharpNamespacePush(CSharpNamespaceDirective):
+    """ Make a namespace nested in the current namespace current, until namespace-pop """
+
+    required_arguments = 1
+    option_spec = {'no-index': directives.flag, 'noindex': directives.flag}
+
+    def run(self) -> list[nodes.Node]:
+        parent = self.env.ref_context.get('cs:parent')
+        self.env.ref_context['cs:namespaces'] = [*self.env.ref_context.get('cs:namespaces', []), parent]
+        name = self.arguments[0].strip()
+        return self.set_namespace(f'{parent}.{name}' if parent else name)
+
+
+class CSharpNamespacePop(CSharpNamespaceDirective):
+    """ Make the namespace current that was current before the last namespace-push """
+
+    def run(self) -> list[nodes.Node]:
+        namespaces = self.env.ref_context.get('cs:namespaces')
+        if not namespaces:
+            logger.warning('namespace-pop without a namespace-push', location=self.get_location(),
+                           type='cs', subtype='namespace')
+            return []
+        self.env.ref_context['cs:namespaces'] = namespaces[:-1]
+        self.set_namespace(namespaces[-1])
         return []
 
 
@@ -661,6 +708,8 @@ class CSharpDomain(Domain):
     }
     directives = {
         'namespace': CSharpCurrentNamespace,
+        'namespace-push': CSharpNamespacePush,
+        'namespace-pop': CSharpNamespacePop,
 
         'class': CSharpClass,
         'struct': CSharpStruct,

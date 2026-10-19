@@ -28,6 +28,22 @@ Each object gets an entry in the general index, such as `MyNamespace.MyClass (C#
    :no-index-entry:
 ```
 
+### Namespaces
+
+Set the namespace of the objects that follow with `namespace`, and nest a namespace in it with `namespace-push`:
+
+```rst
+.. cs:namespace:: MyNamespace
+
+.. cs:namespace-push:: Inner
+
+.. cs:class:: MyClass
+
+.. cs:namespace-pop::
+```
+
+MyClass is then `MyNamespace.Inner.MyClass`. `namespace-pop` restores the namespace from before the last `namespace-push`, and `.. cs:namespace:: None` clears the namespace. Each namespace is a target for the `:cs:namespace:` role, unless the directive has the `:no-index:` option.
+
 ### Extension Blocks
 
 Describe the members of a C# 14 extension block in an `extension` directive:
@@ -109,6 +125,7 @@ suppress_warnings = ['cs.ambiguous']
 - `cs.ambiguous`: a reference matches more than one object, and links to the first.
 - `cs.external`: an external link is ambiguous, fails the link check, or has no search page for its package.
 - `cs.config`: an option has a deprecated name.
+- `cs.namespace`: a `namespace-pop` has no `namespace-push` to undo.
 
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`config.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/config.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.

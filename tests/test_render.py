@@ -923,6 +923,54 @@ def test_any_reference_prefers_current_namespace(build):
     assert references(app)['Foo'] == 'class-N2.Foo'
 
 
+NAMESPACES = '''
+.. cs:namespace-push:: N
+
+.. cs:class:: A
+
+.. cs:namespace-push:: Inner
+
+.. cs:class:: B
+
+.. cs:namespace-pop::
+
+.. cs:class:: C
+
+:cs:namespace:`N` :cs:namespace:`N.Inner` :cs:type:`B`
+'''
+
+
+def test_namespace_push_and_pop(build):
+    app = build(NAMESPACES)
+    assert warnings(app) == []
+    assert {'class-N.A', 'class-N.Inner.B', 'class-N.C'} <= set(signatures(app))
+    assert references(app) == {'N': 'namespace-N', 'N.Inner': 'namespace-N.Inner', 'B': 'class-N.Inner.B'}
+
+
+@pytest.mark.parametrize('rst', [
+    '.. cs:namespace-pop::\n',
+    '.. cs:namespace-push:: N\n\n.. cs:namespace:: M\n\n.. cs:namespace-pop::\n',
+])
+def test_namespace_pop_without_push(build, rst):
+    app = build(rst)
+    assert len(warnings(app)) == 1
+    assert 'namespace-pop without a namespace-push' in warnings(app)[0]
+
+
+def test_namespace_on_several_pages(build):
+    pages = {'a': 'A\n=\n\n.. cs:namespace:: N\n', 'b': 'B\n=\n\n.. cs:namespace:: N\n\n.. cs:namespace:: N\n'}
+    app = build('.. toctree::\n\n   a\n   b\n\n:cs:namespace:`N`\n', pages=pages)
+    assert warnings(app) == []
+    assert references(app)['N'] == 'a.html#namespace-N'
+
+
+def test_namespace_without_index(build):
+    app = build('.. cs:namespace:: N\n   :no-index:\n\n.. cs:class:: A\n\n:cs:namespace:`N`\n')
+    assert len(warnings(app)) == 1
+    assert 'cs:namespace reference target not found: N' in warnings(app)[0]
+    assert 'class-N.A' in signatures(app)
+
+
 def test_namespace_none_clears_namespace(build):
     app = build('.. cs:namespace:: MyNamespace\n\n.. cs:namespace:: None\n\n.. cs:class:: Bar\n')
     assert 'class-Bar' in signatures(app)
