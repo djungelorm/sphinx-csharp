@@ -1,0 +1,29 @@
+name: Install Doxygen
+description: Download a Doxygen release, check its SHA-256, and add it to the PATH
+inputs:
+  version:
+    description: The Doxygen version, such as 1.15.0
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        case "$VERSION-$RUNNER_OS" in
+          1.15.0-Linux)
+            archive=doxygen-1.15.0.linux.bin.tar.gz
+            sha256=0ec2e5b2c3cd82b7106d19cb42d8466450730b8cb7a9e85af712be38bf4523a1 ;;
+          1.9.8-Linux)
+            archive=doxygen-1.9.8.linux.bin.tar.gz
+            sha256=dda773bdc62384b7d796fe8b6c5029daad72483e4c8ad4abf6ee9fb98b649388 ;;
+          *)
+            echo "No SHA-256 for Doxygen $VERSION on $RUNNER_OS"
+            exit 1 ;;
+        esac
+        cd "$RUNNER_TEMP"
+        curl -sSfLO "https://github.com/doxygen/doxygen/releases/download/Release_${VERSION//./_}/$archive"
+        echo "$sha256  $archive" | sha256sum --check --quiet
+        tar xzf "$archive"
+        echo "$RUNNER_TEMP/doxygen-$VERSION/bin" >> "$GITHUB_PATH"

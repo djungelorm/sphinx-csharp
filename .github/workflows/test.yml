@@ -6,6 +6,17 @@ on:
   pull_request:
   workflow_call:
 
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the runs for the old commits
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  HATCH_VERSION: '1.18.1'
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -17,7 +28,7 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
-      - run: pip install hatch
+      - run: pip install hatch==${{ env.HATCH_VERSION }}
       - run: hatch run lint:check
 
   types:
@@ -27,7 +38,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-      - run: pip install hatch
+      - run: pip install hatch==${{ env.HATCH_VERSION }}
       - run: hatch run types:check
 
   test:
@@ -43,12 +54,10 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - name: Install Doxygen ${{ matrix.doxygen }}
-        run: |
-          version=${{ matrix.doxygen }}
-          curl -sSfL "https://github.com/doxygen/doxygen/releases/download/Release_${version//./_}/doxygen-$version.linux.bin.tar.gz" | tar xz -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/doxygen-$version/bin" >> "$GITHUB_PATH"
-      - run: pip install hatch
+      - uses: ./.github/actions/doxygen
+        with:
+          version: ${{ matrix.doxygen }}
+      - run: pip install hatch==${{ env.HATCH_VERSION }}
       # Every Sphinx and Breathe version on this Python
       - run: hatch run matrix:all --python ${{ matrix.python }}
 
@@ -64,15 +73,31 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-      - name: Install Doxygen ${{ matrix.doxygen }}
-        run: |
-          version=${{ matrix.doxygen }}
-          curl -sSfL "https://github.com/doxygen/doxygen/releases/download/Release_${version//./_}/doxygen-$version.linux.bin.tar.gz" | tar xz -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/doxygen-$version/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/doxygen
+        with:
+          version: ${{ matrix.doxygen }}
       # The archives that the corpus test downloads, which its sha256 hashes pin
       - uses: actions/cache@v6
         with:
           path: .cache/corpus
           key: corpus-${{ hashFiles('tests/test_corpus.py') }}
-      - run: pip install hatch
+      - run: pip install hatch==${{ env.HATCH_VERSION }}
       - run: hatch run test.py3.14-9.1-5.1:corpus
+
+  # Builds the basic project with the wheel installed, which fails if the wheel leaves out a file
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - run: pip install hatch==${{ env.HATCH_VERSION }} twine
+      - run: hatch build
+      - run: twine check --strict dist/*
+      - name: Build the basic project with the wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/sphinx-build" -W -n -b html "$GITHUB_WORKSPACE/tests/roots/test-basic" html
