@@ -56,7 +56,17 @@ from .parser import (
     split_type_keyword,
     target_id,
 )
-from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
+from .render import (
+    CSharpGroupedField,
+    CSharpTypedField,
+    CSharpTypeField,
+    TypeRenderer,
+    append_default_value,
+    append_modifiers,
+    keywords,
+    punctuation,
+    space,
+)
 
 # The object types of types and namespaces, as opposed to members
 TYPE_OBJTYPES = {'namespace', 'class', 'struct', 'interface', 'enum', 'record', 'delegate'}
@@ -230,16 +240,16 @@ class CSharpObject(ObjectDescription[str]):
     def append_constraints(self, node: nodes.Element, constraints: list[Constraint], generic_params: list[str]) -> None:
         """ Adds generic constraints, without links to the generic parameters """
         for param, types in constraints:
-            node += nodes.Text(' ')
-            node += addnodes.desc_annotation('where', 'where')
-            node += nodes.Text(' ')
+            node += space()
+            node += keywords('where')
             node += addnodes.desc_type(param, param)
-            node += nodes.Text(' : ')
+            self.append_colon(node)
             for i, typ in enumerate(types):
                 if i:
-                    node += nodes.Text(', ')
+                    node += punctuation(',')
+                    node += space()
                 if typ in CONSTRAINT_KEYWORDS:
-                    node += addnodes.desc_annotation(typ, typ)
+                    node += addnodes.desc_sig_keyword(typ, typ)
                 elif typ in generic_params:
                     node += addnodes.desc_type(typ, typ)
                 else:
@@ -247,14 +257,15 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_inherits(self, node: nodes.Element, inherits: list[str], generic_params: list[str]) -> None:
         """ Adds inherited types, inherits must be a list of string types """
-        node += nodes.Text(' : ')
+        self.append_colon(node)
         for (i, inherited) in enumerate(inherits):
+            if i:
+                node += punctuation(',')
+                node += space()
             typ, args = parse_base_type(inherited)
             self.append_type(node, typ, generic_params)
             if args:
                 node += nodes.Text(args)
-            if i != len(inherits) - 1:
-                node += nodes.Text(', ')
 
     def append_parameters(self, node: nodes.Element, params: list[ParamTuple],
                           ignore_types: list[str] | None = None) -> None:
@@ -271,36 +282,51 @@ class CSharpObject(ObjectDescription[str]):
         self.append_modifiers(node, param.modifiers)
         self.append_type(node, param.typ, ignore_types)
         if param.name:
-            node += nodes.Text('\xa0')
-            node += nodes.emphasis(param.name, param.name)
+            node += space()
+            node += addnodes.desc_sig_name(param.name, param.name)
         if param.default is not None:
-            default = ' = ' + param.default
-            node += nodes.emphasis(default, default)
+            append_default_value(node, param.default)
+
+    @staticmethod
+    def append_colon(node: nodes.Element) -> None:
+        """ Adds the colon before base types, a constraint or a constructor initializer """
+        node += space()
+        node += punctuation(':')
+        node += space()
 
     @staticmethod
     def append_accessors(node: nodes.Element, accessors: list[str]) -> None:
+        """ Adds accessors, such as { get; private set; } """
         if not accessors:
             return
-        text = ' '.join(accessor + ';' for accessor in accessors)
-        node += nodes.Text(' { ')
-        node += addnodes.desc_annotation(text, text)
-        node += nodes.Text(' }')
+        node += space()
+        node += punctuation('{')
+        annotation = addnodes.desc_annotation()
+        for accessor in accessors:
+            for word in accessor.split():
+                annotation += space()
+                annotation += addnodes.desc_sig_keyword(word, word)
+            annotation += punctuation(';')
+        node += annotation
+        node += space()
+        node += punctuation('}')
 
     def append_indexer_parameters(self, node: nodes.Element, params: list[ParamTuple]) -> None:
         # Note: Breathe removes desc_addname nodes from signatures, so the parameters go in the signature itself.
-        node += nodes.Text('[')
+        node += punctuation('[')
         for i, param in enumerate(params):
             if i:
-                node += nodes.Text(', ')
+                node += punctuation(',')
+                node += space()
             self.append_parameter(node, param, [])
-        node += nodes.Text(']')
+        node += punctuation(']')
 
     def handle_indexer_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         modifiers, typ, interface, params, accessors = parse_indexer_signature(sig, (self.env.docname, self.lineno))
         name = interface + '.this' if interface else 'this'
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
-        signode += nodes.Text('\xa0')
+        signode += space()
         signode += addnodes.desc_name(name, name)
         self.append_indexer_parameters(signode, params)
         self.append_accessors(signode, accessors)
@@ -314,8 +340,7 @@ class CSharpObject(ObjectDescription[str]):
         if modifiers:
             self.append_modifiers(signode, modifiers)
 
-        prefix = keyword + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += keywords(keyword)
         # Doxygen names generic types with their arity, such as Box-1
         display = remove_arity(typ)
         signode += addnodes.desc_name(display, display)
@@ -326,7 +351,7 @@ class CSharpObject(ObjectDescription[str]):
         generic_params = [generic.split()[-1] for generic in generics]
         self.add_generic_names(generic_params)
         if params is not None:
-            signode += nodes.Text('\xa0')
+            signode += space()
             self.append_parameters(signode, params, generic_params)
         if inherits:
             self.append_inherits(signode, inherits, generic_params)
@@ -423,8 +448,7 @@ class CSharpNamespacePlain(CSharpObject):
      Used by breathe. """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        prefix = 'namespace' + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += keywords('namespace')
         signode += addnodes.desc_name(sig, sig)
 
         return self.describe_name(signode, sig)
@@ -477,7 +501,7 @@ class CSharpInherits(CSharpObject):
     """ Description of a type that a C# type inherits from """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        signode += nodes.Text(' : ')
+        self.append_colon(signode)
         self.append_type(signode, sig)
         return self.get_fullname(sig)
 
@@ -490,12 +514,12 @@ class CSharpExtension(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         generic_params, receiver, constraints = parse_extension_signature(sig, (self.env.docname, self.lineno))
-        signode += addnodes.desc_annotation('extension', 'extension')
+        signode += addnodes.desc_sig_keyword('extension', 'extension')
         if generic_params:
             self.append_generics(signode, generic_params, nolink=True)
         generic_names = [generic.split()[-1] for generic in generic_params]
         self.add_generic_names(generic_names)
-        signode += nodes.Text('\xa0')
+        signode += space()
         self.append_parameters(signode, [receiver], generic_names)
         self.append_constraints(signode, constraints, generic_names)
         # The name of the enclosing type, which stays the parent of the members
@@ -529,9 +553,9 @@ class CSharpMethod(CSharpObject):
         # A conversion operator names its type after the operator keyword
         if operator is not None and return_type is not None and name in CONVERSION_OPERATORS:
             signode += addnodes.desc_name(operator, operator)
-            signode += nodes.Text('\xa0')
+            signode += space()
             self.append_type(signode, return_type)
-            signode += nodes.Text('\xa0')
+            signode += space()
             self.append_parameters(signode, params)
             # Conversion operators differ by return type, as in the .NET documentation ids
             overload_name = f'{name}({parameter_types(params)})~{overload_type(return_type)}'
@@ -545,18 +569,19 @@ class CSharpMethod(CSharpObject):
         if return_type is not None:
             # Generic type parameters are not linked
             self.append_type(signode, return_type, generic_names)
-            signode += nodes.Text('\xa0')
+            signode += space()
 
         display_name = operator or name
         signode += addnodes.desc_name(display_name, display_name)
 
         if generic_params:
             self.append_generics(signode, generic_params, True)
-        signode += nodes.Text('\xa0')
+        signode += space()
 
         self.append_parameters(signode, params, generic_names)
         if initializer:
-            signode += nodes.Text(' : ' + initializer)
+            self.append_colon(signode)
+            signode += nodes.Text(initializer)
         self.append_constraints(signode, constraints, generic_names)
 
         # A static constructor is not an overload of the instance constructors, so its name has the modifier
@@ -587,13 +612,14 @@ class CSharpVariable(CSharpDeclarators):
         var = parse_variable_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, var.modifiers)
         self.append_type(signode, var.fulltype)
-        signode += nodes.Text('\xa0')
+        signode += space()
         signode += addnodes.desc_name(var.name, var.name)
         if var.size is not None:
-            signode += nodes.Text('[' + var.size + ']')
+            signode += punctuation('[')
+            signode += nodes.Text(var.size)
+            signode += punctuation(']')
         if var.default:
-            signode += nodes.Text(' = ')
-            signode += nodes.Text(var.default)
+            append_default_value(signode, var.default)
         return self.describe_name(signode, var.name)
 
 
@@ -613,11 +639,11 @@ class CSharpProperty(CSharpObject):
 
         self.append_modifiers(signode, modifiers)
         self.append_type(signode, typ)
-        signode += nodes.Text('\xa0')
+        signode += space()
         signode += addnodes.desc_name(name, name)
         self.append_accessors(signode, accessors)
         if default_val is not None:
-            signode += nodes.Text(' = ' + default_val)
+            append_default_value(signode, default_val)
         return self.describe_name(signode, name)
 
 
@@ -630,16 +656,13 @@ class CSharpEvent(CSharpDeclarators):
             sig, (self.env.docname, self.lineno))
 
         self.append_modifiers(signode, [modifier for modifier in modifiers if modifier != 'event'])
-        prefix = 'event' + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += keywords('event')
         self.append_type(signode, fulltype)
-        signode += nodes.Text('\xa0')
+        signode += space()
         signode += addnodes.desc_name(name, name)
         self.append_accessors(signode, accessors)
-
         if default_value:
-            signode += nodes.Text(' = ')
-            signode += nodes.Text(default_value)
+            append_default_value(signode, default_value)
 
         return self.describe_name(signode, name)
 
@@ -663,11 +686,10 @@ class CSharpEnum(CSharpObject):
             sig = ' '.join([*modifiers, rest])
         modifiers, name, base = parse_enum_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
-        prefix = 'enum' + ' '
-        signode += addnodes.desc_annotation(prefix, prefix)
+        signode += keywords('enum')
         signode += addnodes.desc_name(name, name)
         if base:
-            signode += nodes.Text(' : ')
+            self.append_colon(signode)
             self.append_type(signode, base)
         return self.describe_name(signode, arity_name(name))
 
@@ -680,7 +702,7 @@ class CSharpEnumValue(CSharpObject):
         name, value = parse_enumerator_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
         if value:
-            signode += nodes.Text(' = ' + value)
+            append_default_value(signode, value)
         return self.describe_name(signode, arity_name(name))
 
 
@@ -694,7 +716,7 @@ class CSharpAttribute(CSharpObject):
             self.append_generics(signode, generic_params, nolink=True)
         self.generic_names = generic_params
         if params:
-            signode += nodes.Text('\xa0')
+            signode += space()
             self.append_parameters(signode, params, generic_params)
         return self.describe_name(signode, arity_name(generic_type_name(name, len(generic_params))))
 

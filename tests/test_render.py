@@ -503,8 +503,7 @@ def test_extension_blocks(build):
         'function-Extensions.First()': 'public T First ()',
         'function-Extensions.Empty': 'public static string Empty ()',
         'function-Extensions.Empty()': 'public static string Empty ()'}
-    assert [node.astext().replace('\xa0', ' ') for node in resolved_doctree(app).findall(addnodes.desc_signature)
-            if not node['ids']] == [
+    assert [node.astext() for node in resolved_doctree(app).findall(addnodes.desc_signature) if not node['ids']] == [
         'extension (string s)',
         'extension<T> (IEnumerable<T> source) where T : notnull',
         'extension (string)']
