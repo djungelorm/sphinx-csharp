@@ -24,10 +24,10 @@ def rootdir():
 def build(make_app, tmp_path):
     """ Build a project from reStructuredText for the index and any other pages, and return the app """
     def _build(rst, pages=None, parallel=0, **confoverrides):
-        (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
-        (tmp_path / 'index.rst').write_text(rst)
+        (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n", encoding='utf-8')
+        (tmp_path / 'index.rst').write_text(rst, encoding='utf-8')
         for name, page in (pages or {}).items():
-            (tmp_path / f'{name}.rst').write_text(page)
+            (tmp_path / f'{name}.rst').write_text(page, encoding='utf-8')
         app = make_app('html', srcdir=tmp_path, parallel=parallel,
                        confoverrides={'nitpicky': True, **confoverrides})
         app.build()

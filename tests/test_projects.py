@@ -13,8 +13,8 @@ def check_snapshot(request, lines, path, expected=lambda line: line):
     or write them to the file with --update-snapshots
     """
     if request.config.getoption('update_snapshots'):
-        path.write_text('\n'.join(lines) + '\n')
-    assert lines == [expected(line) for line in path.read_text().splitlines()]
+        path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    assert lines == [expected(line) for line in path.read_text(encoding='utf-8').splitlines()]
 
 
 @pytest.mark.sphinx('html', testroot='basic', confoverrides={'nitpicky': True})
@@ -32,7 +32,7 @@ def test_basic_builders(make_app, rootdir, tmp_path, buildername, pattern):
     app = make_app(buildername, srcdir=srcdir, confoverrides={'nitpicky': True})
     app.build()
     assert warnings(app) == []
-    assert any('MyMethodClass' in path.read_text() for path in app.outdir.glob(pattern))
+    assert any('MyMethodClass' in path.read_text(encoding='utf-8') for path in app.outdir.glob(pattern))
 
 
 @pytest.fixture(scope='module')
@@ -77,9 +77,11 @@ def test_breathe_parallel(make_app, doxygen_project, tmp_path):
                'OtherNamespace::Overloads', 'OtherNamespace::Accessors', 'OtherNamespace::Indexer']
     pages = [f'page{i}' for i in range(len(classes))]
     for page, name in zip(pages, classes):
-        (srcdir / f'{page}.rst').write_text(f'{name}\n{"=" * len(name)}\n\n.. doxygenclass:: {name}\n   :members:\n')
+        (srcdir / f'{page}.rst').write_text(f'{name}\n{"=" * len(name)}\n\n.. doxygenclass:: {name}\n   :members:\n',
+                                            encoding='utf-8')
     (srcdir / 'index.rst').write_text('.. toctree::\n\n' + ''.join(f'   {page}\n' for page in pages) +
-                                      '\n:cs:type:`OtherNamespace.Foo` :cs:meth:`OtherNamespace.Overloads.Add`\n')
+                                      '\n:cs:type:`OtherNamespace.Foo` :cs:meth:`OtherNamespace.Overloads.Add`\n',
+                                      encoding='utf-8')
     app = make_app('html', srcdir=srcdir, parallel=2, confoverrides={'nitpicky': True})
     app.build()
     assert warnings(app) == []

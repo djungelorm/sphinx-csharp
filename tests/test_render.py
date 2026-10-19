@@ -287,7 +287,7 @@ def test_overload_reference_is_stable_across_builds(build, make_app, tmp_path):
     app = build('.. toctree::\n\n   a\n   b\n\n:cs:meth:`Foo`\n', pages=pages)
     assert references(app)['Foo'] == 'a.html#function-Foo'
     # Rereading page a moves its overload after the overload on page b in the domain data
-    (tmp_path / 'a.rst').write_text(pages['a'] + '\nChanged.\n')
+    (tmp_path / 'a.rst').write_text(pages['a'] + '\nChanged.\n', encoding='utf-8')
     app = make_app('html', srcdir=tmp_path, confoverrides={'nitpicky': True})
     app.build()
     assert references(app)['Foo'] == 'a.html#function-Foo'
@@ -974,9 +974,9 @@ def test_namespace_plain_in_its_own_namespace(make_app, tmp_path):
         "        return super().run()\n"
         "extensions = ['sphinx_csharp']\n"
         "def setup(app):\n"
-        "    app.add_directive_to_domain('cs', 'namespace-plain', Plain)\n")
+        "    app.add_directive_to_domain('cs', 'namespace-plain', Plain)\n", encoding='utf-8')
     (tmp_path / 'index.rst').write_text('.. cs:namespace:: N\n\n.. cs:namespace-plain:: N\n\n'
-                                        '   .. cs:class:: C\n\n:cs:namespace:`N` :cs:class:`N.C`\n')
+                                        '   .. cs:class:: C\n\n:cs:namespace:`N` :cs:class:`N.C`\n', encoding='utf-8')
     app = make_app('html', srcdir=tmp_path, confoverrides={'nitpicky': True})
     app.build()
     assert warnings(app) == []
@@ -1215,7 +1215,7 @@ def test_rebuild_keeps_objects_from_other_pages(build, tmp_path):
     pages = {'page1': 'Page 1\n======\n\n.. cs:class:: Page1Class\n',
              'page2': 'Page 2\n======\n\n.. cs:class:: Page2Class\n'}
     app = build('.. toctree::\n\n   page1\n   page2\n\n:cs:type:`Page1Class`\n', pages=pages)
-    (tmp_path / 'page2.rst').write_text('Page 2\n======\n\n.. cs:class:: OtherClass\n')
+    (tmp_path / 'page2.rst').write_text('Page 2\n======\n\n.. cs:class:: OtherClass\n', encoding='utf-8')
     app.build()
     assert warnings(app) == []
     assert set(app.env.get_domain('cs').objects) == {('class', 'Page1Class'), ('class', 'OtherClass')}
@@ -1227,7 +1227,7 @@ def test_rebuild_keeps_duplicate_description(build, tmp_path, removed, target):
     pages = {'a': 'A\n=\n\n.. cs:class:: Foo\n', 'b': 'B\n=\n\n.. cs:class:: Foo\n'}
     app = build('.. toctree::\n\n   a\n   b\n\n:cs:type:`Foo`\n', pages=pages)
     assert references(app)['Foo'] == 'a.html#class-Foo'
-    (tmp_path / f'{removed}.rst').write_text(f'{removed.upper()}\n=\n')
+    (tmp_path / f'{removed}.rst').write_text(f'{removed.upper()}\n=\n', encoding='utf-8')
     app.build()
     assert app.env.get_domain('cs').duplicates == {}
     assert references(app)['Foo'] == target
@@ -1346,8 +1346,8 @@ def test_debug_categories(build, debug, text, logged):
 
 
 def test_unknown_debug_category(make_app, tmp_path):
-    (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
-    (tmp_path / 'index.rst').write_text('')
+    (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n", encoding='utf-8')
+    (tmp_path / 'index.rst').write_text('', encoding='utf-8')
     warning = StringIO()
     with pytest.raises(ExtensionError):
         make_app('html', srcdir=tmp_path, warning=warning, confoverrides={'sphinx_csharp_debug': ['parsing']})
@@ -1355,8 +1355,8 @@ def test_unknown_debug_category(make_app, tmp_path):
 
 
 def test_invalid_config(make_app, tmp_path):
-    (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n")
-    (tmp_path / 'index.rst').write_text('')
+    (tmp_path / 'conf.py').write_text("extensions = ['sphinx_csharp']\n", encoding='utf-8')
+    (tmp_path / 'index.rst').write_text('', encoding='utf-8')
     warning = StringIO()
     with pytest.raises(ExtensionError):
         make_app('html', srcdir=tmp_path, warning=warning,
