@@ -65,6 +65,8 @@ def test_parse_tuple_element(element, expected):
     ('IDisposable', ('IDisposable', None)),
     ('IBase< T >', ('IBase< T >', None)),
     ('Base(x, y)', ('Base', '(x, y)')),
+    ('Base<(int, int)>(x)', ('Base<(int, int)>', '(x)')),
+    ('1(x)', ('1(x)', None)),
 ])
 def test_parse_base_type(base, expected):
     assert parse_base_type(base) == expected

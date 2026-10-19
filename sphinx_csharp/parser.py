@@ -698,9 +698,14 @@ def parse_tuple_element(element: str) -> tuple[str, str | None] | None:
 
 def parse_base_type(base: str) -> tuple[str, str | None]:
     """ Split a base type into its type and the arguments to its constructor, such as Base and (x) in Base(x) """
-    start = base.find('(')
-    if start > 0 and base.endswith(')'):
-        return base[:start].rstrip(), base[start:]
+    parser = Parser(base)
+    try:
+        parser.type()
+    except ParseError:
+        return base, None
+    token = parser.peek()
+    if token is not None and token.text == '(' and base.endswith(')'):
+        return base[:token.start].rstrip(), base[token.start:]
     return base, None
 
 
