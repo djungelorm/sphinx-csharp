@@ -139,6 +139,18 @@ suppress_warnings = ['cs.ambiguous']
 - `cs.config`: an option has a deprecated name.
 - `cs.namespace`: a `namespace-pop` has no `namespace-push` to undo.
 
+### Breathe Limitations
+
+Doxygen and Breathe leave some C# out of the signatures they pass to sphinx-csharp:
+
+- Doxygen drops generic constraints, such as `where T : class`, and `protected internal` members.
+- Doxygen drops the members of a record or class with a primary constructor, and a record with a base type.
+- Doxygen drops a class with a primary constructor and a base type, and the declarations after it in the same file.
+- Doxygen describes a field with a named tuple type, such as `(int X, int Y) Pos`, as two invalid fields.
+- Doxygen drops C# 14 extension blocks and their members.
+- Breathe shows only the `get` and `set` accessors without access levels, so `{ get; private set; }` and `{ get; init; }` render as `{ get; }`.
+- Breathe drops the accessors of events, the underlying types of enums, and the `ref` of a `ref struct`.
+
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`config.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/config.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
 
@@ -222,7 +234,7 @@ hatch run test.py3.14-9.1-5.1:all -k parse   # selected tests in one environment
 hatch build                            # sdist and wheel in dist/
 ```
 
-The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `tests/test_render.py` checks rendered signatures and cross-references. `tests/test_projects.py` builds the projects in `tests/roots` in nitpicky mode and fails on any warning. `test-breathe` renders C# sources through Doxygen and Breathe, and is skipped if Doxygen is not installed. The test environments cover every supported Python, each Sphinx minor version from 7.2, and Breathe 4.35, 4.36, 5.0 and 5.1. CI runs them with Doxygen 1.15.0, and with Doxygen 1.9.8 from Ubuntu 24.04. The lint check compiles the same sources with `dotnet build`. Warnings fail the tests, except the deprecation warnings that Breathe raises.
+The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `tests/test_render.py` checks rendered signatures and cross-references. `tests/test_projects.py` builds the projects in `tests/roots` in nitpicky mode and fails on any warning. `test-breathe` renders C# sources through Doxygen and Breathe, and is skipped if Doxygen is not installed. Each project compares its rendered signatures with the `signatures.txt` in its directory. After a change to the rendering, `pytest tests/test_projects.py --update-snapshots` rewrites those files, with Breathe 5 installed. The test environments cover every supported Python, each Sphinx minor version from 7.2, and Breathe 4.35, 4.36, 5.0 and 5.1. CI runs them with Doxygen 1.15.0, and with Doxygen 1.9.8 from Ubuntu 24.04. Both give the same signatures. The lint check compiles the same sources with `dotnet build`. Warnings fail the tests, except the deprecation warnings that Breathe raises.
 
 ### Common Bug Sources
 - Newer C# syntax that is not supported yet, see the `Parser` productions in `parser.py`

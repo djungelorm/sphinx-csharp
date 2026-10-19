@@ -20,8 +20,13 @@ namespace OtherNamespace
         public int ExpressionProperty => 1;
 
         /// <summary>
-        /// An event with explicit accessors.
+        /// An event.
         /// </summary>
-        public event EventHandler Changed { add { } remove { } }
+        public event EventHandler? Changed;
+
+        /// <summary>
+        /// Raises the event.
+        /// </summary>
+        protected void OnChanged() => Changed?.Invoke(this, EventArgs.Empty);
     }
 }
