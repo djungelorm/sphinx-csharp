@@ -282,7 +282,7 @@ The types in the ``type``, ``rtype`` and ``throws`` fields link like the types i
 Options
 -------
 
-Every directive except ``namespace`` takes these options:
+Every directive that describes an object takes these options:
 
 ``:no-index:``
    Leave the object out of the index and the domain, so references do not link to it.
@@ -295,5 +295,7 @@ Every directive except ``namespace`` takes these options:
 
 ``:single-line-parameter-list:``
    Keep the parameters on one line, however long the signature.
+
+``namespace`` and ``namespace-push`` take only ``:no-index:``, and ``namespace-pop`` takes no options.
 
 A signature longer than the ``maximum_signature_line_length`` option of Sphinx puts each parameter on a line of its own. Each object in a section gets an entry in the table of contents, with members nested in their types, and ``toc_object_entries_show_parents`` sets how much of each name the entry shows.

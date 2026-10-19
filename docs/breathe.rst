@@ -10,14 +10,17 @@ Set Doxygen to write XML in your ``Doxyfile``:
 
 .. code-block:: text
 
-   INPUT         = src
-   FILE_PATTERNS = *.cs
-   RECURSIVE     = YES
-   GENERATE_XML  = YES
-   GENERATE_HTML = NO
-   GENERATE_LATEX = NO
+   INPUT            = src
+   FILE_PATTERNS    = *.cs
+   RECURSIVE        = YES
+   OUTPUT_DIRECTORY = doxyxml
+   GENERATE_XML     = YES
+   GENERATE_HTML    = NO
+   GENERATE_LATEX   = NO
 
-Then enable Breathe after sphinx-csharp in ``conf.py``, and point it at the XML:
+Run ``doxygen`` in the directory of the ``Doxyfile`` before each Sphinx build. It writes the XML to ``doxyxml/xml``.
+
+Enable Breathe after sphinx-csharp in ``conf.py``, and point it at the XML:
 
 .. code-block:: python
 
@@ -37,7 +40,7 @@ Breathe describes the files of a ``.cs`` project with the ``cs`` domain. Describ
    .. doxygenclass:: MyLibrary::Widget
       :members:
 
-Breathe 4.35 or later works, and so do Doxygen 1.9.8 and 1.15.0. The tests of sphinx-csharp build C# libraries such as Newtonsoft.Json and NodaTime with each.
+Breathe 4.35 or later works, and so do Doxygen 1.9.8 and 1.15.0. The tests of sphinx-csharp build a C# project with each of these versions. They also build C# libraries such as Newtonsoft.Json and NodaTime with Breathe 5.1 and each Doxygen version.
 
 Limitations
 -----------

@@ -48,7 +48,7 @@ Each package has a page URL and a search URL, each with ``%s`` in place of the t
 
 .. confval:: sphinx_csharp_ignore_types
 
-   Types that never link, such as ``['Vector2']``. Default: ``void``.
+   Types that never link, such as ``['Vector2']``. Default: ``void``, and the ``*`` and ``&`` of pointer and reference types.
 
 .. confval:: sphinx_csharp_check_external_links
 

@@ -56,7 +56,7 @@ A target links to the object whose full name ends with it. When several objects 
 A target resolves to the first of these that it matches:
 
 #. An object of the project whose full name is the target, or the target qualified by the current namespace or type, or by one enclosing it.
-#. A type from the .NET libraries, which links to the Microsoft documentation. :doc:`configuration` describes how to add other libraries.
+#. A type in the external type map, such as a .NET or Unity type, which links to its external documentation. :doc:`configuration` describes how to add other libraries.
 #. Any object of the project whose name ends with the target.
 
 Start a target with ``~`` to show only the last part of the name:
