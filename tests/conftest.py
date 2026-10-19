@@ -7,6 +7,10 @@ from sphinx import addnodes, version_info
 pytest_plugins = ['sphinx.testing.fixtures']
 
 
+def pytest_addoption(parser):
+    parser.addoption('--update-snapshots', action='store_true',
+                     help='write the rendered signatures to the signatures.txt files of the test projects')
+
 
 @pytest.fixture(scope='session')
 def rootdir():

@@ -7,11 +7,21 @@ from conftest import references, signature_lines, warnings
 requires_doxygen = pytest.mark.skipif(shutil.which('doxygen') is None, reason='doxygen is not installed')
 
 
+def check_snapshot(request, lines, path, expected=lambda line: line):
+    """
+    Compare signature lines with a signatures.txt file, after expected maps each line of the file,
+    or write them to the file with --update-snapshots
+    """
+    if request.config.getoption('update_snapshots'):
+        path.write_text('\n'.join(lines) + '\n')
+    assert lines == [expected(line) for line in path.read_text().splitlines()]
+
+
 @pytest.mark.sphinx('html', testroot='basic', confoverrides={'nitpicky': True})
-def test_basic(app):
+def test_basic(app, request, rootdir):
     app.build()
     assert warnings(app) == []
-    assert signature_lines(app) == (app.srcdir / 'signatures.txt').read_text().splitlines()
+    check_snapshot(request, signature_lines(app), rootdir / 'test-basic' / 'signatures.txt')
 
 
 @pytest.mark.parametrize('buildername, pattern', [
@@ -42,16 +52,19 @@ def breathe_project(doxygen_project, tmp_path):
 
 
 @requires_doxygen
-def test_breathe(make_app, doxygen_project, tmp_path):
+def test_breathe(make_app, request, rootdir, doxygen_project, tmp_path):
     breathe = pytest.importorskip('breathe')
     app = make_app('html', srcdir=breathe_project(doxygen_project, tmp_path), confoverrides={'nitpicky': True})
     app.build()
     assert warnings(app) == []
-    expected = (app.srcdir / 'signatures.txt').read_text().splitlines()
+    path = rootdir / 'test-breathe' / 'signatures.txt'
     # Note: Breathe 4 writes a set accessor for every property and indexer.
     if int(breathe.__version__.split('.')[0]) < 5:
-        expected = [line.replace('{ get; }', '{ get; set; }') for line in expected]
-    assert signature_lines(app) == expected
+        if request.config.getoption('update_snapshots'):
+            pytest.skip('the snapshot is for Breathe 5')
+        check_snapshot(request, signature_lines(app), path, lambda line: line.replace('{ get; }', '{ get; set; }'))
+    else:
+        check_snapshot(request, signature_lines(app), path)
 
 
 @requires_doxygen
