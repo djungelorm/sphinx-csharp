@@ -1,5 +1,6 @@
 """ Build the documentation of large C# libraries with Doxygen and Breathe """
 
+import codecs
 import hashlib
 import os
 import shutil
@@ -112,6 +113,8 @@ def extract_sources(corpus, dest):
         for member in tar:
             if member.isfile() and member.name.startswith(prefix) and member.name.endswith('.cs'):
                 data = tar.extractfile(member).read()
+                if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+                    data = data.decode('utf-16').encode()
                 # Doxygen copies invalid UTF-8 into its XML, which Breathe then fails to parse
                 try:
                     data.decode()
