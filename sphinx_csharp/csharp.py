@@ -742,9 +742,11 @@ class CSharpDomain(Domain):
         A target matches without generic arguments and arity when nothing else does.
         """
         target = normalize_signature(target)
-        return self.find_named_objects(target, parent, objtypes, loose, lambda name: name) or \
-            self.find_named_objects(arity_name(target), parent, objtypes, loose, lambda name: name) or \
-            self.find_named_objects(remove_arity(remove_generic_arguments(target)), parent, objtypes, loose,
+        found = self.find_named_objects(target, parent, objtypes, loose, lambda name: name)
+        # A target without generic arguments has no arity form to try
+        if not found and arity_name(target) != target:
+            found = self.find_named_objects(arity_name(target), parent, objtypes, loose, lambda name: name)
+        return found or self.find_named_objects(remove_arity(remove_generic_arguments(target)), parent, objtypes, loose,
                                     lambda name: remove_arity(remove_generic_arguments(name)))
 
     def object_order(self, key: tuple[str, str]) -> tuple[str, tuple[str, str]]:
