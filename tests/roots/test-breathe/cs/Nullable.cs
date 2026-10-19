@@ -38,5 +38,47 @@ namespace OtherNamespace
         {
             return [];
         }
+
+        /// <summary>
+        /// A nullable readonly field.
+        /// </summary>
+        public readonly object? ReadonlyField;
+
+        /// <summary>
+        /// A nullable static property.
+        /// </summary>
+        public static int? StaticProperty { get; set; }
+
+        /// <summary>
+        /// A nullable static method.
+        /// </summary>
+        public static int? StaticMethod()
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// A nullable virtual method.
+        /// </summary>
+        public virtual string? VirtualMethod()
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// A nullable virtual indexer.
+        /// </summary>
+        public virtual string? this[int index] => null;
+    }
+
+    public class DerivedNullableClass : NullableClass
+    {
+        /// <summary>
+        /// A nullable override.
+        /// </summary>
+        public override string? VirtualMethod()
+        {
+            return null;
+        }
     }
 }

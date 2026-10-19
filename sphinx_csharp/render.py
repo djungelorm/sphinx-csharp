@@ -9,7 +9,15 @@ from sphinx.util.docfields import Field, GroupedField, TypedField
 from sphinx.util.typing import TextlikeNode
 
 from .extrefs import ExternalRefs
-from .parser import Location, invalid_signature, parse_tuple_element, parse_type_signature, split_sig
+from .parser import (
+    Location,
+    generic_type_name,
+    invalid_signature,
+    is_function_pointer,
+    parse_tuple_element,
+    parse_type_signature,
+    split_sig,
+)
 
 
 def append_modifiers(node: nodes.Element, modifiers: list[str]) -> None:
@@ -29,15 +37,19 @@ class TypeRenderer:
     def append_type(self, node: nodes.Element, input_typ: str, ignored_types: list[str] | None = None) -> None:
         """ ignored_types is a list of types to ignore in the generics of this type """
         sig = parse_type_signature(input_typ, self.location)
-        typ = sig.typ
+        typ = sig.typ.removeprefix('global::')
 
         if sig.modifiers:
             append_modifiers(node, sig.modifiers)
 
+        # The name with the arity of each generic type, such as Box-1.Inner for Box<int>.Inner
+        name = generic_type_name(typ, len(sig.generics))
         if typ.startswith('('):
             self.append_tuple(node, typ, ignored_types)
+        elif is_function_pointer(typ):
+            self.append_function_pointer(node, typ)
         else:
-            self.append_type_name(node, typ, ExternalRefs.shorten_type(typ), len(sig.generics))
+            self.append_type_name(node, typ, name, ExternalRefs.shorten_type(typ), len(sig.generics), ignored_types)
         if sig.generics:
             self.append_generics(node, sig.generics, ignored_types=ignored_types)
 
@@ -46,8 +58,9 @@ class TypeRenderer:
         for segment in sig.nested:
             inner = parse_type_signature(segment, self.location)
             typ += '.' + inner.typ
+            name += '.' + generic_type_name(inner.typ, len(inner.generics))
             node += nodes.Text('.')
-            tnode = self.append_type_name(node, typ, inner.typ, len(inner.generics))
+            tnode = self.append_type_name(node, typ, name, inner.typ, len(inner.generics))
             if tnode is not None:
                 tnode['cs:outer'] = outer
                 tnode['cs:outer_arity'] = outer_arity
@@ -57,10 +70,15 @@ class TypeRenderer:
         if sig.suffix:
             node += nodes.Text(sig.suffix)
 
-    def append_type_name(self, node: nodes.Element, typ: str, text: str, arity: int) -> addnodes.pending_xref | None:
-        """ Adds a reference to a type, with arity generic arguments, unless the type is never linked """
+    def append_type_name(self, node: nodes.Element, typ: str, name: str, text: str, arity: int,
+                         ignored_types: list[str] | None = None) -> addnodes.pending_xref | None:
+        """
+        Adds a reference to a type, with arity generic arguments, unless the type is never linked.
+        name is the type with the arity of each generic type, such as Box-1.
+        """
         # The generic parameters of an enclosing type are not linked
-        if ExternalRefs.check_ignored_ref(typ) or typ in self.env.ref_context.get('cs:generic_names', []):
+        if ExternalRefs.check_ignored_ref(typ) or typ in self.env.ref_context.get('cs:generic_names', []) \
+                or ignored_types and typ in ignored_types:
             node += addnodes.desc_type(text, text)
             return None
 
@@ -71,10 +89,22 @@ class TypeRenderer:
         # Note: this may not be the correct parent namespace
         tnode['cs:parent'] = self.env.ref_context.get('cs:parent')
         tnode['cs:arity'] = arity
+        tnode['cs:name'] = name
 
         tnode += addnodes.desc_type(text, text)
         node += tnode
         return tnode
+
+    @staticmethod
+    def append_function_pointer(node: nodes.Element, typ: str) -> None:
+        """ Adds the start of a function pointer type, such as delegate* unmanaged[Cdecl], before its types """
+        node += nodes.Text('delegate*')
+        convention = typ.removeprefix('delegate').lstrip().removeprefix('*').strip()
+        if convention:
+            keyword, _, calling_conventions = convention.partition('[')
+            node += nodes.Text(' ' + keyword.strip())
+            if calling_conventions:
+                node += nodes.Text('[' + calling_conventions)
 
     def append_tuple(self, node: nodes.Element, tuple_typ: str, ignored_types: list[str] | None) -> None:
         """ Adds a tuple type, such as (int count, string name), linking the type of each element """

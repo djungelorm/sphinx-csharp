@@ -27,6 +27,12 @@ def test_qualified_name_prefers_exact_namespace(build):
     assert refs == {'Foo.Bar': MICROSOFT_DOCS + 'Foo.Bar'}
 
 
+def test_namespace_matches_whole_names(build):
+    app = build('.. cs:function:: void Foo (O.Stream a)\n')
+    assert len(warnings(app)) == 1
+    assert 'reference target not found: O.Stream' in warnings(app)[0]
+
+
 @pytest.mark.parametrize('typ, namespaces, url', [
     ('Foo.Bar', {'A.Foo': ['Bar'], 'B.Foo': ['Bar']}, 'A.Foo.Bar'),
     ('Bar', {'A': ['Bar'], 'B': ['Bar']}, 'A.Bar'),
@@ -36,6 +42,24 @@ def test_ambiguous_external_reference(build, typ, namespaces, url):
     assert len(warnings(app)) == 1
     assert f"ambiguous external reference for '{typ}'" in warnings(app)[0]
     assert refs == {typ: MICROSOFT_DOCS + url}
+
+
+@pytest.mark.parametrize('typ, url', [
+    ('IEqualityComparer', 'System.Collections.IEqualityComparer'),
+    ('IEqualityComparer<int>', 'System.Collections.Generic.IEqualityComparer-1'),
+    ('IEnumerator<int>', 'System.Collections.Generic.IEnumerator-1'),
+    ('IEnumerable', 'System.Collections.IEnumerable'),
+    ('IEnumerable<int>', 'System.Collections.Generic.IEnumerable-1'),
+    ('IList', 'System.Collections.IList'),
+    ('IList<int>', 'System.Collections.Generic.IList-1'),
+    ('ICollection', 'System.Collections.ICollection'),
+    ('IDictionary<int, int>', 'System.Collections.Generic.IDictionary-2'),
+    ('Collection', 'System.Collections.ObjectModel.Collection-1'),
+])
+def test_generic_type_with_arity(build, typ, url):
+    refs, app = links(build, typ)
+    assert warnings(app) == []
+    assert refs[typ.partition('<')[0]] == MICROSOFT_DOCS + url
 
 
 def test_package_without_search_page(build):

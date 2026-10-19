@@ -1,7 +1,8 @@
 """ C# sphinx domain """
 
-from collections.abc import Iterable, Iterator, Set
-from typing import Any
+from collections import Counter
+from collections.abc import Callable, Iterable, Iterator, Set
+from typing import Any, NamedTuple
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
@@ -25,20 +26,48 @@ from .parser import (
     CONVERSION_OPERATORS,
     Constraint,
     ParamTuple,
+    arity_name,
+    generic_type_name,
     is_indexer_signature,
+    normalize_signature,
+    overload_type,
+    parameter_types,
     parse_attr_signature,
     parse_base_type,
     parse_enum_signature,
     parse_enumerator_signature,
+    parse_extension_signature,
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
-    parse_record_kind,
     parse_type_as_function,
+    parse_type_reference,
     parse_type_signature,
     parse_variable_signature,
+    remove_arity,
+    remove_generic_arguments,
+    split_attributes,
+    split_declarators,
+    split_type_keyword,
+    target_id,
 )
 from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
+
+
+class ObjectEntry(NamedTuple):
+    docname: str
+    # The full name, without the parameters of an overload, and with the arity of each generic type as in N.Box-1
+    name: str
+    # The full name in the index and search results, such as N.Box<T>
+    dispname: str
+
+
+class ObjectMatch(NamedTuple):
+    # The key of the object in the domain data, as (objtype, full name with any overload parameters)
+    key: tuple[str, str]
+    # The name the reference links to, with the parameters if the target names one overload
+    name: str
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,39 +92,52 @@ class CSharpObject(ObjectDescription[str]):
         # The generic parameters the signatures declare for the content, such as T in class List<T>
         self.generic_names: list[str] = []
         self.generic_names_saved: list[str] = []
+        # The full name of the overload being described, such as N.C.M(int,string)
+        self.overload_name: str | None = None
+        # The display name of the type being described, such as N.Box<T>
+        self.dispname: str | None = None
 
     def add_generic_names(self, names: list[str]) -> None:
         """ Declare generic parameters for the content, which every signature of the directive shares """
         self.generic_names += [name for name in names if name not in self.generic_names]
 
     def add_target_and_index(self, name: str, _: str, signode: addnodes.desc_signature) -> None:
-        targetname = self.objtype + '-' + name
-        if targetname not in self.state.document.ids:
-            signode['names'].append(targetname)
-            signode['ids'].append(targetname)
-            signode['first'] = not self.names
-            self.state.document.note_explicit_target(signode)
-
-            objects = self.env.domaindata['cs']['objects']
-            key = (self.objtype, name)
-            if key in objects:
-                logger.warning(f'duplicate description of {self.objtype} {name}, ' +
-                               f'other instance in {self.env.doc2path(objects[key])}',
-                               location=(self.env.docname, self.lineno))
-            objects[key] = self.env.docname
+        overload_name = self.overload_name or name
+        self.overload_name = None
+        dispname, self.dispname = self.dispname or remove_arity(name), None
+        overload_targetname = targetname = target_id(self.objtype, overload_name)
+        objects = self.env.domaindata['cs']['objects']
+        key = (self.objtype, overload_name)
+        if key in objects:
+            logger.warning(f'duplicate description of {self.objtype} {overload_name}, ' +
+                           f'other instance in {self.env.doc2path(objects[key].docname)}',
+                           location=(self.env.docname, self.lineno))
+        document = self.state.document
+        if overload_targetname in document.ids:
+            return
+        # The first overload in a document also gets the target without parameters, which the index uses
+        plain_targetname = target_id(self.objtype, name)
+        if plain_targetname != overload_targetname and plain_targetname not in document.ids:
+            signode['names'].append(plain_targetname)
+            signode['ids'].append(plain_targetname)
+            targetname = plain_targetname
+        signode['names'].append(overload_targetname)
+        signode['ids'].append(overload_targetname)
+        signode['first'] = not self.names
+        document.note_explicit_target(signode)
+        objects[key] = ObjectEntry(self.env.docname, name, dispname)
 
         # Sphinx 7 and 8 keep noindexentry as a separate option
-        if 'no-index-entry' not in self.options and 'noindexentry' not in self.options:
-            indextext = self.get_index_text(name)
-            if indextext:
-                self.indexnode['entries'].append(('single', indextext, targetname, '', None))
+        indexed = 'no-index-entry' not in self.options and 'noindexentry' not in self.options
+        # The index has one entry for the overloads of a method in a document, at the target without parameters
+        if indexed and targetname == target_id(self.objtype, name):
+            self.indexnode['entries'].append(('single', self.get_index_text(dispname), targetname, '', None))
 
     def get_index_text(self, name: str) -> str:
         """ The general index entry for an object, such as "MyNamespace.MyClass (C# class)" """
+        # Note: Breathe can describe an object as a method, which is not an object type of the domain.
         objtype = CSharpDomain.object_types.get(self.objtype)
-        if objtype is None:
-            return ''
-        return _('%s (C# %s)') % (name, objtype.lname)
+        return _('%s (C# %s)') % (name, objtype.lname if objtype else self.objtype)
 
     def before_content(self) -> None:
         lastname = self.names and self.names[-1]
@@ -116,6 +158,25 @@ class CSharpObject(ObjectDescription[str]):
     def get_fullname(self, name: str) -> str:
         parent = self.env.ref_context.get('cs:parent')
         return parent + '.' + name if parent else name
+
+    def get_overload_fullname(self, name: str, overload_name: str, sig: str,
+                              signode: addnodes.desc_signature) -> str:
+        """
+        Describe one overload of a method or indexer, and return the full name of the method.
+        overload_name includes the parameter types, such as M(int,string).
+        """
+        fullname = self.get_fullname(name)
+        self.overload_name = normalize_signature(self.get_fullname(overload_name))
+        # Sphinx adds a target for only the first signature of each name in a directive
+        if fullname in self.names and 'no-index' not in self.options and 'noindex' not in self.options:
+            self.add_target_and_index(fullname, sig, signode)
+        return fullname
+
+    def append_attributes(self, signode: addnodes.desc_signature, sig: str) -> str:
+        """ Adds the attributes at the start of a declaration, and returns the rest of the signature """
+        attributes, sig = split_attributes(sig)
+        self.append_modifiers(signode, attributes)
+        return sig
 
     append_modifiers = staticmethod(append_modifiers)
 
@@ -174,12 +235,10 @@ class CSharpObject(ObjectDescription[str]):
 
     def append_parameter(self, node: nodes.Element, param: ParamTuple, ignore_types: list[str]) -> None:
         self.append_modifiers(node, param.modifiers)
-        if param.typ in ignore_types:
-            node += addnodes.desc_type(param.typ, param.typ)
-        else:
-            self.append_type(node, param.typ, ignore_types)
-        node += nodes.Text('\xa0')
-        node += nodes.emphasis(param.name, param.name)
+        self.append_type(node, param.typ, ignore_types)
+        if param.name:
+            node += nodes.Text('\xa0')
+            node += nodes.emphasis(param.name, param.name)
         if param.default is not None:
             default = ' = ' + param.default
             node += nodes.emphasis(default, default)
@@ -211,7 +270,7 @@ class CSharpObject(ObjectDescription[str]):
         signode += addnodes.desc_name(name, name)
         self.append_indexer_parameters(signode, params)
         self.append_accessors(signode, accessors)
-        return self.get_fullname(name + '[]')
+        return self.get_overload_fullname(name + '[]', f'{name}[{parameter_types(params)}]', sig, signode)
 
     def handle_type_signature(self, sig: str, signode: addnodes.desc_signature, keyword: str) -> str:
         """ Handle a type declaration, such as a class, and return its full name """
@@ -223,7 +282,9 @@ class CSharpObject(ObjectDescription[str]):
 
         prefix = keyword + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
-        signode += addnodes.desc_name(typ, typ)
+        # Doxygen names generic types with their arity, such as Box-1
+        display = remove_arity(typ)
+        signode += addnodes.desc_name(display, display)
 
         if generics:
             self.append_generics(signode, generics, nolink=True)
@@ -236,7 +297,10 @@ class CSharpObject(ObjectDescription[str]):
         if inherits:
             self.append_inherits(signode, inherits, generic_params)
         self.append_constraints(signode, constraints, generic_params)
-        return self.get_fullname(typ)
+        # Set last, as add_target_and_index takes it and does not run for a signature that fails to render
+        self.dispname = remove_arity(self.get_fullname(display)) + \
+            ('<' + ', '.join(generic_params) + '>' if generic_params else '')
+        return self.get_fullname(generic_type_name(typ, len(generics)))
 
     def reset_objtype(self) -> None:
         """ Undo change_objtype for the previous signature of this directive """
@@ -291,6 +355,12 @@ class CSharpType(CSharpObject):
     keyword = ''
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
+        # The signature can have the keyword, as in public class Shape
+        declaration = split_type_keyword(sig, (self.keyword,))
+        if declaration is not None:
+            modifiers, _, rest = declaration
+            sig = ' '.join([*modifiers, rest])
         return self.handle_type_signature(sig, signode, self.keyword)
 
 
@@ -310,14 +380,16 @@ class CSharpInterface(CSharpType):
 
 
 class CSharpRecord(CSharpType):
-    """ Description of a C# record, or a record class or record struct if the signature starts with class or struct """
+    """ Description of a C# record, or a record class or record struct if the signature has class or struct """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        record = parse_record_kind(sig)
+        sig = self.append_attributes(signode, sig)
+        record = split_type_keyword(sig, ('record', 'class', 'struct'))
         if record is None:
             return self.handle_type_signature(sig, signode, 'record')
         modifiers, kind, rest = record
-        return self.handle_type_signature(' '.join([*modifiers, rest]), signode, 'record ' + kind)
+        keyword = kind if kind.startswith('record') else 'record ' + kind
+        return self.handle_type_signature(' '.join([*modifiers, rest]), signode, keyword)
 
 
 class CSharpInherits(CSharpObject):
@@ -328,20 +400,45 @@ class CSharpInherits(CSharpObject):
         self.append_type(signode, sig)
         return self.get_fullname(sig)
 
+    def add_target_and_index(self, name: str, sig: str, signode: addnodes.desc_signature) -> None:
+        """ A base type is part of the description of its type, so it has no target or index entry of its own """
+
+
+class CSharpExtension(CSharpObject):
+    """ Description of a C# extension block, such as extension(string s), whose members belong to its static class """
+
+    def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        generic_params, receiver, constraints = parse_extension_signature(sig, (self.env.docname, self.lineno))
+        signode += addnodes.desc_annotation('extension', 'extension')
+        if generic_params:
+            self.append_generics(signode, generic_params, nolink=True)
+        generic_names = [generic.split()[-1] for generic in generic_params]
+        self.add_generic_names(generic_names)
+        signode += nodes.Text('\xa0')
+        self.append_parameters(signode, [receiver], generic_names)
+        self.append_constraints(signode, constraints, generic_names)
+        # The name of the enclosing type, which stays the parent of the members
+        parent: str = self.env.ref_context.get('cs:parent') or ''
+        return parent
+
+    def add_target_and_index(self, name: str, sig: str, signode: addnodes.desc_signature) -> None:
+        """ An extension block has no name, so it has no target or index entry """
+
 
 class CSharpMethod(CSharpObject):
     """ Description of a C# method """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         self.reset_objtype()
+        sig = self.append_attributes(signode, sig)
         declaration = parse_type_as_function(sig)
         if declaration is not None:
             modifiers, keyword, rest = declaration
             self.change_objtype(signode, keyword.split()[0])
             return self.handle_type_signature(' '.join([*modifiers, rest]), signode, keyword)
 
-        modifiers, return_type, name, generic_params, params, constraints, operator = parse_method_signature(
-            sig, (self.env.docname, self.lineno))
+        modifiers, return_type, name, generic_params, params, constraints, operator, initializer = \
+            parse_method_signature(sig, (self.env.docname, self.lineno))
         if self.objtype == 'delegate' and 'delegate' not in modifiers:
             modifiers.append('delegate')
         if 'delegate' in modifiers and self.objtype != 'delegate':
@@ -355,7 +452,9 @@ class CSharpMethod(CSharpObject):
             self.append_type(signode, return_type)
             signode += nodes.Text('\xa0')
             self.append_parameters(signode, params)
-            return self.get_fullname(name)
+            # Conversion operators differ by return type, as in the .NET documentation ids
+            overload_name = f'{name}({parameter_types(params)})~{overload_type(return_type)}'
+            return self.get_overload_fullname(name, overload_name, sig, signode)
 
         # Variance modifiers such as out T come before the parameter name
         generic_names = [generic.split()[-1] for generic in generic_params]
@@ -364,10 +463,7 @@ class CSharpMethod(CSharpObject):
         # Constructors have no return type
         if return_type is not None:
             # Generic type parameters are not linked
-            if return_type in generic_names:
-                signode += addnodes.desc_type(return_type, return_type)
-            else:
-                self.append_type(signode, return_type, generic_names)
+            self.append_type(signode, return_type, generic_names)
             signode += nodes.Text('\xa0')
 
         display_name = operator or name
@@ -378,31 +474,46 @@ class CSharpMethod(CSharpObject):
         signode += nodes.Text('\xa0')
 
         self.append_parameters(signode, params, generic_names)
+        if initializer:
+            signode += nodes.Text(' : ' + initializer)
         self.append_constraints(signode, constraints, generic_names)
 
-        return self.get_fullname(name)
+        # A static constructor is not an overload of the instance constructors, so its name has the modifier
+        parent = self.env.ref_context.get('cs:parent') or ''
+        if return_type is None and 'static' in modifiers and name == remove_arity(parent.rpartition('.')[2]):
+            name = 'static ' + name
+        generics = '<' + ','.join(generic_names) + '>' if generic_names else ''
+        return self.get_overload_fullname(name, f'{name}{generics}({parameter_types(params)})', sig, signode)
 
 
 class CSharpDelegate(CSharpMethod):
     """ Description of a C# delegate """
 
 
-class CSharpVariable(CSharpObject):
+class CSharpDeclarators(CSharpObject):
+    """ Description of a C# field or event, whose declaration can declare several variables, such as int x, y """
+
+    def get_signatures(self) -> list[str]:
+        """ The signatures, with a signature for each variable of a declaration """
+        return [declaration for sig in super().get_signatures() for declaration in split_declarators(sig)]
+
+
+class CSharpVariable(CSharpDeclarators):
     """ Description of a C# variable """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        modifiers, fulltype, _, _, name, default_value = parse_variable_signature(sig, (self.env.docname, self.lineno))
-
-        self.append_modifiers(signode, modifiers)
-        self.append_type(signode, fulltype)
+        sig = self.append_attributes(signode, sig)
+        var = parse_variable_signature(sig, (self.env.docname, self.lineno))
+        self.append_modifiers(signode, var.modifiers)
+        self.append_type(signode, var.fulltype)
         signode += nodes.Text('\xa0')
-        signode += addnodes.desc_name(name, name)
-
-        if default_value:
+        signode += addnodes.desc_name(var.name, var.name)
+        if var.size is not None:
+            signode += nodes.Text('[' + var.size + ']')
+        if var.default:
             signode += nodes.Text(' = ')
-            signode += nodes.Text(default_value)
-
-        return self.get_fullname(name)
+            signode += nodes.Text(var.default)
+        return self.get_fullname(var.name)
 
 
 class CSharpProperty(CSharpObject):
@@ -410,6 +521,7 @@ class CSharpProperty(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         self.reset_objtype()
+        sig = self.append_attributes(signode, sig)
         # Doxygen writes indexers as properties named this[...]
         if is_indexer_signature(sig):
             self.change_objtype(signode, 'indexer')
@@ -428,17 +540,17 @@ class CSharpProperty(CSharpObject):
         return self.get_fullname(name)
 
 
-class CSharpEvent(CSharpObject):
+class CSharpEvent(CSharpDeclarators):
     """ Description of a C# event """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         modifiers, fulltype, name, accessors, default_value = parse_property_signature(
             sig, (self.env.docname, self.lineno))
 
+        self.append_modifiers(signode, [modifier for modifier in modifiers if modifier != 'event'])
         prefix = 'event' + ' '
         signode += addnodes.desc_annotation(prefix, prefix)
-
-        self.append_modifiers(signode, modifiers)
         self.append_type(signode, fulltype)
         signode += nodes.Text('\xa0')
         signode += addnodes.desc_name(name, name)
@@ -455,6 +567,7 @@ class CSharpIndexer(CSharpObject):
     """ Description of a C# indexer """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         return self.handle_indexer_signature(sig, signode)
 
 
@@ -462,6 +575,11 @@ class CSharpEnum(CSharpObject):
     """ Description of a C# enum """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
+        declaration = split_type_keyword(sig, ('enum',))
+        if declaration is not None:
+            modifiers, _, rest = declaration
+            sig = ' '.join([*modifiers, rest])
         modifiers, name, base = parse_enum_signature(sig, (self.env.docname, self.lineno))
         self.append_modifiers(signode, modifiers)
         prefix = 'enum' + ' '
@@ -470,30 +588,34 @@ class CSharpEnum(CSharpObject):
         if base:
             signode += nodes.Text(' : ')
             self.append_type(signode, base)
-        return self.get_fullname(name)
+        return self.get_fullname(arity_name(name))
 
 
 class CSharpEnumValue(CSharpObject):
     """ Description of a C# enum value """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
+        sig = self.append_attributes(signode, sig)
         name, value = parse_enumerator_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
         if value:
             signode += nodes.Text(' = ' + value)
-        return self.get_fullname(name)
+        return self.get_fullname(arity_name(name))
 
 
 class CSharpAttribute(CSharpObject):
     """ Description of a C# attribute """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        name, params = parse_attr_signature(sig, (self.env.docname, self.lineno))
+        name, params, generic_params = parse_attr_signature(sig, (self.env.docname, self.lineno))
         signode += addnodes.desc_name(name, name)
+        if generic_params:
+            self.append_generics(signode, generic_params, nolink=True)
+        self.generic_names = generic_params
         if params:
             signode += nodes.Text('\xa0')
-            self.append_parameters(signode, params)
-        return self.get_fullname(name)
+            self.append_parameters(signode, params, generic_params)
+        return self.get_fullname(arity_name(generic_type_name(name, len(generic_params))))
 
 
 class CSharpXRefRole(XRefRole):
@@ -540,6 +662,7 @@ class CSharpDomain(Domain):
         'interface': CSharpInterface,
         'record': CSharpRecord,
         'inherits': CSharpInherits,
+        'extension': CSharpExtension,
 
         'function': CSharpMethod,
         'delegate': CSharpDelegate,
@@ -581,8 +704,10 @@ class CSharpDomain(Domain):
         'obj': CSharpXRefRole(),
     }
     initial_data = {
-        'objects': {},  # (objtype, fullname) -> docname
+        'objects': {},  # (objtype, full name with any overload parameters) -> ObjectEntry
     }
+    # The version of the objects data, which Sphinx compares with a saved environment
+    data_version = 1
 
     @staticmethod
     def apply_config(_app: "Sphinx", config: Config) -> None:
@@ -597,34 +722,67 @@ class CSharpDomain(Domain):
             raise
 
     def clear_doc(self, docname: str) -> None:
-        for (typ, name), doc in dict(self.objects).items():
-            if doc == docname:
-                del self.objects[typ, name]
+        for key, entry in dict(self.objects).items():
+            if entry.docname == docname:
+                del self.objects[key]
 
     @property
-    def objects(self) -> dict[tuple[str, str], str]:
+    def objects(self) -> dict[tuple[str, str], ObjectEntry]:
         """ The documented objects, keyed by object type and full name, with the document they are in """
-        objects: dict[tuple[str, str], str] = self.data['objects']
+        objects: dict[tuple[str, str], ObjectEntry] = self.data['objects']
         return objects
 
     def find_objects(self, target: str, parent: str | None, objtypes: Iterable[str],
-                     loose: bool = True) -> list[tuple[str, str]]:
+                     loose: bool = True) -> list[ObjectMatch]:
         """
         Find the objects of the given types that a target refers to from within a parent namespace.
         Without loose, only the target qualified by the parent or an enclosing namespace matches.
+        A target without parameters refers to the first overload of a method.
+        A generic type has its arity in its name, such as N.Box-1, which generic arguments in a target match.
+        A target matches without generic arguments and arity when nothing else does.
         """
-        matches = [key for key in self.objects
-                   if key[0] in objtypes and (key[1] == target or key[1].endswith('.' + target))]
+        target = normalize_signature(target)
+        found = self.find_named_objects(target, parent, objtypes, loose, lambda name: name)
+        # A target without generic arguments has no arity form to try
+        if not found and arity_name(target) != target:
+            found = self.find_named_objects(arity_name(target), parent, objtypes, loose, lambda name: name)
+        return found or self.find_named_objects(remove_arity(remove_generic_arguments(target)), parent, objtypes, loose,
+                                    lambda name: remove_arity(remove_generic_arguments(name)))
 
-        # The parent and each of its enclosing namespaces, innermost first
+    def object_order(self, key: tuple[str, str]) -> tuple[str, tuple[str, str]]:
+        """ The order of objects that is the same in every build, by document and then key """
+        return self.objects[key].docname, key
+
+    def find_named_objects(self, target: str, parent: str | None, objtypes: Iterable[str], loose: bool,
+                           transform: Callable[[str], str]) -> list[ObjectMatch]:
+        """ Find the objects whose names, after a transform, the target refers to """
+
+        def names(key: tuple[str, str]) -> set[str]:
+            return {transform(key[1]), transform(self.objects[key].name)}
+
+        def refers_to(name: str) -> bool:
+            return name == target or name.endswith('.' + target)
+
+        # The first overload of each method, by document and then name
+        first_overloads: dict[tuple[str, str], tuple[str, str]] = {}
+        for key in self.objects:
+            if key[0] in objtypes and any(refers_to(name) for name in names(key)):
+                method = (key[0], self.objects[key].name)
+                if method not in first_overloads or self.object_order(key) < self.object_order(first_overloads[method]):
+                    first_overloads[method] = key
+        # A target with the parameters of an overload links to that overload
+        matches = [ObjectMatch(key, key[1] if refers_to(transform(key[1])) else self.objects[key].name)
+                   for key in sorted(first_overloads.values(), key=self.object_order)]
+
+        # The parent and each of its enclosing namespaces, innermost first, with the transform of the names
         scopes = []
         if parent:
             parts = parent.split('.')
-            scopes = ['.'.join(parts[:i]) for i in range(len(parts), 0, -1)]
+            scopes = [transform('.'.join(parts[:i])) for i in range(len(parts), 0, -1)]
 
         # Prefer the target qualified by the closest scope, then an object anywhere inside that scope
         for scope in scopes + ['']:
-            exact = [key for key in matches if key[1] == (scope + '.' + target if scope else target)]
+            exact = [match for match in matches if (scope + '.' + target if scope else target) in names(match.key)]
             if exact:
                 return exact
         if not loose:
@@ -632,7 +790,7 @@ class CSharpDomain(Domain):
         if len(matches) <= 1:
             return matches
         for scope in scopes:
-            inside = [key for key in matches if key[1].startswith(scope + '.')]
+            inside = [match for match in matches if transform(match.key[1]).startswith(scope + '.')]
             if inside:
                 return inside
         return matches
@@ -646,47 +804,81 @@ class CSharpDomain(Domain):
         objtypes = list(self.object_types) if typ == 'obj' else self.objtypes_for_role(typ) or []
         parent = node.get('cs:parent')
 
+        # The name of a type in a signature, with the arity of each generic type
+        name = node.get('cs:name', target)
+
         # A known external type takes precedence over a local object in an unrelated namespace
-        matches = self.find_objects(target, parent, objtypes, loose=False)
+        matches = self.find_objects(name, parent, objtypes, loose=False)
         if not matches and not ExternalRefs.check_ignored_ref(target):
-            if 'cs:outer' in node:
-                ref = ExternalRefs.get_nested_external_ref(node['cs:outer'], node['cs:outer_arity'],
-                                                           target[len(node['cs:outer']) + 1:], typ, contnode)
-            else:
-                ref = ExternalRefs.get_external_ref(target, typ, contnode, node.get('cs:arity', 0))
+            ref = self.resolve_external_xref(typ, target, node, contnode)
             if ref is not None:
                 return ref
-            matches = self.find_objects(target, parent, objtypes)
+            matches = self.find_objects(name, parent, objtypes)
 
         if len(matches) > 1:
-            logger.warning(f'ambiguous reference to {target}, matches: {[name for _, name in matches]}',
+            logger.warning(f'ambiguous reference to {target}, matches: {[match.key[1] for match in matches]}',
                            location=node)
         if matches:
-            objtype, name = matches[0]
-            return self.make_refnode(builder, fromdocname, objtype, name, contnode)
+            return self.make_refnode(builder, fromdocname, matches[0], contnode)
         if CSDebug.xref:
             logger.info(f'no C# object found for {target}, searched object types {objtypes}', location=node)
         return None
+
+    @staticmethod
+    def resolve_external_xref(typ: str, target: str, node: addnodes.pending_xref,
+                              contnode: nodes.Element) -> nodes.reference | None:
+        """ Link to external documentation, such as the Microsoft docs, or return None if the target is unknown """
+        if 'cs:outer' in node:
+            return ExternalRefs.get_nested_external_ref(node['cs:outer'], node['cs:outer_arity'],
+                                                        target[len(node['cs:outer']) + 1:], typ, contnode)
+        # The generic arguments of a type in a role, as in :cs:type:`List\<int>.Enumerator`, give its arity
+        sig = parse_type_reference(target)
+        if sig is None or sig.suffix:
+            return None
+        arity = node.get('cs:arity') or len(sig.generics)
+        if sig.nested:
+            nested = remove_generic_arguments(''.join('.'.join(sig.nested).split()))
+            return ExternalRefs.get_nested_external_ref(sig.typ, arity, nested, typ, contnode)
+        return ExternalRefs.get_external_ref(sig.typ, typ, contnode, arity)
 
     def resolve_any_xref(self, env: BuildEnvironment, fromdocname: str, builder: Builder, target: str,
                          node: addnodes.pending_xref,
                          contnode: nodes.Element) -> list[tuple[str, nodes.reference]]:
         matches = self.find_objects(target, node.get('cs:parent'), list(self.object_types))
-        return [('cs:' + self.object_types[objtype].roles[0],
-                 self.make_refnode(builder, fromdocname, objtype, name, contnode))
-                for objtype, name in matches]
+        return [('cs:' + self.object_types[match.key[0]].roles[0],
+                 self.make_refnode(builder, fromdocname, match, contnode))
+                for match in matches]
 
-    def make_refnode(self, builder: Builder, fromdocname: str, objtype: str, name: str,
+    def make_refnode(self, builder: Builder, fromdocname: str, match: ObjectMatch,
                      contnode: nodes.Element) -> nodes.reference:
-        title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {name}'
-        return make_refnode(builder, fromdocname, self.objects[objtype, name],
-                            objtype + '-' + name, contnode, title)
+        """ Link to an object, or to one overload of it """
+        objtype, name = match.key[0], match.name
+        entry = self.objects[match.key]
+        dispname = entry.dispname if name == entry.name else remove_arity(name)
+        title = (self.label + ' ' if ExternalRefs.multi_lang else '') + f'{objtype}: {dispname}'
+        return make_refnode(builder, fromdocname, entry.docname, target_id(objtype, name), contnode, title)
 
     def get_objects(self) -> Iterator[tuple[str, str, str, str, str, int]]:
-        for (typ, name), docname in self.objects.items():
-            yield name, name, typ, docname, typ + '-' + name, 1
+        overloads = Counter((objtype, entry.name) for (objtype, _), entry in self.objects.items())
+        methods = set()
+        for objtype, overload_name in sorted(self.objects, key=self.object_order):
+            entry = self.objects[objtype, overload_name]
+            method = (objtype, entry.name)
+            # Search shows the overloads of a method, and otherwise the name without parameters
+            overloaded = overloads[method] > 1
+            if method not in methods:
+                methods.add(method)
+                yield entry.name, entry.dispname, objtype, entry.docname, target_id(objtype, entry.name), \
+                    -1 if overloaded else 1
+            if overload_name != entry.name:
+                yield overload_name, remove_arity(overload_name), objtype, entry.docname, \
+                    target_id(objtype, overload_name), 1 if overloaded else -1
 
     def merge_domaindata(self, docnames: Set[str], otherdata: dict[str, Any]) -> None:
-        for key, docname in otherdata['objects'].items():
-            if docname in docnames:
-                self.objects[key] = docname
+        for key, entry in otherdata['objects'].items():
+            if entry.docname in docnames:
+                if key in self.objects:
+                    logger.warning(f'duplicate description of {key[0]} {key[1]}, '
+                                   f'other instance in {self.env.doc2path(self.objects[key].docname)}',
+                                   location=entry.docname)
+                self.objects[key] = entry

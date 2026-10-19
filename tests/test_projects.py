@@ -23,6 +23,10 @@ def test_breathe(app):
     accessors = '{ get; set; }' if int(breathe.__version__.split('.')[0]) < 5 else '{ get; }'
     assert signatures(app)['indexer-OtherNamespace.Indexer.this[]'] == \
         'string this[Dictionary<string, int> map, int offset = 0] ' + accessors
-    assert signatures(app)['class-OtherNamespace.Box'] == 'class Box<T>'
-    assert 'function-OtherNamespace.Box.First' in signatures(app)
+    assert signatures(app)['class-OtherNamespace.Box-1'] == 'class Box<T>'
+    assert 'function-OtherNamespace.Box-1.First' in signatures(app)
+    assert {'function-OtherNamespace.Overloads.Add(int)',
+            'function-OtherNamespace.Overloads.Add(ref-int,Dictionary<string,int>)',
+            'indexer-OtherNamespace.Overloads.this[string]',
+            'function-OtherNamespace.Overloads.op_Implicit(Overloads)~string'} <= set(signatures(app))
 

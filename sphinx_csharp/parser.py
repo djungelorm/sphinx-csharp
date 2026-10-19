@@ -1,5 +1,6 @@
 """ C# signature parser """
 
+import functools
 from collections.abc import Callable
 from typing import NamedTuple, TypeVar
 
@@ -11,14 +12,17 @@ from .lexer import Token, tokenize
 
 MODIFIERS = {'public', 'private', 'internal', 'protected', 'abstract', 'async', 'const', 'event', 'delegate', 'extern',
              'new', 'override', 'partial', 'readonly', 'required', 'sealed', 'static', 'unsafe', 'virtual', 'volatile',
-             'ref', 'implicit', 'explicit', 'file'}
+             'ref', 'implicit', 'explicit', 'file', 'fixed'}
 PARAM_MODIFIERS = {'this', 'ref', 'in', 'out', 'params', 'scoped', 'readonly'}
 ACCESSOR_MODIFIERS = {'public', 'private', 'protected', 'internal', 'readonly'}
 ACCESSORS = {'get', 'set', 'init', 'add', 'remove'}
+# Breathe writes the access level of each base type, as in public IDisposable
+BASE_ACCESS = {'public', 'protected', 'private', 'internal', 'virtual'}
 CONSTRAINT_KEYWORDS = ['class', 'class?', 'struct', 'notnull', 'unmanaged', 'default', 'new()', 'allows ref struct']
 
 OPENING = {'(', '[', '{'}
 CLOSING = {')', ']', '}'}
+# The punctuation that can appear in generic arguments, as in Dictionary<string, (int, int?)[]>
 TYPE_PUNCTUATION = {'<', '>', ',', '.', '::', '?', '*', '(', ')', '[', ']'}
 
 # Operators, named by their .NET metadata names such as op_Addition
@@ -41,6 +45,13 @@ UNARY_OPERATOR_NAMES = {'+': 'UnaryPlus', '-': 'UnaryNegation'}
 # Instance increment and decrement operators have no parameters
 INSTANCE_OPERATOR_NAMES = {'++': 'IncrementAssignment', '--': 'DecrementAssignment'}
 CONVERSION_OPERATORS = ['op_Implicit', 'op_Explicit', 'op_CheckedImplicit', 'op_CheckedExplicit']
+
+# The characters that whitespace around them is optional for, such as the space in Dictionary<string, int>
+TIGHT_PUNCTUATION = set(',<>()[]*?')
+# The last characters of a tuple element type, before the element name, other than name characters
+TUPLE_TYPE_END = set('>])?*')
+# The parameter modifiers that overloads can differ by
+OVERLOAD_PARAM_MODIFIERS = ['ref', 'out', 'in', 'readonly']
 
 # Source location of a signature, as a (docname, line) pair, or the node of a doc field
 Location = tuple[str, int] | nodes.Node | None
@@ -69,6 +80,8 @@ class MethodSig(NamedTuple):
     constraints: list[Constraint]
     # The operator as written, such as "operator +", or "operator" for a conversion
     operator: str | None
+    # The constructor initializer, such as base(name)
+    initializer: str | None = None
 
 
 class VariableSig(NamedTuple):
@@ -78,6 +91,8 @@ class VariableSig(NamedTuple):
     generics: list[str]
     name: str
     default: str | None
+    # The size of a fixed buffer, such as 16 in fixed byte Data[16]
+    size: str | None = None
 
 
 class PropertySig(NamedTuple):
@@ -119,9 +134,17 @@ class EnumeratorSig(NamedTuple):
     value: str | None
 
 
+class ExtensionSig(NamedTuple):
+    generic_params: list[str]
+    # The parameter of the type that the members extend, such as string s, with an empty name if it has none
+    receiver: ParamTuple
+    constraints: list[Constraint]
+
+
 class AttrSig(NamedTuple):
     name: str
     params: list[ParamTuple]
+    generic_params: list[str]
 
 
 class ParsedType(NamedTuple):
@@ -223,6 +246,8 @@ class Parser:
 
     def group(self, open_text: str, close_text: str) -> None:
         """ Skip a group such as [Attr(1)] that starts at the next token, with the groups nested in it """
+        if not self.at(open_text):
+            raise ParseError
         depth = 0
         for index in range(self.pos, len(self.tokens)):
             text = self.tokens[index].text
@@ -235,12 +260,19 @@ class Parser:
     def modifiers(self, keywords: set[str]) -> list[str]:
         """ The modifiers, such as public static, that come before a type or a name """
         result = []
-        while self.at(*keywords) and (is_name(self.peek(1)) or self.at('(', offset=1)):
+        while self.at(*keywords) and (is_name(self.peek(1)) or self.at('(', '?', offset=1)):
             result.append(self.name())
         return result
 
+    def misplaced_nullable(self) -> str:
+        """ The nullable marker that Doxygen writes after the modifiers of some types, as in override? object """
+        if self.at('?') and self.peek(1) and not self.adjacent(1):
+            self.pos += 1
+            return '?'
+        return ''
+
     def attributes(self) -> list[str]:
-        """ The attributes, such as [NotNull], before a parameter """
+        """ The attributes, such as [NotNull], before a declaration or a parameter """
         result = []
         while self.at('['):
             start = self.pos
@@ -264,12 +296,15 @@ class Parser:
         return []
 
     def name_part(self) -> str:
-        """ A name in a qualified name, without the arity that Doxygen writes, such as Box for Box-1-g """
+        """ A name in a qualified name, without the -g in the arity that Doxygen writes, such as Box-1 for Box-1-g """
         name = self.name()
+        # The arity of a generic type, such as -1 in Box-1
         arity = self.peek(1)
-        if self.at('-') and self.adjacent() and self.adjacent(1) and arity and arity.text.isdecimal() and \
-                self.at('-', offset=2) and self.adjacent(2) and self.adjacent(3) and self.at('g', offset=3):
-            self.pos += 4
+        if self.at('-') and self.adjacent() and self.adjacent(1) and arity and arity.text.isdecimal():
+            name += '-' + arity.text
+            self.pos += 2
+            if self.at('-') and self.adjacent() and self.adjacent(1) and self.at('g', offset=1):
+                self.pos += 2
         return name
 
     def qualified_name(self) -> str:
@@ -282,24 +317,39 @@ class Parser:
         return name
 
     def generic_qualified_name(self) -> str:
-        """ A qualified name with generic arguments, such as Outer<T>.Color, without whitespace """
+        """ A qualified name in generic outer types, such as Outer<T>.Color, without whitespace """
         name = self.qualified_name()
         while self.at('<'):
             start = self.pos
             self.group('<', '>')
-            name += ''.join(self.text(start).split())
-            if not (self.at('.') and is_name(self.peek(1))):
+            if not self.accept('.'):
+                # The generic parameters of the named type itself
+                self.pos = start
                 break
-            self.pos += 1
-            name += '.' + self.qualified_name()
+            name += ''.join(self.text(start, self.pos - 1).split()) + '.' + self.qualified_name()
         return name
 
+    def function_pointer(self) -> str:
+        """ The start of a function pointer type, such as delegate* unmanaged[Cdecl] before <int, void> """
+        start = self.pos
+        self.pos += 2
+        if (self.accept('managed') or self.accept('unmanaged')) and self.at('['):
+            self.group('[', ']')
+        if not self.at('<'):
+            raise ParseError
+        return self.text(start)
+
     def type(self) -> ParsedType:
-        """ A type such as List<int>.Enumerator[], or a tuple type such as (int a, string b)? """
+        """
+        A type such as List<int>.Enumerator[], a tuple type such as (int a, string b)?, or a function pointer type
+        such as delegate* unmanaged[Cdecl]<int, void>
+        """
         start = self.pos
         if self.at('('):
             self.group('(', ')')
             name = self.text(start)
+        elif self.at('delegate') and self.at('*', offset=1):
+            name = self.function_pointer()
         else:
             name = self.qualified_name()
         generics = self.generic_args()
@@ -334,6 +384,8 @@ class Parser:
         while True:
             start = self.pos
             name = self.name()
+            if name == 'operator':
+                raise ParseError
             if self.at('<'):
                 self.group('<', '>')
                 if not self.at('.'):
@@ -345,9 +397,13 @@ class Parser:
 
     def value(self, close: str) -> str:
         """ A default value, up to the comma or the bracket close that ends it """
+        return self.expression((',', close))
+
+    def expression(self, ends: tuple[str, ...]) -> str:
+        """ An expression, up to one of the tokens that ends it outside brackets """
         start = self.pos
         depth = 0
-        while (token := self.peek()) is not None and not (depth == 0 and token.text in (',', close)):
+        while (token := self.peek()) is not None and not (depth == 0 and token.text in ends):
             # Generic arguments, as in new KeyValuePair<int, int>(), as opposed to a comparison such as 1 < 2
             if token.text == '<' and (end := generic_arguments_end(self.tokens, self.pos)) is not None:
                 self.pos = end
@@ -361,11 +417,14 @@ class Parser:
             raise ParseError
         return self.text(start)
 
-    def param(self, close: str) -> ParamTuple:
-        """ A parameter, such as [NotNull] ref int x = 0, up to the comma or the bracket close that ends it """
+    def param(self, close: str, unnamed: bool = False) -> ParamTuple:
+        """
+        A parameter, such as [NotNull] ref int x = 0, up to the comma or the bracket close that ends it.
+        With unnamed, the parameter name is optional, as in the receiver of extension(string).
+        """
         modifiers = self.attributes() + self.modifiers(PARAM_MODIFIERS)
         typ = self.type()
-        name = self.name()
+        name = '' if unnamed and self.at(close) else self.name()
         default = self.value(close) if self.accept('=') else None
         return ParamTuple(name, typ.fulltype, default, modifiers)
 
@@ -383,12 +442,12 @@ class Parser:
         result = []
         while self.accept('where'):
             start = self.pos
-            while self.peek() is not None and not self.at('where', ':'):
+            while self.peek() is not None and not self.at('where', ':', '=>'):
                 self.pos += 1
             param = self.text(start)
             self.expect(':')
             types = self.pos
-            while self.peek() is not None and not self.at('where'):
+            while self.peek() is not None and not self.at('where', '=>'):
                 self.pos += 1
             if not param or types == self.pos:
                 raise ParseError
@@ -396,7 +455,7 @@ class Parser:
         return result
 
     def accessors(self) -> list[str]:
-        """ The accessors in braces, such as get and private set in { get; private set; } """
+        """ The accessors in braces, such as get and private set in { get; private set; }, without their bodies """
         self.expect('{')
         result = []
         while not self.accept('}'):
@@ -407,13 +466,19 @@ class Parser:
                 raise ParseError
             self.pos += 1
             result.append(' '.join(token.text for token in self.tokens[start:self.pos]))
+            # A body, as in get { return x; } or get => x;
+            if self.at('{'):
+                self.group('{', '}')
+                continue
+            if self.accept('=>'):
+                self.expression((';',))
             self.expect(';')
         return result
 
     def expression_body(self) -> None:
         """ Skip an expression body, such as => x * 2 """
-        self.expect('=>')
-        self.rest()
+        if self.accept('=>'):
+            self.rest()
 
     def operator_symbol(self) -> str | None:
         """ An operator symbol such as + or >>=, or None if the next token does not start one """
@@ -429,9 +494,9 @@ class Parser:
         self.pos = end
         return symbol
 
-    def operator(self, modifiers: list[str]) -> MethodSig:
+    def operator(self, modifiers: list[str], nullable: str) -> MethodSig:
         """ An operator, such as V operator +(V a, V b), or a conversion operator, after the modifiers """
-        return_type = None if self.at('operator') else self.type().fulltype
+        return_type = None if self.at('operator') else self.type().fulltype + nullable
         self.expect('operator')
         checked = 'checked ' if self.accept('checked') else ''
         op = self.operator_symbol()
@@ -441,6 +506,8 @@ class Parser:
                 raise ParseError
             return_type = self.type().fulltype
             operator = ('operator ' + checked).strip()
+        elif return_type is None:
+            raise ParseError
         else:
             operator = 'operator ' + checked + op
         self.expect('(')
@@ -456,20 +523,22 @@ class Parser:
             name = INSTANCE_OPERATOR_NAMES[op]
         else:
             name = OPERATOR_NAMES[op]
+        self.expression_body()
         return MethodSig(modifiers, return_type, 'op_' + ('Checked' if checked else '') + name, [], params, [],
                          operator)
 
     def method(self) -> MethodSig:
         """ A method, constructor, delegate or operator """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         templates = self.templates()
         start = self.pos
         try:
-            return self.operator(list(modifiers))
+            return self.operator(list(modifiers), nullable)
         except ParseError:
             self.pos = start
         try:
-            return_type: str | None = self.type().fulltype
+            return_type: str | None = self.type().fulltype + nullable
             interface, name = self.member_name()
             generic_params = self.generic_args()
             self.expect('(')
@@ -483,22 +552,39 @@ class Parser:
             generic_params = self.generic_args()
             self.expect('(')
         params = self.params(')')
+        initializer = None
+        if self.accept(':'):
+            initializer_start = self.pos
+            if not self.at('this', 'base') or not self.at('(', offset=1):
+                raise ParseError
+            self.pos += 1
+            self.group('(', ')')
+            initializer = self.text(initializer_start)
         constraints = self.constraints()
+        self.expression_body()
         return MethodSig(modifiers, return_type, interface + name, generic_params or templates, params, constraints,
-                         None)
+                         None, initializer)
 
     def variable(self) -> VariableSig:
         """ A field, constant or event, such as public const int X = 1 """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         templates = self.templates()
         typ = self.type()
         interface, name = self.member_name()
+        size = None
+        if 'fixed' in modifiers:
+            start = self.pos
+            self.group('[', ']')
+            size = self.text(start + 1, self.pos - 1)
         default = self.rest() if self.accept('=') else None
-        return VariableSig(modifiers, typ.fulltype, typ.name, typ.generics or templates, interface + name, default)
+        return VariableSig(modifiers, typ.fulltype + nullable, typ.name, typ.generics or templates, interface + name,
+                           default, size)
 
     def property(self) -> PropertySig:
         """ A property or event with accessors, or a property with an expression body """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         self.templates()
         typ = self.type()
         interface, name = self.member_name()
@@ -510,11 +596,12 @@ class Parser:
             accessors = self.accessors()
             if self.accept('='):
                 default = self.rest()
-        return PropertySig(modifiers, typ.fulltype, interface + name, accessors, default)
+        return PropertySig(modifiers, typ.fulltype + nullable, interface + name, accessors, default)
 
     def indexer(self, parse_params: bool = True) -> IndexerSig:
         """ An indexer, such as int this[int i] { get; }, optionally without parsing the parameters """
         modifiers = self.modifiers(MODIFIERS)
+        nullable = self.misplaced_nullable()
         self.templates()
         typ = self.type()
         interface, name = self.member_name()
@@ -534,7 +621,7 @@ class Parser:
             self.expression_body()
         elif self.at('{'):
             accessors = self.accessors()
-        return IndexerSig(modifiers, typ.fulltype, interface[:-1] or None, params, accessors)
+        return IndexerSig(modifiers, typ.fulltype + nullable, interface[:-1] or None, params, accessors)
 
     def type_signature(self) -> TypeSig:
         """ A type declaration, such as public Box<T>(T x) : IFoo where T : struct, or a type such as int[] """
@@ -548,6 +635,8 @@ class Parser:
             while self.peek() is not None and not self.at('where'):
                 self.pos += 1
             inherits = split_sig(self.text(start))
+            if not inherits:
+                raise ParseError
         constraints = self.constraints()
         return TypeSig(typ.name, modifiers, typ.generics or templates, inherits, typ.suffix, constraints, params,
                        typ.nested)
@@ -564,11 +653,21 @@ class Parser:
         name = self.generic_qualified_name()
         return EnumeratorSig(name, self.rest() if self.accept('=') else None)
 
+    def extension(self) -> ExtensionSig:
+        """ An extension block, such as extension<T>(IEnumerable<T> source) where T : notnull, or extension(string) """
+        self.accept('extension')
+        generic_params = self.generic_args()
+        self.expect('(')
+        receiver = self.param(')', unnamed=True)
+        self.expect(')')
+        return ExtensionSig(generic_params, receiver, self.constraints())
+
     def attribute(self) -> AttrSig:
         """ An attribute class, such as MyAttr<T>(T a) """
         name = self.generic_qualified_name()
+        generic_params = self.generic_args()
         params = self.params(')') if self.accept('(') else []
-        return AttrSig(name, params)
+        return AttrSig(name, params, generic_params)
 
 
 def try_parse(sig: str, production: Callable[[Parser], T]) -> T | None:
@@ -621,15 +720,171 @@ def split_sig(params: str, separator: str = ',') -> list[str]:
     return result
 
 
-def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
-    """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
-    logger.warning(f'{kind} signature invalid: {sig}', location=location)
-    return ValueError(f'{kind} signature invalid: {sig}')
+def split_generics(generics: str) -> list[str]:
+    """ Split a <...> generic argument list """
+    # Remove outermost < > brackets
+    return split_sig(generics[1:-1])
+
+
+def normalize_signature(sig: str) -> str:
+    """ Remove optional whitespace from a name or signature, such as M(int, string) to M(int,string) """
+    result = ''
+    previous = None
+    for token in tokenize(sig):
+        if previous is not None and previous.end < token.start and \
+                previous.text not in TIGHT_PUNCTUATION and token.text not in TIGHT_PUNCTUATION:
+            result += ' '
+        result += token.text
+        previous = token
+    return result
+
+
+def parameters_start(name: str) -> int:
+    """ The index of the parameters in an overload name, such as the ( in Box<int[]>.Put(int), or the name length """
+    depth = 0
+    for i, char in enumerate(name):
+        if char == '<':
+            depth += 1
+        elif char == '>':
+            depth -= 1
+        elif char in '([' and depth == 0:
+            return i
+    return len(name)
+
+
+def without_generic_arguments(part: str) -> str:
+    """ Remove the generic arguments from one part of a name, such as <T> from Box<T> """
+    start, end = part.find('<'), part.rfind('>')
+    return part if start < 0 or end < start else part[:start] + part[end + 1:]
+
+
+# Reference resolution calls this on every object name for each target that misses
+@functools.cache
+def remove_generic_arguments(name: str) -> str:
+    """ Remove the generic arguments from a name, except an overload's, as in Box<T>.Put<U>(U) to Box.Put<U>(U) """
+    end = parameters_start(name)
+    parts = split_sig(name[:end], '.')
+    return '.'.join(part if i == len(parts) - 1 and end < len(name) else without_generic_arguments(part)
+                    for i, part in enumerate(parts)) + name[end:]
+
+
+def parameter_types(params: list[ParamTuple]) -> str:
+    """ The parameter types that tell overloads apart, such as ref int,string """
+    return ','.join(' '.join([modifier for modifier in param.modifiers if modifier in OVERLOAD_PARAM_MODIFIERS] +
+                             [overload_type(param.typ)]) for param in params)
+
+
+def overload_type(typ: str) -> str:
+    """ A type as it appears in an overload id, without tuple element names, such as (int,int) for (int a,int b) """
+    tokens = tokenize(typ)
+    result = ''
+    start = 0
+    for previous, token, following in zip(tokens, tokens[1:], tokens[2:]):
+        if is_name(token) and previous.end < token.start and following.text in (',', ')') and \
+                (previous.text[-1] in TUPLE_TYPE_END or
+                 previous.kind == 'word' and previous.text not in PARAM_MODIFIERS):
+            result += typ[start:previous.end]
+            start = token.end
+    return result + typ[start:]
+
+
+@functools.cache
+def arity_name(name: str) -> str:
+    """ Write generic arguments as arity, except an overload's, such as Box-1.Put<U>(U) for Box<T>.Put<U>(U) """
+    end = parameters_start(name)
+    parts = split_sig(name[:end], '.')
+
+    def part_name(part: str) -> str:
+        start = part.find('<')
+        return part if start < 0 else part[:start].rstrip() + f'-{len(split_generics(part[start:]))}'
+
+    return '.'.join(part if i == len(parts) - 1 and end < len(name) else part_name(part)
+                    for i, part in enumerate(parts)) + name[end:]
+
+
+@functools.cache
+def remove_arity(name: str) -> str:
+    """ Remove the arity of the generic types in a name, as in Box-1.Put(T) to Box.Put(T) """
+    end = parameters_start(name)
+
+    def without_arity(part: str) -> str:
+        head, _, arity = part.rpartition('-')
+        return head if arity.isdecimal() else part
+
+    return '.'.join(without_arity(part) for part in name[:end].split('.')) + name[end:]
+
+
+def is_function_pointer(typ: str) -> bool:
+    """ Whether a type name is a function pointer, such as delegate* unmanaged[Cdecl] """
+    return typ.startswith('delegate') and typ.removeprefix('delegate').lstrip().startswith('*')
+
+
+def generic_type_name(typ: str, arity: int) -> str:
+    """ The name of a type with its arity, such as Box-1 for Box<T>, unless Doxygen has given the arity """
+    return typ if not arity or typ.endswith(f'-{arity}') else f'{typ}-{arity}'
+
+
+def target_id(objtype: str, name: str) -> str:
+    """ The node id of an object, such as function-N.C.M(ref-int,string) """
+    return objtype + '-' + name.replace(' ', '-')
+
+
+def split_attributes(sig: str) -> tuple[list[str], str]:
+    """ Split the attributes from the start of a declaration, such as [Obsolete] in [Obsolete] void Foo() """
+    parser = Parser(sig)
+    attributes = []
+    while parser.at('['):
+        start = parser.pos
+        try:
+            parser.group('[', ']')
+        except ParseError:
+            # The unclosed bracket stays in the declaration, which then fails to parse
+            break
+        attributes.append(parser.text(start))
+    token = parser.peek()
+    return attributes, sig[token.start:].strip() if token else ''
+
+
+def split_declarators(sig: str) -> list[str]:
+    """
+    Split a field or event that declares several variables, such as int x = 1, y, into a declaration for each, such as
+    int x = 1 and int y. Returns the signature unchanged if it declares one variable, or does not parse.
+    """
+    parser = Parser(strip_semicolon(sig))
+    declarators = []
+    try:
+        parser.attributes()
+        parser.modifiers(MODIFIERS)
+        parser.misplaced_nullable()
+        parser.templates()
+        parser.type()
+        prefix = parser.sig[:parser.tokens[parser.pos].start] if parser.peek() else ''
+        while True:
+            start = parser.pos
+            parser.name()
+            # The size of a fixed buffer
+            if parser.at('['):
+                parser.group('[', ']')
+            if parser.accept('='):
+                parser.expression((',',))
+            declarators.append(prefix + parser.text(start))
+            if not parser.accept(','):
+                break
+        parser.expect_end()
+    except ParseError:
+        return [sig]
+    return declarators if len(declarators) > 1 else [sig]
 
 
 def strip_semicolon(sig: str) -> str:
     """ Remove whitespace and a trailing semicolon from a signature copied from source, such as void Foo(); """
     return sig.strip().removesuffix(';').rstrip()
+
+
+def invalid_signature(kind: str, sig: str, location: Location) -> ValueError:
+    """ Log an invalid signature and return a ValueError, which Sphinx handles by showing the signature as written """
+    logger.warning(f'{kind} signature invalid: {sig}', location=location)
+    return ValueError(f'{kind} signature invalid: {sig}')
 
 
 def parse_method_signature(sig: str, location: Location) -> MethodSig:
@@ -685,6 +940,12 @@ def parse_type_signature(sig: str | None, location: Location) -> TypeSig:
     return result
 
 
+def parse_type_reference(target: str) -> TypeSig | None:
+    """ Parse the type in a reference target, such as List<int>.Enumerator, or return None if it is not a type """
+    typ = try_parse(target, Parser.type)
+    return None if typ is None else TypeSig(typ.name, [], typ.generics, [], typ.suffix, [], None, typ.nested)
+
+
 def parse_tuple_element(element: str) -> tuple[str, str | None] | None:
     """ Split a tuple element into its type and name, such as int and count in int count, or return None if empty """
     tokens = tokenize(element)
@@ -696,8 +957,22 @@ def parse_tuple_element(element: str) -> tuple[str, str | None] | None:
     return element.strip(), None
 
 
+def is_global(text: str) -> bool:
+    """ Whether text ends with the global keyword, as before the :: in global::System """
+    tokens = tokenize(text)
+    return bool(tokens) and tokens[-1].text == 'global'
+
+
 def parse_base_type(base: str) -> tuple[str, str | None]:
-    """ Split a base type into its type and the arguments to its constructor, such as Base and (x) in Base(x) """
+    """ Split a base type that Breathe writes into its type and the arguments to its constructor, if any,
+        such as Base and (x) in public Base(x) """
+    words = base.split(None, 1)
+    while len(words) == 2 and words[0] in BASE_ACCESS:
+        base = words[1]
+        words = base.split(None, 1)
+    # Doxygen 1.9 separates the namespaces of some base types with ::, which is C# syntax only after global
+    parts = base.split('::')
+    base = parts[0] + ''.join(('::' if is_global(previous) else '.') + part for previous, part in zip(parts, parts[1:]))
     parser = Parser(base)
     try:
         parser.type()
@@ -725,12 +1000,12 @@ def parse_type_keyword(parser: Parser, keywords: tuple[str, ...]) -> tuple[list[
     return modifiers, keyword, parser.sig[token.start:]
 
 
-def parse_record_kind(sig: str) -> tuple[list[str], str, str] | None:
-    """ The modifiers, kind and rest of a record declaration that starts with class or struct,
-        such as class and Point(int X) in public class Point(int X) """
+def split_type_keyword(sig: str, keywords: tuple[str, ...]) -> tuple[list[str], str, str] | None:
+    """ The modifiers, keyword and rest of a type declaration that has one of keywords, such as public, class and
+        Point(int X) in public class Point(int X), or None if it has none of them """
     parser = Parser(sig.strip())
     try:
-        return parse_type_keyword(parser, ('class', 'struct'))
+        return parse_type_keyword(parser, keywords)
     except ParseError:
         return None
 
@@ -740,6 +1015,8 @@ def parse_type_as_function(sig: str) -> tuple[list[str], str, str] | None:
         function, such as record struct and Point(int X) in record struct Point(int X), or None if it is neither """
     parser = Parser(sig.strip())
     try:
+        # Note: The name of a generic record also has its generic parameters, so we drop the template prefix.
+        parser.templates()
         modifiers, keyword, rest = parse_type_keyword(parser, ('record', 'class', 'struct'))
         parser.qualified_name()
         parser.generic_args()
@@ -757,6 +1034,11 @@ def parse_enum_signature(sig: str, location: Location) -> EnumSig:
 def parse_enumerator_signature(sig: str, location: Location) -> EnumeratorSig:
     """ Parse an enum value signature of the form: name (= value)? """
     return parse('Enumerator', sig, location, Parser.enumerator)
+
+
+def parse_extension_signature(sig: str, location: Location) -> ExtensionSig:
+    """ Parse an extension block signature of the form: extension? (<generics>)? (param) constraints? """
+    return parse('Extension', sig, location, Parser.extension)
 
 
 def parse_attr_signature(sig: str, location: Location) -> AttrSig:

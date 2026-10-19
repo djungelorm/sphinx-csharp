@@ -21,11 +21,19 @@
 
       A constructor for the class.
 
+   .. function:: MyClass (string a) : this(a, 2)
+
+      A constructor that calls another constructor.
+
    .. function:: void MyMethod (string arg)
 
       A method with a single argument.
 
       And a reference back to the containing class :type:`MyClass`
+
+   .. function:: void MyMethod (string arg, ref int count)
+
+      An overload of :func:`MyMethod`, with its own target :func:`MyMethod(string, ref int)`.
 
    .. function:: T MyMethodWithFields<T> (System.Collections.Generic.IList<T> items, int index)
 
@@ -80,6 +88,12 @@
 
       A method with nullable parameter and return types.
 
+   .. function:: unsafe int *MyMethodPointers (int **table, int *start)
+
+      A method with pointer types written next to the names.
+
+   .. function:: unsafe int MyMethodFunctionPointer (delegate* unmanaged[Cdecl]<int, MyClass> callback)
+
    .. function:: MyClass MyMethodClass (MyClass arg)
 
       A method with a class as the parameter and return types.
@@ -87,6 +101,18 @@
    .. function:: MyEnum MyMethodEnum (MyEnum arg)
 
       A method with an enum as the parameter and return types.
+
+   .. function:: [System.Obsolete("Use MyMethod")] void MyObsoleteMethod ()
+
+      A method with an attribute.
+
+   .. function:: int MyExpressionMethod (int arg) => arg * 2;
+
+      A method with an expression body, which is not shown.
+
+   .. function:: static extern int MyExternMethod (int arg);
+
+      A method copied from source, with a trailing semicolon.
 
    .. function:: static int MyStaticMethod (int arg)
 
@@ -101,6 +127,12 @@
    .. function:: public static MyMethodHasMultiModifiers()
 
       A method with multiple method modifiers.
+
+   .. function:: void System.IDisposable.Dispose ()
+
+      An explicit interface implementation.
+
+   .. function:: System.Collections.Generic.IEnumerator<string> System.Collections.Generic.IEnumerable<string>.GetEnumerator ()
 
    .. property:: string MyProperty { get; set; }
 
@@ -130,13 +162,15 @@
 
    .. property:: System.Collections.Generic.IList<string> IListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.List<System.Collections.Generic.List<string>> ListProperty { get; set; }
+   .. property:: System.Collections.Generic.List<System.Collections.Generic.List<string>> NestedListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IList<string>> IListProperty { get; set; }
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IList<string>> NestedIListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.Dictionary<string,System.Collections.Generic.List<string>>> ListProperty { get; set; }
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.Dictionary<string,System.Collections.Generic.List<string>>> DictionaryListProperty { get; set; }
 
-   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IDictionary<string,System.Collections.Generic.IList<string>>> IListProperty { get; set; }
+   .. property:: System.Collections.Generic.IList<System.Collections.Generic.IDictionary<string,System.Collections.Generic.IList<string>>> DictionaryIListProperty { get; set; }
+
+   .. property:: global::System.String GlobalProperty { get; }
 
    .. property:: byte ByteProperty { get; set; }
 
@@ -152,11 +186,13 @@
 
    .. property:: int ExpressionProperty => 1
 
+   .. property:: int BodyProperty { get => field; set { field = value; } }
+
    .. indexer:: string this[int i] { get; set; }
 
-   .. indexer:: string this[int i] { get; }
+   .. indexer:: string this[string s] { get; }
 
-   .. indexer:: virtual string this[int i] { get; set; }
+   .. indexer:: virtual string this[long i] { get; set; }
 
    .. indexer:: string this[int i, MyClass j] { get; set; }
 
@@ -168,7 +204,11 @@
 
    .. event:: public System.EventHandler Closed { add; remove; }
 
+   .. event:: public event System.EventHandler? Opened
+
    .. function:: T AGenericMethod<T> (int x)
+
+   .. function:: T? AGenericNullableMethod<T> (T[] items)
 
    .. property:: System.Tuple<int,string> ATupleProperty { get; set; }
 
@@ -189,7 +229,7 @@
    .. enumerator:: Bar
    .. enumerator:: Baz
 
-.. enum:: public MyFlags : byte
+.. enum:: [System.Flags] public MyFlags : byte
 
    .. enumerator:: None = 0
 
@@ -223,7 +263,7 @@
 
    Another attribute.
 
-.. attribute:: MyAttribute4<T> (int param1)
+.. attribute:: MyGenericAttribute<T> (T value)
 
    A generic attribute.
 
@@ -246,6 +286,8 @@ Interface ref :interface:`MyInterface`
 
 Method ref: :func:`MyClass.MyMethod`
 
+Overload ref: :func:`MyClass.MyMethod(string,ref int)`
+
 Property ref: :prop:`MyClass.MyProperty`
 
 Enum ref :type:`MyEnum`
@@ -254,6 +296,10 @@ Enum value ref :enumerator:`MyEnum.Foo`
 
 Generic class ref :type:`MyGenericClass`
 
+Generic class ref with arguments :type:`MyGenericClass\<T>`
+
+Generic method ref with arguments :func:`MyGenericClass\<int>.AGenericMethod\<T>`
+
 Generic method ref :func:`MyClass.AGenericMethod`
 
 Generic method in generic class ref :func:`MyGenericClass.AGenericMethod`
@@ -261,6 +307,8 @@ Generic method in generic class ref :func:`MyGenericClass.AGenericMethod`
 Attribute ref :attr:`MyAttribute1`
 
 Attribute ref :attr:`MyAttribute2`
+
+Generic attribute ref :attr:`MyGenericAttribute`
 
 Indexer ref :idxr:`MyClass.this[]`
 
@@ -304,7 +352,11 @@ More Tests
 
    .. var:: private int a = 0
 
-   .. var:: private MyEnum a = MyEnum.Bar
+   .. var:: private MyEnum b = MyEnum.Bar
+
+   .. var:: private int c, d = 2
+
+   .. var:: private fixed byte Buffer[16]
 
    .. var:: private static const List < MyInterface > GenericVar
 
@@ -321,3 +373,13 @@ More Tests
 .. namespace:: OtherNamespace.Subspace
 
 .. function:: void CompileExpression (Expression<Func<int>> e)
+
+.. class:: public static class Extensions
+
+   .. extension:: (string s)
+
+      .. property:: bool IsEmpty { get; }
+
+   .. extension:: (string)
+
+      .. function:: static string Empty ()

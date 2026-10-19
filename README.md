@@ -28,6 +28,20 @@ Each object gets an entry in the general index, such as `MyNamespace.MyClass (C#
    :no-index-entry:
 ```
 
+### Extension Blocks
+
+Describe the members of a C# 14 extension block in an `extension` directive:
+
+```rst
+.. cs:class:: public static StringExtensions
+
+   .. cs:extension:: (string s)
+
+      .. cs:property:: bool IsEmpty { get; }
+```
+
+The members belong to the enclosing class, as in `StringExtensions.IsEmpty`. The generic parameters of the block, as in `.. cs:extension:: <T>(IEnumerable<T> source)`, are not linked in its members.
+
 ### Doc Fields
 
 Describe parameters, type parameters, return values and exceptions with field lists:
@@ -45,6 +59,31 @@ Describe parameters, type parameters, return values and exceptions with field li
 ```
 
 The types in the `type`, `rtype` and `throws` fields link like the types in a signature.
+
+### Overloads
+
+Reference an overload by its parameter types:
+
+```rst
+.. cs:function:: void Add (int value)
+.. cs:function:: void Add (ref int value, string name)
+
+:cs:meth:`Add` links to the first overload, and :cs:meth:`Add(ref int, string)` to the second.
+```
+
+Each overload has a target with its parameter types, such as `function-Add(ref-int,string)`. The first overload in a page also has the target `function-Add`. Indexers use brackets, as in `this[string]`. Conversion operators add their return type, as in `op_Implicit(MyType)~int`.
+
+### Generic Types
+
+Reference a generic type or method with or without its generic arguments:
+
+```rst
+:cs:type:`Box` and :cs:type:`Box\<T>` link to Box<T>, and :cs:meth:`Box<T>.Put` to its method Put.
+```
+
+A role splits a target that ends in `>` into a title and a target, so `` :cs:type:`Box<T>` `` links to `T` with the title `Box`. In a target that ends in `>`, escape each `<` with a backslash.
+
+The target of a generic type has its number of generic parameters, as in the Microsoft docs, such as `class-Box-1` for Box<T> and `function-Box-1.Put` for its method Put. You can document Box and Box<T> side by side, and `` :cs:type:`Box` `` then links to Box.
 
 ### `conf.py` Options
 The options below can be set in `conf.py`. They are registered in [`__init__.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/__init__.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
@@ -80,6 +119,7 @@ sphinx_csharp_ext_search_pages = {
 # Types that are in an external package. Use the format
 #   'package name': {
 #      'Namespace1': ['Type1', 'Type2'],
+# A generic type named with its arity, such as IComparer-1, takes precedence over a non-generic type
 sphinx_csharp_ext_type_map = {
     'unity': {
         '': ['MonoBehaviour', 'ScriptableObject'],
