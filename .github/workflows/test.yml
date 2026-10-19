@@ -15,9 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  HATCH_VERSION: '1.18.1'
-
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -29,7 +26,7 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
-      - run: pip install hatch==${{ env.HATCH_VERSION }}
+      - run: pip install -r .github/requirements.txt
       - run: hatch run lint:check
 
   types:
@@ -39,7 +36,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-      - run: pip install hatch==${{ env.HATCH_VERSION }}
+      - run: pip install -r .github/requirements.txt
       - run: hatch run types:check
 
   test:
@@ -58,7 +55,7 @@ jobs:
       - uses: ./.github/actions/doxygen
         with:
           version: ${{ matrix.doxygen }}
-      - run: pip install hatch==${{ env.HATCH_VERSION }}
+      - run: pip install -r .github/requirements.txt
       # Every Sphinx and Breathe version on this Python
       - run: hatch run matrix:all --python ${{ matrix.python }}
 
@@ -82,10 +79,10 @@ jobs:
         with:
           path: .cache/corpus
           key: corpus-${{ hashFiles('tests/test_corpus.py') }}
-      - run: pip install hatch==${{ env.HATCH_VERSION }}
+      - run: pip install -r .github/requirements.txt
       - run: hatch run test.py3.14-9.1-5.1:corpus
 
-  # Builds the basic project with the wheel installed, which fails if the wheel leaves out a file
+  # Checks the sdist and wheel, the files in the wheel, and a build of the basic project with the wheel installed
   package:
     runs-on: ubuntu-latest
     steps:
@@ -93,12 +90,5 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-      - run: pip install hatch==${{ env.HATCH_VERSION }} twine
-      - run: hatch build
-      - run: twine check --strict dist/*
-      - name: Build the basic project with the wheel
-        run: |
-          python -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install dist/*.whl
-          cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/venv/bin/sphinx-build" -W -n -b html "$GITHUB_WORKSPACE/tests/roots/test-basic" html
+      - run: pip install -r .github/requirements.txt
+      - run: hatch run package:check

@@ -18,12 +18,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
-      - run: pip install hatch==1.18.1
+      - run: pip install -r .github/requirements.txt
       - name: Check the tag matches the package version
         run: test "v$(hatch version)" = "$TAG"
         env:
           TAG: ${{ github.event.release.tag_name }}
-      - run: hatch build
+      # Builds the dist/ that the release publishes, and checks it
+      - run: hatch run package:check
       - uses: actions/upload-artifact@v7
         with:
           name: dist
