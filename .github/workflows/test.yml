@@ -54,6 +54,7 @@ jobs:
 
   corpus:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -68,5 +69,10 @@ jobs:
           version=${{ matrix.doxygen }}
           curl -sSfL "https://github.com/doxygen/doxygen/releases/download/Release_${version//./_}/doxygen-$version.linux.bin.tar.gz" | tar xz -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/doxygen-$version/bin" >> "$GITHUB_PATH"
+      # The archives that the corpus test downloads, which its sha256 hashes pin
+      - uses: actions/cache@v6
+        with:
+          path: .cache/corpus
+          key: corpus-${{ hashFiles('tests/test_corpus.py') }}
       - run: pip install hatch
       - run: hatch run test.py3.14-9.1-5.1:corpus

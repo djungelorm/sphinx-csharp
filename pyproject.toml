@@ -75,7 +75,7 @@ matrix.breathe.dependencies = ["breathe~={matrix:breathe}.0"]
 [tool.hatch.envs.test.scripts]
 all = "pytest --cov=sphinx_csharp --cov-report=term-missing {args}"
 # Builds large C# libraries, which the other scripts leave out
-corpus = "pytest -m corpus --show-capture=no {args}"
+corpus = "pytest -m corpus {args}"
 
 # Runs the test environments in parallel
 [tool.hatch.envs.matrix]
