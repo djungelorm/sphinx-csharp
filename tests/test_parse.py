@@ -26,6 +26,7 @@ from sphinx_csharp.parser import (
     remove_arity,
     remove_generic_arguments,
     split_attributes,
+    split_declarators,
     split_sig,
 )
 
@@ -389,6 +390,20 @@ def test_parse_property(sig, expected):
 ])
 def test_parse_variable(sig, expected):
     assert parse_variable_signature(sig, None) == VariableSig(*expected)
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('int x, y', ['int x', 'int y']),
+    ('[A] static readonly Dictionary<int, int> X = new(), Y = F(1, 2);',
+     ['[A] static readonly Dictionary<int, int> X = new()', '[A] static readonly Dictionary<int, int> Y = F(1, 2)']),
+    ('fixed byte a[2], b[4]', ['fixed byte a[2]', 'fixed byte b[4]']),
+    ('event EventHandler A, B', ['event EventHandler A', 'event EventHandler B']),
+    ('int x = 1', ['int x = 1']),
+    ('int x,', ['int x,']),
+    ('int', ['int']),
+])
+def test_split_declarators(sig, expected):
+    assert split_declarators(sig) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [

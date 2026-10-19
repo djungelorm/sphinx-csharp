@@ -47,6 +47,7 @@ from .parser import (
     remove_arity,
     remove_generic_arguments,
     split_attributes,
+    split_declarators,
     target_id,
 )
 from .render import CSharpGroupedField, CSharpTypedField, CSharpTypeField, TypeRenderer, append_modifiers
@@ -460,7 +461,15 @@ class CSharpDelegate(CSharpMethod):
     """ Description of a C# delegate """
 
 
-class CSharpVariable(CSharpObject):
+class CSharpDeclarators(CSharpObject):
+    """ Description of a C# field or event, whose declaration can declare several variables, such as int x, y """
+
+    def get_signatures(self) -> list[str]:
+        """ The signatures, with a signature for each variable of a declaration """
+        return [declaration for sig in super().get_signatures() for declaration in split_declarators(sig)]
+
+
+class CSharpVariable(CSharpDeclarators):
     """ Description of a C# variable """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
@@ -502,7 +511,7 @@ class CSharpProperty(CSharpObject):
         return self.get_fullname(name)
 
 
-class CSharpEvent(CSharpObject):
+class CSharpEvent(CSharpDeclarators):
     """ Description of a C# event """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:

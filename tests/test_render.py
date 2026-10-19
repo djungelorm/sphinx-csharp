@@ -447,6 +447,16 @@ def test_unsafe_signature(build, directive, sig, node_id, text, links):
     assert references(app, node_id) == links
 
 
+def test_multiple_declarators(build):
+    app = build('.. cs:class:: C\n\n   .. cs:var:: public const int X = 1, Y = 2\n\n'
+                '   .. cs:event:: public event System.EventHandler A, B\n\n:cs:var:`C.Y` :cs:event:`C.B`\n')
+    assert warnings(app) == []
+    assert signatures(app).items() >= {'var-C.X': 'public const int X = 1', 'var-C.Y': 'public const int Y = 2',
+                                       'event-C.A': 'public event EventHandler A',
+                                       'event-C.B': 'public event EventHandler B'}.items()
+    assert references(app).items() >= {'C.Y': 'var-C.Y', 'C.B': 'event-C.B'}.items()
+
+
 def test_invalid_tuple_element(build):
     app = build('.. cs:function:: (int, , string) Foo ()\n')
     assert len(warnings(app)) == 1

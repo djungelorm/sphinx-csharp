@@ -350,6 +350,8 @@ More Tests
 
    .. var:: private MyEnum b = MyEnum.Bar
 
+   .. var:: private int c, d = 2
+
    .. var:: private static const List < MyInterface > GenericVar
 
    .. var:: private static const List < MyInterface > TwoGenericBrackets = new List < MyInterface > ()

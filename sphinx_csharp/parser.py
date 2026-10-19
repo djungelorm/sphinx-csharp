@@ -823,6 +823,37 @@ def split_attributes(sig: str) -> tuple[list[str], str]:
     return attributes, sig[token.start:].strip() if token else ''
 
 
+def split_declarators(sig: str) -> list[str]:
+    """
+    Split a field or event that declares several variables, such as int x = 1, y, into a declaration for each, such as
+    int x = 1 and int y. Returns the signature unchanged if it declares one variable, or does not parse.
+    """
+    parser = Parser(strip_semicolon(sig))
+    declarators = []
+    try:
+        parser.attributes()
+        parser.modifiers(MODIFIERS)
+        parser.misplaced_nullable()
+        parser.templates()
+        parser.type()
+        prefix = parser.sig[:parser.tokens[parser.pos].start] if parser.peek() else ''
+        while True:
+            start = parser.pos
+            parser.name()
+            # The size of a fixed buffer
+            if parser.at('['):
+                parser.group('[', ']')
+            if parser.accept('='):
+                parser.expression((',',))
+            declarators.append(prefix + parser.text(start))
+            if not parser.accept(','):
+                break
+        parser.expect_end()
+    except ParseError:
+        return [sig]
+    return declarators if len(declarators) > 1 else [sig]
+
+
 def strip_semicolon(sig: str) -> str:
     """ Remove whitespace and a trailing semicolon from a signature copied from source, such as void Foo(); """
     return sig.strip().removesuffix(';').rstrip()
