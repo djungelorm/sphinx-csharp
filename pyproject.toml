@@ -86,6 +86,12 @@ all = "python scripts/test_matrix.py {args}"
 testpaths = ["tests"]
 xfail_strict = true
 addopts = "-rs"
+# Breathe uses Sphinx and docutils APIs that are deprecated
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:breathe",
+    "ignore::PendingDeprecationWarning:breathe",
+]
 
 [tool.coverage.run]
 branch = true
