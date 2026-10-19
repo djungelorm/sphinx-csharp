@@ -838,7 +838,7 @@ def split_attributes(sig: str) -> tuple[list[str], str]:
         try:
             parser.group('[', ']')
         except ParseError:
-            # The parser reports the unclosed bracket
+            # The unclosed bracket stays in the declaration, which then fails to parse
             break
         attributes.append(parser.text(start))
     token = parser.peek()
