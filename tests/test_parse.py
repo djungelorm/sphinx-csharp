@@ -1,16 +1,21 @@
 import pytest
 
+from sphinx_csharp.lexer import tokenize
 from sphinx_csharp.parser import (
     Constraint,
     MethodSig,
     ParamTuple,
     TypeSig,
     parse_attr_signature,
+    parse_base_type,
     parse_enum_signature,
     parse_enumerator_signature,
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
+    parse_record_kind,
+    parse_tuple_element,
+    parse_type_as_function,
     parse_type_signature,
     parse_variable_signature,
     split_sig,
@@ -19,6 +24,18 @@ from sphinx_csharp.parser import (
 
 def param(typ, name, default=None, modifiers=()):
     return ParamTuple(name=name, typ=typ, default=default, modifiers=list(modifiers))
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('List<int>? x', ['List', '<', 'int', '>', '?', 'x']),
+    ('global::N.C a=>b', ['global', '::', 'N', '.', 'C', 'a', '=>', 'b']),
+    ('@class 1.5f', ['@class', '1', '.', '5f']),
+    ('"a\\"b" \'\\\'\' x', ['"a\\"b"', "'\\''", 'x']),
+    ('@"C:\\""x""" y', ['@"C:\\""x"""', 'y']),
+    ('"abc', ['"abc']),
+])
+def test_tokenize(sig, expected):
+    assert [token.text for token in tokenize(sig)] == expected
 
 
 @pytest.mark.parametrize('params, expected', [
@@ -33,6 +50,47 @@ def param(typ, name, default=None, modifiers=()):
 ])
 def test_split_sig(params, expected):
     assert split_sig(params) == expected
+
+
+@pytest.mark.parametrize('element, expected', [
+    ('int count', ('int', 'count')),
+    ('List<int>', ('List<int>', None)),
+    ('', None),
+])
+def test_parse_tuple_element(element, expected):
+    assert parse_tuple_element(element) == expected
+
+
+@pytest.mark.parametrize('base, expected', [
+    ('IDisposable', ('IDisposable', None)),
+    ('IBase< T >', ('IBase< T >', None)),
+    ('Base(x, y)', ('Base', '(x, y)')),
+    ('Base<(int, int)>(x)', ('Base<(int, int)>', '(x)')),
+    ('1(x)', ('1(x)', None)),
+])
+def test_parse_base_type(base, expected):
+    assert parse_base_type(base) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('public class Point(int X)', (['public'], 'class', 'Point(int X)')),
+    ('struct Point', ([], 'struct', 'Point')),
+    ('Point(int X)', None),
+    ('class', None),
+])
+def test_parse_record_kind(sig, expected):
+    assert parse_record_kind(sig) == expected
+
+
+@pytest.mark.parametrize('sig, expected', [
+    ('record struct Point<T>(T X)', ([], 'record struct', 'Point<T>(T X)')),
+    ('public record N.Box<T> (T X)', (['public'], 'record', 'N.Box<T> (T X)')),
+    ('class Service(ILogger logger)', ([], 'class', 'Service(ILogger logger)')),
+    ('record Point', None),
+    ('void Foo()', None),
+])
+def test_parse_type_as_function(sig, expected):
+    assert parse_type_as_function(sig) == expected
 
 
 @pytest.mark.parametrize('sig, expected', [
@@ -65,6 +123,17 @@ def test_split_sig(params, expected):
     ('void Foo(string s = "a, b", char c = \',\')',
      ([], 'void', 'Foo', [], [param('string', 's', '"a, b"'), param('char', 'c', "','")])),
     ('int Foo(params int[] xs)', ([], 'int', 'Foo', [], [param('int[]', 'xs', modifiers=['params'])])),
+    ('void Foo(KeyValuePair<int, int> p = new KeyValuePair<int, int>(), int f = 1 << 2 >> 1)',
+     ([], 'void', 'Foo', [], [param('KeyValuePair<int, int>', 'p', 'new KeyValuePair<int, int>()'),
+                              param('int', 'f', '1 << 2 >> 1')])),
+    ('void Foo(int a = 1 << 2, bool b = 1 > 0, int c = x < y ? 1 : 2, bool d = x < y)',
+     ([], 'void', 'Foo', [], [param('int', 'a', '1 << 2'), param('bool', 'b', '1 > 0'),
+                              param('int', 'c', 'x < y ? 1 : 2'), param('bool', 'd', 'x < y')])),
+    ('~MyClass()', ([], None, '~MyClass', [], [])),
+    ('((int, (int, int)), int) Foo()', ([], '((int, (int, int)), int)', 'Foo', [], [])),
+    ('void Foo([A(X[Y[0]])] int a)', ([], 'void', 'Foo', [], [param('int', 'a', modifiers=['[A(X[Y[0]])]'])])),
+    ('void Foo(string s = @"C:\\", int b)',
+     ([], 'void', 'Foo', [], [param('string', 's', '@"C:\\"'), param('int', 'b')])),
     ('void Foo([DefaultValue(new[] {1})] int[] a, [Attr("]", \'[\')] int b)',
      ([], 'void', 'Foo', [], [param('int[]', 'a', modifiers=['[DefaultValue(new[] {1})]']),
                               param('int', 'b', modifiers=['[Attr("]", \'[\')]'])])),
@@ -140,6 +209,7 @@ def test_parse_method_constraints(sig, expected):
     ('EventHandler E { add; remove; }', ([], 'EventHandler', 'E', ['add', 'remove'], None)),
     ('int P', ([], 'int', 'P', [], None)),
     ('int P = 1', ([], 'int', 'P', [], '1')),
+    ('int P;', ([], 'int', 'P', [], None)),
 ])
 def test_parse_property(sig, expected):
     assert parse_property_signature(sig, None) == expected
@@ -153,6 +223,7 @@ def test_parse_property(sig, expected):
     ('int[,] grid', ([], 'int[,]', 'int', [], 'grid', None)),
     ('static readonly (int, int) T', (['static', 'readonly'], '(int, int)', '(int, int)', [], 'T', None)),
     ('template<T> T x', ([], 'T', 'T', ['T'], 'x', None)),
+    ('int x;', ([], 'int', 'int', [], 'x', None)),
 ])
 def test_parse_variable(sig, expected):
     assert parse_variable_signature(sig, None) == expected
@@ -174,6 +245,7 @@ def test_parse_variable(sig, expected):
     ('template<T> Bar', ('Bar', [], ['T'], [], '')),
     ('template<T> Box-1-g', ('Box', [], ['T'], [], '')),
     ('Outer-2-g.Inner-1-g<U>', ('Outer.Inner', [], ['U'], [], '')),
+    ('(int, (int, (int, int)))?', ('(int, (int, (int, int)))', [], [], [], '?')),
 ])
 def test_parse_type(sig, expected):
     assert parse_type_signature(sig, None) == TypeSig(*expected, constraints=[], params=None, nested=[])
@@ -227,6 +299,8 @@ def test_parse_primary_constructor(sig, expected):
     ('ref int this[int i] { get; }', (['ref'], 'int', None, [param('int', 'i')], ['get'])),
     ('int IList<int>.this[int i] { get; }', ([], 'int', 'IList<int>', [param('int', 'i')], ['get'])),
     ('int this[int i] => i;', ([], 'int', None, [param('int', 'i')], ['get'])),
+    ('int this[[A(X[0])] int[] i] { get; }',
+     ([], 'int', None, [param('int[]', 'i', modifiers=['[A(X[0])]'])], ['get'])),
     ('int this[int i] => items[i];', ([], 'int', None, [param('int', 'i')], ['get'])),
     ('int this[[NotNull] int[] i] => i[0];',
      ([], 'int', None, [param('int[]', 'i', modifiers=['[NotNull]'])], ['get'])),
@@ -242,6 +316,7 @@ def test_parse_indexer(sig, expected):
     ('Color', ([], 'Color', None)),
     ('public Color : byte', (['public'], 'Color', 'byte')),
     ('internal Flags:System.UInt16', (['internal'], 'Flags', 'System.UInt16')),
+    ('Outer< T >.Color', ([], 'Outer<T>.Color', None)),
 ])
 def test_parse_enum(sig, expected):
     assert parse_enum_signature(sig, None) == expected
@@ -251,6 +326,7 @@ def test_parse_enum(sig, expected):
     ('Red', ('Red', None)),
     ('Red = 1', ('Red', '1')),
     ('All=Red | Green', ('All', 'Red | Green')),
+    ('Color.Red = 1', ('Color.Red', '1')),
 ])
 def test_parse_enumerator(sig, expected):
     assert parse_enumerator_signature(sig, None) == expected
@@ -261,6 +337,7 @@ def test_parse_enumerator(sig, expected):
     ('MyAttr (string a, int b)', ('MyAttr', [param('string', 'a'), param('int', 'b')])),
     ('Obsolete(string message, bool error = false)',
      ('Obsolete', [param('string', 'message'), param('bool', 'error', 'false')])),
+    ('MyAttr<T>(T a)', ('MyAttr<T>', [param('T', 'a')])),
 ])
 def test_parse_attribute(sig, expected):
     assert parse_attr_signature(sig, None) == expected
@@ -270,6 +347,11 @@ def test_parse_attribute(sig, expected):
     (parse_method_signature, '(int, string Foo()'),
     (parse_method_signature, 'void Foo(int)'),
     (parse_method_signature, 'V operator =(V a)'),
+    (parse_method_signature, 'T Foo<T(int a)'),
+    (parse_method_signature, 'void Foo(int a = )'),
+    (parse_method_signature, 'C(int a) : Foo(a)'),
+    (parse_variable_signature, 'int[3] x'),
+    (parse_variable_signature, 'int x ='),
     (parse_property_signature, 'int'),
     (parse_variable_signature, 'int'),
     (parse_indexer_signature, 'string this[] { get; }'),

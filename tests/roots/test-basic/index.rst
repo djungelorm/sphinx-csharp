@@ -49,6 +49,10 @@
 
       A method with default argument values.
 
+   .. function:: void MyMethodExpressionDefaults (int flags = 1 << 2, bool less = 1 < 2, string path = @"C:\", [MyAttribute3(Values[0])] int x)
+
+      A method with expressions in its default values and attributes.
+
    .. function:: void MyMethodNoArgs ()
       :no-index-entry:
 
@@ -170,6 +174,8 @@
 
    .. property:: (int count, MyClass item) AValueTupleProperty { get; }
 
+   .. function:: ((int, (int, MyClass)), int) ANestedTupleMethod ()
+
    .. function:: (int, string)[] ATupleMethod ((MyClass a, (int b, int c) d) arg, System.Collections.Generic.List<(int, MyEnum)> items)
 
 .. enum:: MyEnum
@@ -216,6 +222,12 @@
 .. attribute:: MyAttribute3(string param1, bool param2 = false)
 
    Another attribute.
+
+.. attribute:: MyAttribute4<T> (int param1)
+
+   A generic attribute.
+
+.. enumerator:: MyFlags.Second = 2
 
 .. _references:
 

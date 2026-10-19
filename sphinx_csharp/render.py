@@ -9,7 +9,7 @@ from sphinx.util.docfields import Field, GroupedField, TypedField
 from sphinx.util.typing import TextlikeNode
 
 from .extrefs import ExternalRefs
-from .parser import TUPLE_ELEMENT_RE, Location, invalid_signature, parse_type_signature, split_sig
+from .parser import Location, invalid_signature, parse_tuple_element, parse_type_signature, split_sig
 
 
 def append_modifiers(node: nodes.Element, modifiers: list[str]) -> None:
@@ -82,15 +82,16 @@ class TypeRenderer:
         for i, element in enumerate(split_sig(tuple_typ[1:-1])):
             if i:
                 node += nodes.Text(', ')
-            match = TUPLE_ELEMENT_RE.match(element)
-            if not match:
+            parsed = parse_tuple_element(element)
+            if parsed is None:
                 raise invalid_signature('Type', tuple_typ, self.location)
-            if ignored_types and match['type'] in ignored_types:
-                node += addnodes.desc_type(match['type'], match['type'])
+            typ, name = parsed
+            if ignored_types and typ in ignored_types:
+                node += addnodes.desc_type(typ, typ)
             else:
-                self.append_type(node, match['type'], ignored_types)
-            if match['name']:
-                node += nodes.Text('\xa0' + match['name'])
+                self.append_type(node, typ, ignored_types)
+            if name:
+                node += nodes.Text('\xa0' + name)
         node += nodes.Text(')')
 
     def append_generics(self, node: nodes.Element, generics: list[str], nolink: bool = False,
