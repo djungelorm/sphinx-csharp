@@ -484,6 +484,13 @@ def test_default_value_with_comma(build):
     assert signatures(app)['function-Join'] == 'void Join (string sep = ", ", char quote = \'"\')'
 
 
+def test_default_values_and_attributes_with_brackets(build):
+    app = build('.. cs:function:: void Foo (int a = 1 << 2, bool b = x < y, string s = @"C:\\", [A(X[Y[0]])] int c)\n')
+    assert warnings(app) == []
+    assert signatures(app)['function-Foo'] == \
+        'void Foo (int a = 1 << 2, bool b = x < y, string s = @"C:\\", [A(X[Y[0]])] int c)'
+
+
 def test_nested_type_in_generic_type(build):
     app = build('.. cs:class:: Outer<T>\n\n   .. cs:class:: Inner\n\n   .. cs:class:: Pair<U>\n\n'
                 '.. cs:function:: Outer<int>.Inner Local ()\n\n'

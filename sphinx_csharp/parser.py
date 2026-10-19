@@ -17,8 +17,9 @@ ACCESSOR_MODIFIERS = {'public', 'private', 'protected', 'internal', 'readonly'}
 ACCESSORS = {'get', 'set', 'init', 'add', 'remove'}
 CONSTRAINT_KEYWORDS = ['class', 'class?', 'struct', 'notnull', 'unmanaged', 'default', 'new()', 'allows ref struct']
 
-OPENING = {'(', '[', '{', '<'}
-CLOSING = {')', ']', '}', '>'}
+OPENING = {'(', '[', '{'}
+CLOSING = {')', ']', '}'}
+TYPE_PUNCTUATION = {'<', '>', ',', '.', '::', '?', '*', '(', ')', '[', ']'}
 
 # Operators, named by their .NET metadata names such as op_Addition
 OPERATOR_NAMES = {
@@ -145,6 +146,24 @@ class ParseError(Exception):
 def is_name(token: Token | None) -> bool:
     """ Whether a token is a name or keyword """
     return token is not None and token.kind == 'word' and not token.text[0].isdigit()
+
+
+def generic_arguments_end(tokens: list[Token], index: int) -> int | None:
+    """
+    The index after the generic arguments that the < at index opens, as in List<int>, or None if the < is an operator,
+    as in 1 < 2. Generic arguments follow a name, and hold only names and type punctuation.
+    """
+    if index == 0 or not is_name(tokens[index - 1]):
+        return None
+    depth = 0
+    for end in range(index, len(tokens)):
+        token = tokens[end]
+        depth += (token.text == '<') - (token.text == '>')
+        if depth == 0:
+            return end + 1
+        if not is_name(token) and token.text not in TYPE_PUNCTUATION:
+            return None
+    return None
 
 
 class Parser:
@@ -314,14 +333,13 @@ class Parser:
     def value(self, close: str) -> str:
         """ A default value, up to the comma or the bracket close that ends it """
         start = self.pos
-        depth = angles = 0
-        while (token := self.peek()) is not None and not (depth == angles == 0 and token.text in (',', close)):
-            # Generic arguments, as in new KeyValuePair<int, int>(), as opposed to a shift such as 1 << 2
-            if token.text == '<' and is_name(self.peek(-1)) and self.adjacent():
-                angles += 1
-            elif token.text == '>' and angles:
-                angles -= 1
-            elif token.text in OPENING:
+        depth = 0
+        while (token := self.peek()) is not None and not (depth == 0 and token.text in (',', close)):
+            # Generic arguments, as in new KeyValuePair<int, int>(), as opposed to a comparison such as 1 < 2
+            if token.text == '<' and (end := generic_arguments_end(self.tokens, self.pos)) is not None:
+                self.pos = end
+                continue
+            if token.text in OPENING:
                 depth += 1
             elif token.text in CLOSING:
                 depth -= 1
@@ -562,7 +580,7 @@ def parse(kind: str, sig: str, location: Location, production: Callable[[Parser]
 def split_sig(params: str, separator: str = ',') -> list[str]:
     """
     Split a list of parameters/types by commas, or another separator,
-    whilst respecting brackets.
+    while respecting brackets.
 
     For example:
       String arg0, int arg2 = 1, List<int> arg3 = [1, 2, 3]
@@ -570,7 +588,13 @@ def split_sig(params: str, separator: str = ',') -> list[str]:
     """
     result = []
     start = level = 0
-    for token in tokenize(params):
+    tokens = tokenize(params)
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token.text == '<' and (end := generic_arguments_end(tokens, index)) is not None:
+            index = end
+            continue
         if token.text in OPENING:
             level += 1
         elif token.text in CLOSING:
@@ -578,6 +602,7 @@ def split_sig(params: str, separator: str = ',') -> list[str]:
         elif token.text == separator and level <= 0:
             result.append(params[start:token.start].strip())
             start = token.end
+        index += 1
     if params[start:].strip():
         result.append(params[start:].strip())
     return result

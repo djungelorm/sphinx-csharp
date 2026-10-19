@@ -49,6 +49,10 @@
 
       A method with default argument values.
 
+   .. function:: void MyMethodExpressionDefaults (int flags = 1 << 2, bool less = 1 < 2, string path = @"C:\", [MyAttribute3(Values[0])] int x)
+
+      A method with expressions in its default values and attributes.
+
    .. function:: void MyMethodNoArgs ()
       :no-index-entry:
 
