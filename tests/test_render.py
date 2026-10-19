@@ -1,7 +1,7 @@
 from io import StringIO
 
 import pytest
-from conftest import references, resolved_doctree, signatures, status, warnings
+from conftest import references, requires_parallel, resolved_doctree, signatures, status, warnings
 from docutils import nodes
 from sphinx import addnodes
 from sphinx.errors import ExtensionError
@@ -272,6 +272,7 @@ def test_reference_prefers_external_type_over_other_namespace(build):
         'int': MICROSOFT_DOCS + 'System.Int32'}
 
 
+@requires_parallel
 def test_parallel_build(build):
     pages = {f'page{i}': f'Page {i}\n======\n\n.. cs:class:: Page{i}Class\n' for i in range(6)}
     toctree = '.. toctree::\n\n' + ''.join(f'   {name}\n' for name in pages)
@@ -1097,6 +1098,7 @@ def test_duplicate_description_in_one_page(build, rst, message):
     assert len(index_entries(app)) == 1
 
 
+@requires_parallel
 def test_duplicate_description_in_parallel_build(build):
     # Sphinx reads the index and pages 0 and 1 in one process, and pages 2 to 4 in another at the same time
     pages = {f'page{i}': f'Page {i}\n======\n\n.. cs:class:: Page{i}Class\n' for i in range(6)}
@@ -1231,6 +1233,7 @@ def test_rebuild_keeps_duplicate_description(build, tmp_path, removed, target):
     assert references(app)['Foo'] == target
 
 
+@requires_parallel
 def test_duplicate_description_in_one_parallel_chunk(build):
     # Sphinx reads the index and pages 0 and 1 in one process
     pages = {f'page{i}': f'Page {i}\n======\n\n.. cs:class:: Page{i}Class\n' for i in range(6)}

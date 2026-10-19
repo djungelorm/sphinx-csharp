@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,8 @@ from docutils import nodes
 from sphinx import addnodes, version_info
 
 pytest_plugins = ['sphinx.testing.fixtures']
+
+requires_parallel = pytest.mark.skipif(os.name != 'posix', reason='Sphinx reads in parallel only on POSIX')
 
 
 def pytest_addoption(parser):

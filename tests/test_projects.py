@@ -2,7 +2,7 @@ import shutil
 import subprocess
 
 import pytest
-from conftest import references, signature_lines, warnings
+from conftest import references, requires_parallel, signature_lines, warnings
 
 requires_doxygen = pytest.mark.skipif(shutil.which('doxygen') is None, reason='doxygen is not installed')
 
@@ -68,6 +68,7 @@ def test_breathe(make_app, request, rootdir, doxygen_project, tmp_path):
 
 
 @requires_doxygen
+@requires_parallel
 def test_breathe_parallel(make_app, doxygen_project, tmp_path):
     pytest.importorskip('breathe')
     srcdir = breathe_project(doxygen_project, tmp_path)
