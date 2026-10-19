@@ -588,7 +588,7 @@ class CSharpEnum(CSharpObject):
         if base:
             signode += nodes.Text(' : ')
             self.append_type(signode, base)
-        return self.get_fullname(name)
+        return self.get_fullname(arity_name(name))
 
 
 class CSharpEnumValue(CSharpObject):
@@ -600,7 +600,7 @@ class CSharpEnumValue(CSharpObject):
         signode += addnodes.desc_name(name, name)
         if value:
             signode += nodes.Text(' = ' + value)
-        return self.get_fullname(name)
+        return self.get_fullname(arity_name(name))
 
 
 class CSharpAttribute(CSharpObject):
@@ -615,7 +615,7 @@ class CSharpAttribute(CSharpObject):
         if params:
             signode += nodes.Text('\xa0')
             self.append_parameters(signode, params, generic_params)
-        return self.get_fullname(name)
+        return self.get_fullname(arity_name(generic_type_name(name, len(generic_params))))
 
 
 class CSharpXRefRole(XRefRole):

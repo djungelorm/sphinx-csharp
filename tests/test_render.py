@@ -678,8 +678,29 @@ def test_parameter_attributes_and_modifiers(build):
 def test_generic_attribute(build):
     app = build('.. cs:attribute:: MyAttr<T> (T value, int count)\n\n:cs:attr:`MyAttr`\n')
     assert warnings(app) == []
-    assert signatures(app)['attribute-MyAttr'] == 'MyAttr<T> (T value, int count)'
-    assert references(app) == {'int': MICROSOFT_DOCS + 'System.Int32', 'MyAttr': 'attribute-MyAttr'}
+    assert signatures(app)['attribute-MyAttr-1'] == 'MyAttr<T> (T value, int count)'
+    assert references(app) == {'int': MICROSOFT_DOCS + 'System.Int32', 'MyAttr': 'attribute-MyAttr-1'}
+
+
+def test_enum_in_generic_type(build):
+    app = build('.. cs:class:: Outer<T>\n\n.. cs:enum:: Outer<T>.Color\n\n.. cs:enumerator:: Outer<T>.Color.Red\n\n'
+                ':cs:enum:`Outer.Color` :cs:enumerator:`Color.Red`\n')
+    assert warnings(app) == []
+    assert signatures(app).items() >= {'enum-Outer-1.Color': 'enum Outer<T>.Color',
+                                       'enumerator-Outer-1.Color.Red': 'Outer<T>.Color.Red'}.items()
+    assert references(app) == {'Outer.Color': 'enum-Outer-1.Color', 'Color.Red': 'enumerator-Outer-1.Color.Red'}
+
+
+def test_generic_and_plain_attribute(build):
+    app = build('.. cs:attribute:: MyAttr\n\n.. cs:attribute:: MyAttr<T>\n\n.. cs:class:: Outer<T>\n\n'
+                '   .. cs:attribute:: Inner (int a)\n\n'
+                '.. cs:attribute:: Outer<T>.Inner2 (int a)\n\n'
+                ':cs:attr:`MyAttr`\n')
+    assert warnings(app) == []
+    assert signatures(app).items() >= {'attribute-MyAttr': 'MyAttr', 'attribute-MyAttr-1': 'MyAttr<T>',
+                                       'attribute-Outer-1.Inner': 'Inner (int a)',
+                                       'attribute-Outer-1.Inner2': 'Outer<T>.Inner2 (int a)'}.items()
+    assert references(app)['MyAttr'] == 'attribute-MyAttr'
 
 
 def test_constructor_initializer(build):

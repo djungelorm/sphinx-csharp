@@ -322,9 +322,11 @@ class Parser:
         while self.at('<'):
             start = self.pos
             self.group('<', '>')
-            name += ''.join(self.text(start).split())
-            self.expect('.')
-            name += '.' + self.qualified_name()
+            if not self.accept('.'):
+                # The generic parameters of the named type itself
+                self.pos = start
+                break
+            name += ''.join(self.text(start, self.pos - 1).split()) + '.' + self.qualified_name()
         return name
 
     def function_pointer(self) -> str:
@@ -662,7 +664,7 @@ class Parser:
 
     def attribute(self) -> AttrSig:
         """ An attribute class, such as MyAttr<T>(T a) """
-        name = self.qualified_name()
+        name = self.generic_qualified_name()
         generic_params = self.generic_args()
         params = self.params(')') if self.accept('(') else []
         return AttrSig(name, params, generic_params)

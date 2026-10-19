@@ -539,6 +539,7 @@ def test_parse_extension(sig, expected):
      ('Obsolete', [param('string', 'message'), param('bool', 'error', 'false')], [])),
     ('MyAttr<T, U> (T a)', ('MyAttr', [param('T', 'a')], ['T', 'U'])),
     ('MyAttr<T>', ('MyAttr', [], ['T'])),
+    ('Outer< T >.MyAttr<U>(int a)', ('Outer<T>.MyAttr', [param('int', 'a')], ['U'])),
 ])
 def test_parse_attribute(sig, expected):
     assert parse_attr_signature(sig, None) == expected
