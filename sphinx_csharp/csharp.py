@@ -21,20 +21,20 @@ from sphinx.util.nodes import make_refnode
 from .debug import CSDebug
 from .extrefs import ExternalRefs
 from .parser import (
-    BASE_ARGS_RE,
     CONSTRAINT_KEYWORDS,
     CONVERSION_OPERATORS,
-    IDXR_SIG_RE,
-    RECORD_KIND_RE,
-    TYPE_AS_FUNCTION_RE,
     Constraint,
     ParamTuple,
+    is_indexer_signature,
     parse_attr_signature,
+    parse_base_type,
     parse_enum_signature,
     parse_enumerator_signature,
     parse_indexer_signature,
     parse_method_signature,
     parse_property_signature,
+    parse_record_kind,
+    parse_type_as_function,
     parse_type_signature,
     parse_variable_signature,
 )
@@ -153,11 +153,11 @@ class CSharpObject(ObjectDescription[str]):
     def append_inherits(self, node: nodes.Element, inherits: list[str], generic_params: list[str]) -> None:
         """ Adds inherited types, inherits must be a list of string types """
         node += nodes.Text(' : ')
-        for (i, typ) in enumerate(inherits):
-            match = BASE_ARGS_RE.match(typ)
-            self.append_type(node, match['type'] if match else typ, generic_params)
-            if match:
-                node += nodes.Text(match['args'])
+        for (i, inherited) in enumerate(inherits):
+            typ, args = parse_base_type(inherited)
+            self.append_type(node, typ, generic_params)
+            if args:
+                node += nodes.Text(args)
             if i != len(inherits) - 1:
                 node += nodes.Text(', ')
 
@@ -313,11 +313,11 @@ class CSharpRecord(CSharpType):
     """ Description of a C# record, or a record class or record struct if the signature starts with class or struct """
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        match = RECORD_KIND_RE.match(sig.strip())
-        if not match:
+        record = parse_record_kind(sig)
+        if record is None:
             return self.handle_type_signature(sig, signode, 'record')
-        modifiers = match['modifiers'] + ' ' if match['modifiers'] else ''
-        return self.handle_type_signature(modifiers + match['sig'], signode, 'record ' + match['kind'])
+        modifiers, kind, rest = record
+        return self.handle_type_signature(' '.join([*modifiers, rest]), signode, 'record ' + kind)
 
 
 class CSharpInherits(CSharpObject):
@@ -334,12 +334,11 @@ class CSharpMethod(CSharpObject):
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         self.reset_objtype()
-        match = TYPE_AS_FUNCTION_RE.match(sig.strip())
-        if match:
-            keyword = ' '.join(match['keyword'].split())
+        declaration = parse_type_as_function(sig)
+        if declaration is not None:
+            modifiers, keyword, rest = declaration
             self.change_objtype(signode, keyword.split()[0])
-            modifiers = match['modifiers'] + ' ' if match['modifiers'] else ''
-            return self.handle_type_signature(modifiers + match['sig'], signode, keyword)
+            return self.handle_type_signature(' '.join([*modifiers, rest]), signode, keyword)
 
         modifiers, return_type, name, generic_params, params, constraints, operator = parse_method_signature(
             sig, (self.env.docname, self.lineno))
@@ -412,7 +411,7 @@ class CSharpProperty(CSharpObject):
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
         self.reset_objtype()
         # Doxygen writes indexers as properties named this[...]
-        if IDXR_SIG_RE.match(sig.strip()):
+        if is_indexer_signature(sig):
             self.change_objtype(signode, 'indexer')
             return self.handle_indexer_signature(sig, signode)
 

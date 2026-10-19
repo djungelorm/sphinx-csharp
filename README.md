@@ -125,7 +125,7 @@ hatch build                            # sdist and wheel in dist/
 The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `tests/test_render.py` checks rendered signatures and cross-references. `tests/test_projects.py` builds the projects in `tests/roots` in nitpicky mode and fails on any warning. `test-breathe` renders C# sources through Doxygen and Breathe, and is skipped if Doxygen is not installed. The test environments cover every supported Python, each Sphinx minor version from 7.2, and Breathe 4.35, 4.36, 5.0 and 5.1. CI runs them with Doxygen 1.15.0, and with Doxygen 1.9.8 from Ubuntu 24.04. The lint check compiles the same sources with `dotnet build`. Warnings fail the tests, except the deprecation warnings that Breathe raises.
 
 ### Common Bug Sources
-- Newer C# syntax that is not supported yet, see regexes at beginning of `parser.py` for parsing
+- Newer C# syntax that is not supported yet, see the `Parser` productions in `parser.py`
 - Incorrect xml reconstruction in breathe, see `def visit_*` in breathe `render/sphinxrenderer.py`
     - e.g. `visit_variable` will create the signature that is given to `csharp.py`
 
