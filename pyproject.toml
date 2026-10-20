@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sphinx-csharp"
-version = "1.0.0rc1"
+version = "1.0.0"
 description = "C# domain for Sphinx"
 readme = "README.md"
 license = "MIT"
@@ -13,7 +13,9 @@ authors = [{ name = "djungelorm", email = "djungelorm@users.noreply.github.com" 
 requires-python = ">=3.11"
 dependencies = ["Sphinx>=7.2"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Sphinx",
+    "Framework :: Sphinx :: Extension",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: OS Independent",
@@ -25,11 +27,16 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
     "Topic :: Documentation :: Sphinx",
+    "Typing :: Typed",
 ]
+keywords = ["sphinx", "c#", "csharp", "domain", "documentation", "doxygen", "breathe"]
 
 [project.urls]
 Homepage = "https://github.com/djungelorm/sphinx-csharp"
 Documentation = "https://djungelorm.github.io/sphinx-csharp"
+Source = "https://github.com/djungelorm/sphinx-csharp"
+Issues = "https://github.com/djungelorm/sphinx-csharp/issues"
+Changelog = "https://github.com/djungelorm/sphinx-csharp/blob/main/CHANGES.txt"
 
 [tool.hatch.build.targets.sdist]
 include = ["sphinx_csharp", "tests", "CHANGES.txt"]
