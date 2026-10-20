@@ -197,6 +197,12 @@ class CSharpObject(ObjectDescription[str]):
         # The TOC nests the entry of a member in the entry of its type, and IFoo.Bar is one member
         parts = split_sig(name, '.') if self.objtype in TYPE_OBJTYPES else [name]
         signode['cs:toc_parts'] = (*(split_sig(parent, '.') if parent else []), *parts)
+        # The namespace of an object outside a type, as in class Geometry.Canvas
+        if parent and parent == self.env.ref_context.get('cs:namespace') and \
+                self.config.sphinx_csharp_add_namespace_names:
+            prefix = parent + '.'
+            name_index = signode.index(next(signode.findall(addnodes.desc_name)))
+            signode.insert(name_index, addnodes.desc_addname(prefix, prefix))
         max_length = self.config.sphinx_csharp_maximum_signature_line_length or \
             self.config.maximum_signature_line_length or 0
         if 'single-line-parameter-list' not in self.options and len(signode.astext()) > max_length > 0:

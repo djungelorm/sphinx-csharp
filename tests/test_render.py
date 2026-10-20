@@ -1,7 +1,7 @@
 from io import StringIO
 
 import pytest
-from conftest import references, requires_parallel, resolved_doctree, signatures, status, warnings
+from conftest import references, requires_parallel, resolved_doctree, signature_texts, signatures, status, warnings
 from docutils import nodes
 from sphinx import addnodes
 from sphinx.errors import ExtensionError
@@ -137,6 +137,33 @@ def test_unqualified_namespaces(build, namespaces, text):
     app = build('.. cs:class:: MyCompany.Tools.Widget\n\n.. cs:function:: MyCompany.Tools.Widget Foo ()\n',
                 sphinx_csharp_unqualified_namespaces=namespaces)
     assert signatures(app)['function-Foo'] == text
+
+
+@pytest.mark.parametrize('add, texts', [
+    (False, ['class Canvas', 'void Draw ()', 'class Shape', 'class Circle', 'class Outside']),
+    (True, ['class Geometry.Canvas', 'void Draw ()', 'class Geometry.Shape', 'class Geometry.Shapes.Circle',
+            'class Outside']),
+])
+def test_add_namespace_names(build, add, texts):
+    app = build('''
+.. cs:namespace:: Geometry
+
+.. cs:class:: Canvas
+
+   .. cs:function:: void Draw ()
+
+.. cs:class:: Shape
+
+.. cs:namespace-push:: Shapes
+
+.. cs:class:: Circle
+
+.. cs:namespace:: None
+
+.. cs:class:: Outside
+''', sphinx_csharp_add_namespace_names=add)
+    assert warnings(app) == []
+    assert [text for _, text in signature_texts(app)] == texts
 
 
 def test_obj_and_value_roles(build):
