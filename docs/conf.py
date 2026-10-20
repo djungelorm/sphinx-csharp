@@ -33,5 +33,8 @@ html_theme_options = {
     ],
 }
 
+# The home page and the changelog have no section to navigate
+html_sidebars = {'index': [], 'changelog': []}
+
 # The examples link every type, so a broken link fails the build
 nitpicky = True
