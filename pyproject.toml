@@ -29,6 +29,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/djungelorm/sphinx-csharp"
+Documentation = "https://djungelorm.github.io/sphinx-csharp"
 
 [tool.hatch.build.targets.sdist]
 include = ["sphinx_csharp", "tests", "CHANGES.txt"]
@@ -42,6 +43,12 @@ check = [
   "ruff check sphinx_csharp tests scripts",
   "dotnet build -nologo --artifacts-path build/dotnet tests/roots/test-breathe",
 ]
+
+[tool.hatch.envs.docs]
+dependencies = ["pydata-sphinx-theme==0.23.0"]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -W -n --keep-going -b html docs docs/_build/html"
 
 [tool.hatch.envs.types]
 dependencies = ["mypy", "types-docutils"]

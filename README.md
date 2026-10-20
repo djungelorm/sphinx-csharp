@@ -1,13 +1,12 @@
 # sphinx-csharp
 
-A Sphinx domain for documenting C# APIs. You can write pages by hand with the `cs` directives, or generate them from C# sources with Doxygen and [Breathe](https://github.com/breathe-doc/breathe):
+A Sphinx domain for documenting C# APIs. You can write pages by hand with the `cs` directives, or generate them from C# sources with Doxygen and [Breathe](https://github.com/breathe-doc/breathe).
 
-1. Doxygen generates XML from the C# sources.
-1. Breathe and sphinx-csharp convert the XML to Sphinx documentation.
+The documentation is at [djungelorm.github.io/sphinx-csharp](https://djungelorm.github.io/sphinx-csharp).
 
 ## Usage
 
-Install using pip:
+Install the package from PyPI:
 
 ```
 pip install sphinx-csharp
@@ -19,208 +18,17 @@ Enable the extension in your `conf.py`:
 extensions = ['sphinx_csharp']
 ```
 
-See [`tests/roots/test-basic/index.rst`](https://github.com/djungelorm/sphinx-csharp/blob/main/tests/roots/test-basic/index.rst) for examples of the `cs` directives and roles.
-
-Each object gets an entry in the general index, such as `MyNamespace.MyClass (C# class)`. To leave an object out, add the `:no-index-entry:` option:
+Then describe your API with the `cs` directives, and link to it with the `cs` roles:
 
 ```rst
-.. cs:function:: void Helper ()
-   :no-index-entry:
+.. cs:namespace:: Geometry
+
+.. cs:class:: public class Circle : Shape
+
+   .. cs:function:: public double Area ()
+
+The area of a :cs:type:`Circle` is :cs:meth:`Circle.Area`.
 ```
-
-A signature longer than `maximum_signature_line_length` puts each parameter on a line of its own, unless the directive has the `:single-line-parameter-list:` option.
-
-Each object in a section also gets an entry in the table of contents, with members nested in their types. The `toc_object_entries_show_parents` option sets how much of the name it shows, and the `:no-contents-entry:` option leaves an object out.
-
-### Namespaces
-
-Set the namespace of the objects that follow with `namespace`, and nest a namespace in it with `namespace-push`:
-
-```rst
-.. cs:namespace:: MyNamespace
-
-.. cs:namespace-push:: Inner
-
-.. cs:class:: MyClass
-
-.. cs:namespace-pop::
-```
-
-MyClass is then `MyNamespace.Inner.MyClass`. `namespace-pop` restores the namespace from before the last `namespace-push`, and `.. cs:namespace:: None` clears the namespace. Each namespace is a target for the `:cs:namespace:` role, unless the directive has the `:no-index:` option.
-
-### Extension Blocks
-
-Describe the members of a C# 14 extension block in an `extension` directive:
-
-```rst
-.. cs:class:: public static StringExtensions
-
-   .. cs:extension:: (string s)
-
-      .. cs:property:: bool IsEmpty { get; }
-```
-
-The members belong to the enclosing class, as in `StringExtensions.IsEmpty`. The generic parameters of the block, as in `.. cs:extension:: <T>(IEnumerable<T> source)`, are not linked in its members.
-
-### Doc Fields
-
-Describe parameters, type parameters, return values and exceptions with field lists:
-
-```rst
-.. cs:function:: T Find<T> (List<T> items, int start)
-
-   :param items: The items to search.
-   :type items: List<T>
-   :param int start: The index to start at.
-   :typeparam T: The item type.
-   :returns: The first item.
-   :rtype: T
-   :throws ArgumentOutOfRangeException: If start is out of range.
-```
-
-The types in the `type`, `rtype` and `throws` fields link like the types in a signature.
-
-### References
-
-A reference links to the object whose name ends with the target, preferring the object in the closest enclosing namespace. Start the target with `~` to show only the last part of the name:
-
-```rst
-:cs:meth:`~MyNamespace.MyClass.MyMethod` shows MyMethod.
-```
-
-### Overloads
-
-Reference an overload by its parameter types:
-
-```rst
-.. cs:function:: void Add (int value)
-.. cs:function:: void Add (ref int value, string name)
-
-:cs:meth:`Add` links to the first overload, and :cs:meth:`Add(ref int, string)` to the second.
-```
-
-Each overload has a target with its parameter types, such as `function-Add(ref-int,string)`. The first overload in a page also has the target `function-Add`. Indexers use brackets, as in `this[string]`. Conversion operators add their return type, as in `op_Implicit(MyType)~int`.
-
-### Generic Types
-
-Reference a generic type or method with or without its generic arguments:
-
-```rst
-:cs:type:`Box` and :cs:type:`Box\<T>` link to Box<T>, and :cs:meth:`Box<T>.Put` to its method Put.
-```
-
-A role splits a target that ends in `>` into a title and a target, so `` :cs:type:`Box<T>` `` links to `T` with the title `Box`. In a target that ends in `>`, escape each `<` with a backslash.
-
-The target of a generic type has its number of generic parameters, as in the Microsoft docs, such as `class-Box-1` for Box<T> and `function-Box-1.Put` for its method Put. You can document Box and Box<T> side by side, and `` :cs:type:`Box` `` then links to Box.
-
-### Intersphinx
-
-Link to the C# objects of another project with [intersphinx](https://www.sphinx-doc.org/en/master/usage/extensions/intersphinx.html):
-
-```py
-extensions = ['sphinx_csharp', 'sphinx.ext.intersphinx']
-intersphinx_mapping = {'library': ('https://example.com/library/', None)}
-```
-
-A reference to an object that the project does not describe then links to the other project, in roles and in signatures. Qualify the target with its namespace, or put the reference inside that namespace. Every role, including `:cs:obj:`, works across projects.
-
-### Warnings
-
-Each warning has a type, so you can silence it with `suppress_warnings` in `conf.py`:
-
-```py
-suppress_warnings = ['cs.ambiguous']
-```
-
-- `cs.parse`: a signature is invalid, and is shown as written.
-- `cs.duplicate`: an object is described more than once.
-- `cs.ambiguous`: a reference matches more than one object, and links to the first.
-- `cs.external`: an external link is ambiguous, fails the link check, or has no search page for its package.
-- `cs.config`: an option has a deprecated name.
-- `cs.namespace`: a `namespace-pop` has no `namespace-push` to undo.
-
-### Breathe Limitations
-
-Doxygen and Breathe leave some C# out of the signatures they pass to sphinx-csharp:
-
-- Doxygen drops generic constraints, such as `where T : class`, and `protected internal` members.
-- Doxygen drops the members of a record or class with a primary constructor, and a record with a base type.
-- Doxygen drops a class with a primary constructor and a base type, and the declarations after it in the same file.
-- Doxygen describes a field with a named tuple type, such as `(int X, int Y) Pos`, as two invalid fields.
-- Doxygen drops C# 14 extension blocks and their members.
-- Doxygen 1.15.0 puts the members of a type nested in a generic type in the generic type. Doxygen 1.9.8 drops a type that has the name of a generic type, such as `JsonConverter` beside `JsonConverter<T>`, and puts its members in the generic type.
-- Breathe shows only the `get` and `set` accessors without access levels, so `{ get; private set; }` and `{ get; init; }` render as `{ get; }`.
-- Breathe drops the accessors of events, the underlying types of enums, and the `ref` of a `ref struct`.
-
-### `conf.py` Options
-The options below can be set in `conf.py`. They are registered in [`config.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/config.py), and the defaults for external references are in [`extrefs_data.py`](https://github.com/djungelorm/sphinx-csharp/blob/main/sphinx_csharp/extrefs_data.py). Values you set are merged with these defaults.
-
-Here are all the options. The lists and dictionaries hold example values, which are added to the defaults:
-
-```py
-# Are other languages used in the sphinx project, if yes add language (domain) prefix to reference labels
-sphinx_csharp_multi_language = False
-
-# Check that each external link exists, and use the search page of its package if it does not
-sphinx_csharp_check_external_links = False
-
-# Show types in these namespaces, and in namespaces nested inside them, without their namespace
-sphinx_csharp_unqualified_namespaces = [
-    'UnityEngine',
-]
-
-# Never link these types
-sphinx_csharp_ignore_types = [
-    'Vector2',
-    ...
-]
-
-# How to generate external doc links, replace %s with type. Use the format
-#    'package name': ('direct link to %s', 'alternate backup link or search page')
-sphinx_csharp_external_search_pages = {
-    'upm.xrit': ('https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/api/%s.html',
-                 'https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@0.9/?%s'),
-    ...
-}
-
-# Types that are in an external package. Use the format
-#   'package name': {
-#      'Namespace1': ['Type1', 'Type2'],
-# A generic type named with its arity, such as IComparer-1, takes precedence over a non-generic type
-sphinx_csharp_external_type_map = {
-    'unity': {
-        '': ['MonoBehaviour', 'ScriptableObject'],
-        'XR': ['InputDevice', 'InputDeviceCharacteristics'],
-        ...
-    },
-   ...
-}
-
-# [Advanced] Rename type before generating external link. Commonly used for generic types
-sphinx_csharp_external_type_rename = {
-    'List': 'List-1',
-    'NativeArray': 'NativeArray_1',
-    ...
-}
-
-# Put each parameter on a line of its own in a signature longer than this, in place of maximum_signature_line_length
-sphinx_csharp_maximum_signature_line_length = None
-
-# Log verbose debug output, for every category with True, or for a list of 'parse', 'xref' and 'external'
-sphinx_csharp_debug = False
-```
-
-Earlier versions named some of these options differently. The old names still work, with a `cs.config` warning:
-
-| Old name | New name |
-|---|---|
-| `sphinx_csharp_test_links` | `sphinx_csharp_check_external_links` |
-| `sphinx_csharp_ignore_xref` | `sphinx_csharp_ignore_types` |
-| `sphinx_csharp_ext_type_map` | `sphinx_csharp_external_type_map` |
-| `sphinx_csharp_ext_search_pages` | `sphinx_csharp_external_search_pages` |
-| `sphinx_csharp_debug_parse` and `sphinx_csharp_debug_parse_*` | `sphinx_csharp_debug = ['parse']` |
-| `sphinx_csharp_debug_xref` | `sphinx_csharp_debug = ['xref']` |
-| `sphinx_csharp_debug_ext_links` | `sphinx_csharp_debug = ['external']` |
 
 ## Development
 
@@ -234,6 +42,7 @@ hatch run matrix:all --python 3.14     # every environment for one Python
 hatch run matrix:all --full-breathe 5.1   # every test with Breathe 5.1, and the Breathe tests with the others
 hatch run test.py3.14-9.1-5.1:all -k parse   # selected tests in one environment
 hatch run test.py3.14-9.1-5.1:corpus  # build large C# libraries through Doxygen and Breathe
+hatch run docs:build                   # the documentation in docs/_build/html
 hatch build                            # sdist and wheel in dist/
 hatch run package:check                # build dist/, check it with twine, and build with the wheel
 ```
@@ -242,10 +51,7 @@ The tests use pytest. `tests/test_parse.py` covers the signature parsers, and `t
 
 `tests/test_corpus.py` builds the documentation of Newtonsoft.Json, NodaTime, Polly, MoreLINQ and the CommunityToolkit high performance library through Doxygen and Breathe in nitpicky mode. Doxygen and Breathe cause some warnings, which the test lists for each library and Doxygen version. It fails on any other warning, and on a listed warning that matches no warning of the build. It downloads the libraries into `.cache/corpus`, or the directory in `SPHINX_CSHARP_CORPUS_CACHE`. The other scripts leave it out, and CI runs it in a separate job.
 
-### Common Bug Sources
-- Newer C# syntax that is not supported yet, see the `Parser` productions in `parser.py`
-- Incorrect xml reconstruction in breathe, see `def visit_*` in breathe `render/sphinxrenderer.py`
-    - e.g. `visit_variable` will create the signature that is given to `csharp.py`
+When Breathe renders a signature wrongly, the cause is usually C# syntax that the `Parser` productions in `parser.py` do not accept yet, or the signature that a `visit_*` method in Breathe's `renderer/sphinxrenderer.py` writes.
 
 ## Examples
 
