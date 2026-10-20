@@ -35,6 +35,7 @@ def add_config_values(app: Sphinx) -> None:
     """ Register the config values, and the deprecated names that are still accepted """
     app.add_config_value('sphinx_csharp_multi_language', False, 'env')
     app.add_config_value('sphinx_csharp_add_namespace_names', False, 'env', types=(bool,))
+    app.add_config_value('sphinx_csharp_compact_layout', False, 'html', types=(bool,))
     app.add_config_value('sphinx_csharp_unqualified_namespaces', None, 'env')
     app.add_config_value('sphinx_csharp_ignore_types', None, 'env')
     app.add_config_value('sphinx_csharp_external_type_map', None, 'env')

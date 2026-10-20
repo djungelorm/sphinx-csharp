@@ -166,6 +166,14 @@ def test_add_namespace_names(build, add, texts):
     assert [text for _, text in signature_texts(app)] == texts
 
 
+@pytest.mark.parametrize('compact', [False, True])
+def test_compact_layout(build, compact):
+    app = build('.. cs:enum:: Color\n\n   .. cs:enumerator:: Red\n', sphinx_csharp_compact_layout=compact)
+    assert warnings(app) == []
+    assert ('_static/sphinx_csharp.css' in (app.outdir / 'index.html').read_text(encoding='utf-8')) == compact
+    assert (app.outdir / '_static' / 'sphinx_csharp.css').exists() == compact
+
+
 def test_obj_and_value_roles(build):
     app = build(SOURCE + '\nMore: :cs:obj:`MyNamespace.MyClass`, :cs:value:`MyNamespace.MyEnum.Bar`.\n')
     assert warnings(app) == []
