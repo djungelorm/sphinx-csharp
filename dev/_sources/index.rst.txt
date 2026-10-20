@@ -51,9 +51,5 @@ sphinx-csharp needs Python 3.11 or later, and Sphinx 7.2 or later.
 .. toctree::
    :maxdepth: 2
 
-   directives
-   references
-   breathe
-   configuration
-   migration
+   guide
    changelog

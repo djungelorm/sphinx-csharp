@@ -57,6 +57,14 @@ Each package has a page URL and a search URL, each with ``%s`` in place of the t
 Other Options
 -------------
 
+.. confval:: sphinx_csharp_add_namespace_names
+
+   Whether the signature of an object in a namespace starts with the namespace, as in ``class Geometry.Canvas``, like the ``add_module_names`` option of the Python domain. Members nested in a type show without it, and Breathe removes it. Default: ``False``.
+
+.. confval:: sphinx_csharp_compact_layout
+
+   Whether to add the stylesheet of sphinx-csharp to the HTML pages. It puts the objects with no description close together, such as the values of an enum. Default: ``False``.
+
 .. confval:: sphinx_csharp_maximum_signature_line_length
 
    The length of a signature that puts each parameter on a line of its own. Default: ``None``, which uses the ``maximum_signature_line_length`` option of Sphinx.
