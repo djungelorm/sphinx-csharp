@@ -7,7 +7,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Doxygen and Breathe &#8212; sphinx-csharp 1.0.0rc1</title>
+    <title>Doxygen and Breathe &#8212; sphinx-csharp 1.0.0</title>
   
   
   
@@ -38,7 +38,7 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
 
-    <script src="_static/documentation_options.js?v=77c1c56c"></script>
+    <script src="_static/documentation_options.js?v=8d563738"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'breathe';</script>
@@ -462,16 +462,16 @@ GENERATE_LATEX   = NO
 <h2>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">#</a></h2>
 <p>Doxygen and Breathe leave some C# out of the signatures they pass to sphinx-csharp:</p>
 <ul class="simple">
-<li><p>Doxygen drops generic constraints, such as <code class="docutils literal notranslate"><span class="pre">where</span> <span class="pre">T</span> <span class="pre">:</span> <span class="pre">class</span></code>.</p></li>
-<li><p>Doxygen describes <code class="docutils literal notranslate"><span class="pre">protected</span> <span class="pre">internal</span></code> members as internal members, which Breathe leaves out.</p></li>
+<li><p>Doxygen drops generic constraints, such as <code class="docutils literal notranslate"><span class="pre">where</span> <span class="pre">T</span> <span class="pre">:</span> <span class="pre">class</span></code> (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/12396">doxygen#12396</a>).</p></li>
+<li><p>Doxygen describes <code class="docutils literal notranslate"><span class="pre">protected</span> <span class="pre">internal</span></code> members as internal members, which Breathe leaves out (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/12398">doxygen#12398</a>).</p></li>
 <li><p>Doxygen drops the members of a record, and a record with a base type (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/10087">doxygen#10087</a>).</p></li>
 <li><p>Doxygen 1.15.0 and earlier drop the members of a class with a primary constructor. With a base type, they drop the class and the declarations after it in the same file (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/10594">doxygen#10594</a>, fixed in 1.16.0).</p></li>
-<li><p>Doxygen describes a field with a named tuple type, such as <code class="docutils literal notranslate"><span class="pre">(int</span> <span class="pre">X,</span> <span class="pre">int</span> <span class="pre">Y)</span> <span class="pre">Pos</span></code>, as two invalid fields.</p></li>
-<li><p>Doxygen drops C# 14 extension blocks and their members.</p></li>
-<li><p>Doxygen 1.15.0 and later put the members of a type nested in a generic type in the generic type.</p></li>
+<li><p>Doxygen describes a field with a named tuple type, such as <code class="docutils literal notranslate"><span class="pre">(int</span> <span class="pre">X,</span> <span class="pre">int</span> <span class="pre">Y)</span> <span class="pre">Pos</span></code>, as two invalid fields (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/12406">doxygen#12406</a>).</p></li>
+<li><p>Doxygen drops C# 14 extension blocks and their members (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/12407">doxygen#12407</a>).</p></li>
+<li><p>Doxygen 1.15.0 and later put the members of a type nested in a generic type in the generic type (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/12400">doxygen#12400</a>).</p></li>
 <li><p>Doxygen 1.9.8 drops a type that has the name of a generic type, such as <code class="docutils literal notranslate"><span class="pre">JsonConverter</span></code> beside <code class="docutils literal notranslate"><span class="pre">JsonConverter&lt;T&gt;</span></code>, and puts its members in the generic type (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/8803">doxygen#8803</a>, fixed in 1.13.2).</p></li>
-<li><p>Doxygen describes an <code class="docutils literal notranslate"><span class="pre">init</span></code> accessor as a missing <code class="docutils literal notranslate"><span class="pre">set</span></code> accessor, so <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">get;</span> <span class="pre">init;</span> <span class="pre">}</span></code> renders as <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">get;</span> <span class="pre">}</span></code>.</p></li>
-<li><p>Doxygen drops the <code class="docutils literal notranslate"><span class="pre">ref</span></code> of a <code class="docutils literal notranslate"><span class="pre">ref</span> <span class="pre">struct</span></code>.</p></li>
+<li><p>Doxygen describes an <code class="docutils literal notranslate"><span class="pre">init</span></code> accessor as a missing <code class="docutils literal notranslate"><span class="pre">set</span></code> accessor, so <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">get;</span> <span class="pre">init;</span> <span class="pre">}</span></code> renders as <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">get;</span> <span class="pre">}</span></code> (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/12402">doxygen#12402</a>).</p></li>
+<li><p>Doxygen drops the <code class="docutils literal notranslate"><span class="pre">ref</span></code> of a <code class="docutils literal notranslate"><span class="pre">ref</span> <span class="pre">struct</span></code> (<a class="extlink-doxygen reference external" href="https://github.com/doxygen/doxygen/issues/12404">doxygen#12404</a>).</p></li>
 <li><p>Breathe shows the <code class="docutils literal notranslate"><span class="pre">get</span></code> and <code class="docutils literal notranslate"><span class="pre">set</span></code> accessors without access levels, so <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">get;</span> <span class="pre">private</span> <span class="pre">set;</span> <span class="pre">}</span></code> renders as <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">get;</span> <span class="pre">}</span></code>.</p></li>
 <li><p>Breathe drops the accessors of events and the underlying types of enums.</p></li>
 <li><p>Breathe 4 writes a <code class="docutils literal notranslate"><span class="pre">set</span></code> accessor for every property (<a class="extlink-breathe reference external" href="https://github.com/breathe-doc/breathe/issues/967">breathe#967</a>, fixed in 5.0).</p></li>
