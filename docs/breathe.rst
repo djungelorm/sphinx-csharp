@@ -47,16 +47,16 @@ Limitations
 
 Doxygen and Breathe leave some C# out of the signatures they pass to sphinx-csharp:
 
-- Doxygen drops generic constraints, such as ``where T : class``.
-- Doxygen describes ``protected internal`` members as internal members, which Breathe leaves out.
+- Doxygen drops generic constraints, such as ``where T : class`` (:doxygen:`12396`).
+- Doxygen describes ``protected internal`` members as internal members, which Breathe leaves out (:doxygen:`12398`).
 - Doxygen drops the members of a record, and a record with a base type (:doxygen:`10087`).
 - Doxygen 1.15.0 and earlier drop the members of a class with a primary constructor. With a base type, they drop the class and the declarations after it in the same file (:doxygen:`10594`, fixed in 1.16.0).
-- Doxygen describes a field with a named tuple type, such as ``(int X, int Y) Pos``, as two invalid fields.
-- Doxygen drops C# 14 extension blocks and their members.
-- Doxygen 1.15.0 and later put the members of a type nested in a generic type in the generic type.
+- Doxygen describes a field with a named tuple type, such as ``(int X, int Y) Pos``, as two invalid fields (:doxygen:`12406`).
+- Doxygen drops C# 14 extension blocks and their members (:doxygen:`12407`).
+- Doxygen 1.15.0 and later put the members of a type nested in a generic type in the generic type (:doxygen:`12400`).
 - Doxygen 1.9.8 drops a type that has the name of a generic type, such as ``JsonConverter`` beside ``JsonConverter<T>``, and puts its members in the generic type (:doxygen:`8803`, fixed in 1.13.2).
-- Doxygen describes an ``init`` accessor as a missing ``set`` accessor, so ``{ get; init; }`` renders as ``{ get; }``.
-- Doxygen drops the ``ref`` of a ``ref struct``.
+- Doxygen describes an ``init`` accessor as a missing ``set`` accessor, so ``{ get; init; }`` renders as ``{ get; }`` (:doxygen:`12402`).
+- Doxygen drops the ``ref`` of a ``ref struct`` (:doxygen:`12404`).
 - Breathe shows the ``get`` and ``set`` accessors without access levels, so ``{ get; private set; }`` renders as ``{ get; }``.
 - Breathe drops the accessors of events and the underlying types of enums.
 - Breathe 4 writes a ``set`` accessor for every property (:breathe:`967`, fixed in 5.0).
