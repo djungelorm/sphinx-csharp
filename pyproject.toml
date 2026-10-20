@@ -45,7 +45,7 @@ check = [
 ]
 
 [tool.hatch.envs.docs]
-dependencies = ["pydata-sphinx-theme"]
+dependencies = ["pydata-sphinx-theme==0.23.0"]
 
 [tool.hatch.envs.docs.scripts]
 build = "sphinx-build -W -n --keep-going -b html docs docs/_build/html"
