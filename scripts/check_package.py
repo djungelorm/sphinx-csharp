@@ -18,10 +18,10 @@ def main() -> int:
     subprocess.run(['hatch', 'build', '--clean'], cwd=ROOT, env=env, check=True)
     subprocess.run([sys.executable, '-m', 'twine', 'check', '--strict', *map(str, DIST.iterdir())], check=True)
 
-    # Every module and the py.typed marker
+    # Every module, the py.typed marker and the stylesheet
     wheel = next(DIST.glob('*.whl'))
     expected = {f'sphinx_csharp/{path.name}' for path in (ROOT / 'sphinx_csharp').iterdir()
-                if path.suffix == '.py' or path.name == 'py.typed'}
+                if path.suffix == '.py' or path.name == 'py.typed'} | {'sphinx_csharp/static/sphinx_csharp.css'}
     missing = sorted(expected - set(zipfile.ZipFile(wheel).namelist()))
     if missing:
         print(f'{wheel.name} leaves out {", ".join(missing)}')

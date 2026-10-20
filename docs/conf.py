@@ -6,8 +6,14 @@ author = 'djungelorm'
 copyright = '2015-2026, djungelorm'
 release = package_version('sphinx-csharp')
 
-extensions = ['sphinx_csharp']
+extensions = ['sphinx.ext.extlinks', 'sphinx_csharp']
 exclude_patterns = ['_build']
+
+# Links to the issues and pull requests that track the limitations of Doxygen and Breathe
+extlinks = {
+    'doxygen': ('https://github.com/doxygen/doxygen/issues/%s', 'doxygen#%s'),
+    'breathe': ('https://github.com/breathe-doc/breathe/issues/%s', 'breathe#%s'),
+}
 
 # The folder of the site that the docs workflow publishes to: x.y.z for a release tag, dev for main
 site = 'https://djungelorm.github.io/sphinx-csharp'
@@ -26,6 +32,11 @@ html_theme_options = {
         {'name': 'GitHub', 'url': 'https://github.com/djungelorm/sphinx-csharp', 'icon': 'fa-brands fa-github'},
     ],
 }
+
+# The home page and the changelog have no section to navigate
+html_sidebars = {'index': [], 'changelog': []}
+
+sphinx_csharp_compact_layout = True
 
 # The examples link every type, so a broken link fails the build
 nitpicky = True

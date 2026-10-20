@@ -1,0 +1,9 @@
+/* Objects with no description, such as enum values, sit close together */
+dl.cs > dd:empty {
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+dl.cs:has(> dd:empty) {
+  margin-bottom: 0.25rem;
+}
