@@ -43,6 +43,7 @@ hatch run matrix:all --full-breathe 5.1   # every test with Breathe 5.1, and the
 hatch run test.py3.14-9.1-5.1:all -k parse   # selected tests in one environment
 hatch run test.py3.14-9.1-5.1:corpus  # build large C# libraries through Doxygen and Breathe
 hatch run docs:build                   # the documentation in docs/_build/html
+hatch run docs:serve                   # serve the documentation in a browser, and rebuild it on each change
 hatch build                            # sdist and wheel in dist/
 hatch run package:check                # build dist/, check it with twine, and build with the wheel
 ```
