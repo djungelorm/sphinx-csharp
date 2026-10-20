@@ -3,5 +3,11 @@
     "name": "v1.0.0 (dev)",
     "version": "dev",
     "url": "https://djungelorm.github.io/sphinx-csharp/dev/"
+  },
+  {
+    "name": "v1.0.0 (stable)",
+    "version": "1.0.0",
+    "url": "https://djungelorm.github.io/sphinx-csharp/1.0.0/",
+    "preferred": true
   }
 ]
